@@ -64,3 +64,18 @@ These are recurring mistakes from past sessions. **When you notice the user or a
 - Context management -- append+truncate vs. fresh rewrite changed mid-project.
 
 **What to do instead**: Before coding, write 2-3 concrete input/output examples. "Given X, the system should return Y." If you can't write the examples, the spec isn't ready.
+
+## 6. Detached watcher with no consumer
+
+**Pattern**: Starting a watcher in tmux and assuming it will wake or notify the agent automatically.
+
+**Why this fails**:
+- If no one is reading the watcher output, it provides no real feedback loop.
+- It creates false confidence while still requiring manual check-ins.
+
+**What to do instead**:
+- If unattended: run one blocking local wait command that returns on crash/completion/timeout.
+- If attended: do milestone checks at meaningful points instead of frequent polling.
+- Do not combine detached watcher + manual polling unless there is a real alert channel wired.
+
+**Proactive reminder trigger**: When someone proposes "let's run a watcher in tmux," ask: "Who or what is consuming that output, and how does it trigger action?"

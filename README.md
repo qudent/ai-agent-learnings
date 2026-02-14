@@ -9,6 +9,12 @@ It is backed by `~/Dropbox/learnings` so the same guidance is available across m
 - Canonical global instructions: `/home/name/AGENTS.md` (symlink) and `/home/name/CLAUDE.md`
 - Purpose: store reusable lessons, not project-specific commands
 
+## Maintenance Workflow
+
+- Keep learnings project-agnostic; move project-specific run commands to that project's `STATUS.md` or docs.
+- When learnings workflow/structure changes, update this `README.md` and `STATUS.md` in the same session.
+- Commit and push learnings updates (`~/Dropbox/learnings` git repo) before ending the task.
+
 Current learnings files:
 - `antipatterns.md`
 - `ml-experiments.md`

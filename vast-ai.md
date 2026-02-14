@@ -26,13 +26,37 @@ Before launching any training:
 - Write checkpoints frequently enough that a crash doesn't lose more than ~30 min of training.
 - Log to a file that can be tailed remotely, not just stdout.
 - On single-GPU Trainer runs, avoid installing heavyweight distributed stacks (e.g., `deepspeed`) unless you actually use them. They increase cold-start time and can fail at runtime from missing build/runtime deps.
-- Prefer a **KISS local watcher** over complex remote watchdog loops:
-  - Run one local blocking script that exits on: timeout, completion, or crashed remote session/process.
-  - Use a sparse poll interval for trusted long runs (e.g. 30-90 min, even 1h+) to avoid noisy monitoring.
-  - Avoid auto-restart loops on the remote instance. If a run dies, inspect cause first, then relaunch intentionally.
-  - Keep monitoring logic local so no extra secrets/config end up on the Vast box.
-  - Generic snippet pattern (fill in project path per run context):
-    `TIMEOUT_SECS=<timeout_s> CHECK_EVERY=<poll_s> bash <project_path>/scripts/local/wait_or_crash.sh`
+
+## Monitoring Model (Important)
+- **No push wake-up exists by default**: a detached script cannot "wake" Codex by itself.
+- A watcher running in tmux is only useful if someone is actively reading that tmux pane.
+- If you want a wake-up behavior in practice, run a **blocking local command** in the active turn that returns on crash/completion/timeout.
+
+## Monitoring Modes (Pick One)
+1. Interactive mode (you are present):
+   - Manual check-ins at meaningful milestones (e.g., first 5 min, step 100, step 400).
+2. Unattended mode (sleep/away):
+   - Run one blocking watcher command locally with sparse polling.
+   - Example pattern:
+     `TIMEOUT_SECS=<timeout_s> CHECK_EVERY=<poll_s> bash <project_path>/scripts/local/wait_or_crash.sh`
+3. Milestone mode:
+   - Estimate ETA to a critical step and run one delayed check near that time.
+   - Use this for "did we pass the known failure point?" without frequent polling.
+
+## Monitoring Rules
+- Do not run detached local watcher tmux plus manual polling in parallel; it adds noise without reliability gains.
+- Avoid auto-restart loops on remote. If a run dies, inspect first, then relaunch intentionally.
+- Keep watcher logic local (not on the Vast instance) so no extra secrets/config are copied remotely.
+- For trusted long runs, use sparse intervals (30-90 min or 1h+), not every few minutes.
+
+## Overnight Workflow (Default)
+1. Launch training in remote tmux and write run id/path into `STATUS.md`.
+2. Do one early smoke check (after 5-10 min): confirm steps are increasing and no traceback.
+3. Record one milestone ETA (e.g., known old crash step) and one expected finish ETA.
+4. If sleeping/away, run one blocking local wait command with long timeout and sparse polling.
+5. On return, run one triage bundle: step, traceback marker, summary marker, GPU util, completion flag.
+
+This keeps context low, avoids noisy polling, and still catches failures at useful times.
 
 ## Cost Awareness
 - Don't leave instances running idle. If training is done or stuck, stop the instance.
