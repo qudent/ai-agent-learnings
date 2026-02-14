@@ -13,6 +13,7 @@ Current learnings files:
 - `antipatterns.md`
 - `ml-experiments.md`
 - `vast-ai.md`
+- `vast-preestimate.md`
 - `agent-coordination.md`
 
 ## Relevant global AGENTS.md / CLAUDE.md passage

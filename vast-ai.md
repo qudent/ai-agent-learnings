@@ -1,5 +1,12 @@
 # Vast.ai Learnings
 
+## Before Renting (Required)
+- Run the manual pre-estimation process in `vast-preestimate.md` first.
+- Do not start a long run before you have:
+  - memory fit checks (GPU VRAM + system RAM),
+  - time/cost ranges (optimistic/base/pessimistic),
+  - a 10-minute validation loop with contradiction thresholds.
+
 ## Instance Selection
 - Some instances have terrible internet -- 170 KB/s observed. Test bandwidth early: `curl -o /dev/null -w '%{speed_download}' https://speed.hetzner.de/100MB.bin` before committing to a long setup.
 - **Always check RAM specs before renting**: both GPU VRAM and system RAM. CPU optimizer offloading, large batch sizes, and gradient accumulation all consume system RAM. 32GB instances can OOM silently during gradient computation. Example: GRPO training with batch 64 and CPU offloading needs >=64GB system RAM.
@@ -11,7 +18,8 @@ Before launching any training:
 2. Confirm GPU is visible: `nvidia-smi`
 3. Clone repo + install deps
 4. Run smoke test -- 50 steps, confirm loss decreases and reward > 0
-5. Only then start the real run
+5. Define early-abort criteria and 10-minute monitoring checks
+6. Only then start the real run
 
 ## Runtime Management
 - Set `max_runtime` explicitly or remove the cap -- don't discover 6 hours in that it auto-terminated.
