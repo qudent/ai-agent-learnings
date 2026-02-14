@@ -1,7 +1,7 @@
 # ai-agent-learnings - Status
 
 ## Current State
-This repository stores project-agnostic learnings for AI agents. It is sourced from `~/Dropbox/learnings`, initialized as a git repository, and pushed to GitHub at `https://github.com/qudent/ai-agent-learnings` on branch `main`.
+This repository stores project-agnostic learnings for AI agents. It is sourced from `~/Dropbox/learnings`, initialized as a git repository, and pushed to GitHub at `https://github.com/qudent/ai-agent-learnings` on branch `main` with `PUBLIC` visibility.
 
 ## Active Goals
 - [x] Add repo metadata (`README.md`) with setup description and core global guidance excerpt
@@ -16,6 +16,7 @@ This repository stores project-agnostic learnings for AI agents. It is sourced f
 - Added `README.md` with purpose, setup, and selected passage from global `AGENTS.md`/`CLAUDE.md`.
 - Added this `STATUS.md` to track state and keep agent coordination lightweight.
 - Created root commit `7d4461e` and pushed `main` to `origin`.
+- Audited tracked files for secrets and changed repository visibility from private to public.
 
 ## Next Steps
 1. Keep learnings files updated when new cross-project lessons are discovered.
