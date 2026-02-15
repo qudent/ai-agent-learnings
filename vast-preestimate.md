@@ -1,78 +1,73 @@
-# Vast.ai Runtime and Cost Estimation (Adaptive, Run-Calibrated)
+# Vast.ai Runtime and Cost Estimation (Sleep-Mode Compatible)
 
 ## Purpose
-Estimate wall-clock and cost with real telemetry while minimizing monitoring noise.
+Produce reliable ETA/cost forecasts from live telemetry, with minimal monitoring noise.
 
 ## Policy
-This process is not a long upfront blocker.
-Default loop:
-1. Launch probe quickly.
-2. Calibrate from observed throughput.
-3. Reforecast at smart intervals.
+Forecasting is run-calibrated, not a long pre-launch blocker.
 
-## Required Deliverables
-Within the first 10-15 minutes of a live probe, produce:
-- Option table with:
-  - GPU option
-  - $/h
-  - VRAM / CPU RAM
-  - observed or predicted step/s
+Workflow:
+1. launch quickly after hard-fit checks
+2. calibrate from live probe/run telemetry
+3. reforecast on schedule + alert triggers
+
+## Required Outputs
+Within 10-15 minutes of live run start:
+- option table:
+  - GPU option, $/h, VRAM, CPU RAM
+  - observed/predicted step/s
   - time (opt/base/pess)
   - cost (opt/base/pess)
   - setup/debug tax
   - major risks
-- A monitoring mode + cadence decision (attended/unattended)
+- chosen monitoring mode and cadence
+- teardown policy (`on_done`, `on_fail`)
 
-## Step 1: Probe First
-Run 20-100 real steps and capture:
-- median step time (or step/s)
-- eval runtime and cadence
-- GPU util + VRAM
-- early error markers
-
-## Step 2: Build Forecast
-Given target steps:
+## Live Throughput Model
+For target steps:
 - `train_hours = target_steps / (step_s * 3600)`
-- Add eval overhead from measured eval runtime/frequency.
 - `wall_hours = setup_debug_hours + train_hours + eval_overhead_hours`
 - `cost = wall_hours * dph_total`
 
 Scenarios:
 - optimistic: `step_s * 1.2`
-- base: `step_s * 1.0`
+- base: `step_s`
 - pessimistic: `step_s * 0.6`
 
-## Step 3: Reforecast Cadence (Adaptive)
-- Early instability window: reforecast every 10 minutes.
-- Stable cruise window: reforecast every 60 minutes.
-- Immediate reforecast on any alert trigger.
+## Reforecast Cadence
+- early instability window: every 10 minutes
+- stable cruise window: every 60 minutes
+- immediate reforecast when alert triggers fire
 
-Do not do high-frequency re-estimation during long stable periods.
+Do not reforecast at high frequency during stable long runs.
 
-## Break-Even Speed Test
-For cost-per-step comparison against current baseline:
+## Alert Triggers (Override Cadence)
+- stalled progress heartbeat
+- sustained low GPU utilization while active
+- throughput drops below expected band
+- runtime/traceback errors
+- repeated retries/fix cycles
+
+When triggered:
+- move to alert cadence
+- classify bottleneck quickly
+- change one variable only
+
+## Cost-Per-Step Break-Even
+Compare candidate vs current baseline:
 - `required_step_s_candidate = step_s_current * (dph_candidate / dph_current)`
 
-If candidate cannot realistically exceed this, it is a wall-clock play, not a cost play.
+If realistic candidate speed is below this threshold, candidate is not a cost win.
 
 ## Setup/Debug Tax
 - `setup_debug_tax = setup_debug_hours / wall_hours`
 
-Use as decision aid:
-- High tax means reduce complexity first.
-- Low tax + stable run means scaling hardware may be justified.
+Interpretation:
+- high tax: reduce complexity first
+- low tax + stable path: scaling hardware may be justified
 
-## Alert Triggers (Override Cadence)
-- Step progression stalls.
-- Throughput <70% of baseline for two checks.
-- Low GPU util while active.
-- Error markers or repeated instability.
-
-On alert:
-- increase check density (2-5 min)
-- classify bottleneck quickly
-- change one variable and re-run
-
-## Mindset
-Do not miss the forest for the trees.
-Use dense monitoring for early risk, sparse monitoring for long stable stretches.
+## Long-Finetune Guardrail
+When objective is comprehensive finetuning (not short probe):
+- set early-stop floor late enough (high `min_steps`)
+- avoid aggressive stop thresholds tuned for quick probes
+- include this policy in forecast assumptions

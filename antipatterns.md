@@ -1,63 +1,73 @@
 # Antipatterns -- Proactively Remind the User
 
-These are recurring mistakes from past sessions. Flag them immediately, before they burn time or spend.
+Flag these immediately; do not wait until they consume hours or budget.
 
-## 1. Over-verifying locally before deploying
+## 1. Over-verifying locally before real run
 
-**Pattern**: building large local validation trees for failures that show up quickly on real hardware.
-
-**Do instead**:
-- launch a real probe early
-- verify on the real environment in the first minutes
-- reserve local deep checks for subtle correctness issues
-
-## 2. No feedback loop on long-running processes
-
-**Pattern**: starting multi-hour runs with no early-kill criteria.
+**Pattern**: long local validation for issues that would appear in first minutes on real hardware.
 
 **Do instead**:
-- log metrics from the start
-- define abort conditions before launch
-- check early milestones in the first 5-15 minutes
+- launch real probe quickly
+- verify on real metrics early
+- keep local deep checks for subtle correctness only
 
-## 3. Over-polling stable long runs
+## 2. No explicit failure loop for long runs
 
-**Pattern**: checking every 1-2 minutes for hours, creating token noise without decisions.
-
-**Do instead**:
-- use adaptive cadence:
-  - dense early checks while risk is high
-  - sparse milestone checks once stable
-- increase check frequency only when alert triggers fire
-
-**Trigger question**: "Are these checks changing decisions, or just burning tokens?"
-
-## 4. Detached watcher with no consumer
-
-**Pattern**: running watchers that no one reads and assuming automatic wake-up.
+**Pattern**: start long training without retry budget, auto-fix policy, or terminal states.
 
 **Do instead**:
-- use one blocking watcher that returns on `ALERT|CRASH|DONE|TIMEOUT`
-- avoid parallel watcher stacks
+- run under supervisor with bounded retries
+- define `done` and `failed` semantics
+- define teardown behavior
 
-## 5. Parallel agents with weak coordination
+## 3. Over-polling stable runs
 
-**Pattern**: multiple agents with unclear done criteria and output locations.
-
-**Do instead**:
-- explicit task + output path + done signal per agent
-- keep project `STATUS.md` current
-
-## 6. Tool friction without switching
-
-**Pattern**: prolonged workarounds for a failing tool.
+**Pattern**: frequent checks for hours with no decision impact.
 
 **Do instead**:
-- if blocked ~10 minutes without progress, switch tools
+- adaptive cadence:
+  - dense early checks
+  - sparse stable checks
+  - dense only on alert
 
-## 7. Vague spec, repeated redesign
+**Trigger question**: "Will this check change an action, or only burn tokens?"
 
-**Pattern**: coding with ambiguous outputs and redesigning repeatedly.
+## 4. Stall detection without GPU context
+
+**Pattern**: declaring stall from log silence alone, killing healthy training.
 
 **Do instead**:
-- write concrete I/O examples before implementation
+- require both stale heartbeat and low GPU activity before stall recovery
+- use one safe recovery action, then hand back to supervisor retry logic
+
+## 5. Early-stop policy confused with crashes
+
+**Pattern**: treating deliberate early-stop behavior as runtime instability.
+
+**Do instead**:
+- inspect stop criteria first (`min_steps`, `patience`, `min_delta`)
+- tune stop policy to objective (probe vs comprehensive finetune)
+
+## 6. Detached watcher with no consumer
+
+**Pattern**: background watcher output is never consumed.
+
+**Do instead**:
+- one canonical watcher with actionable state output
+- no redundant watcher layers
+
+## 7. Tool friction without switching
+
+**Pattern**: extended workaround loops on broken tooling.
+
+**Do instead**:
+- switch tools if blocked without forward progress
+
+## 8. Weak versioning discipline on learnings
+
+**Pattern**: policy changed but not committed/pushed.
+
+**Do instead**:
+- rewrite relevant learnings files
+- update learnings `README.md` and `STATUS.md` when workflow meaningfully changes
+- commit and push in the same session
