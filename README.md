@@ -13,14 +13,13 @@ Project-agnostic operating guidance for local AI coding agents.
 - Commit and push learnings changes in the same session.
 
 ## Vast Policy Summary
-- Run-first execution after minimal fit gate.
-- Canonical architecture: remote supervisor + local adaptive watcher.
-- Bounded retries with cheap auto-fixes.
-- Adaptive monitoring cadence:
-  - early dense checks,
-  - stable sparse checks,
-  - alert-driven escalation.
-- Explicit teardown policy on terminal states.
+- Hard goals:
+  - no long-idle paid instances,
+  - autonomous crash detection and recovery,
+  - efficient training with complexity-appropriate optimization risk.
+- Use a dedicated LLM babysitter agent (Codex) for monitoring/recovery.
+- Adaptive check cadence (dense early, sparse stable, dense on alerts).
+- Explicit teardown enforcement.
 
 ## Files
 - `antipatterns.md`

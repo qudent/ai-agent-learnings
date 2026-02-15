@@ -1,82 +1,87 @@
 # Vast.ai Learnings
 
-## Objective
-Enable true sleep-mode execution:
-- start a run,
-- auto-handle common failures,
-- monitor with low noise,
-- tear down automatically on terminal states.
+## Non-Negotiable Goals
+1. No idle Vast instances wasting money for long.
+2. If experiment crashes, it is detected and fixed autonomously.
+3. Training runs efficiently, with optimization effort and bug-risk proportional to task complexity.
 
-## Canonical Architecture
-Use two roles only:
-1. **Remote Supervisor** (on the instance)
-- owns run attempts
-- writes machine-readable state
-- applies bounded auto-fixes
-- retries up to a limit
+## Operating Model
+Use a dedicated **LLM babysitter agent** (Codex in tmux), not complex shell autopilot logic.
 
-2. **Local Watcher** (where the agent runs)
-- reads supervisor state/log heartbeat
-- uses adaptive check cadence
-- escalates only on alerts
-- triggers teardown policy on `done`/`failed`
+Two-agent pattern:
+- `runner` agent: launches/changes experiments.
+- `babysitter` agent: monitors, debugs, relaunches, and enforces teardown policy.
 
-Do not add extra watcher layers.
+## Launch Protocol
+1. Do minimal hard-fit checks only (VRAM, RAM, disk, reliability).
+2. Launch run quickly on real hardware.
+3. Write run metadata to project `STATUS.md`:
+- instance id
+- command/config
+- log path
+- kill criteria
+- teardown policy
+4. Start/assign babysitter agent with explicit mandate:
+- keep training alive
+- fix failures autonomously
+- avoid idle spend
+- report only meaningful milestones
 
-## Run-First Gate
-Before launch, do only hard checks:
-- VRAM likely fits mode
-- CPU RAM not obviously insufficient
-- disk headroom exists
-- reliability acceptable
+## Babysitter Monitoring Strategy
+Adaptive cadence:
+- Early risk window: check at ~1, 3, 7, 15 minutes.
+- Stabilization: every 10 minutes until healthy twice consecutively.
+- Cruise: every 30-60 minutes.
+- Alert mode: every 2-5 minutes until resolved.
 
-Then launch immediately and use live signal.
-
-## Unattended Algorithm
-1. Start remote supervisor with explicit config and retry budget.
-2. Supervisor starts attempt 1 and records state (`running/retrying/done/failed`).
-3. On failure, supervisor applies cheap auto-fixes, then retries:
-- missing runtime/tooling deps
-- missing compiler/build deps
-- low-disk cleanup
-- safe eval-size reduction on OOM
-4. Local watcher checks status with adaptive cadence:
-- early risk: `1m, 2m, 4m, 8m`
-- stable cruise: every `30m`
-- alert mode: every `3m`
-5. Alert triggers:
-- traceback/runtime error markers
-- stalled step/log heartbeat across consecutive checks
-- low GPU util during expected training
-- throughput collapse vs baseline
-6. Stall handling:
-- only treat as stall when heartbeat is stale **and** GPU is mostly idle
-- perform one safe recovery action (kill stuck trainer process) and let supervisor retry
-7. Exit handling:
-- `done`: collect summary, then optional teardown
-- `failed`: stop monitoring loop, optional teardown
-8. Always keep one-line status output per check.
-
-## Status Line Contract
-Emit one compact line per check:
-`ts status attempt step gpu mem fix run`
+Compact status output only:
+`ts state step rate gpu mem eval action next_eta`
 
 Expand logs only on alert.
 
+## Alert Triggers
+- Process/session died unexpectedly.
+- Step counter stopped advancing.
+- Traceback/OOM/runtime error appears.
+- GPU utilization unexpectedly low while job should train.
+- Throughput materially below expected band.
+- Early metric trend clearly wrong vs objective.
+
+## Autonomous Recovery Policy
+When trigger fires, babysitter acts without waiting:
+1. Triage quickly (cause classification).
+2. Apply smallest safe fix first.
+3. Relaunch and verify forward progress.
+4. If repeated failure, escalate one level only.
+
+Escalation ladder:
+- transient rerun
+- dependency/runtime fix
+- conservative config reduction
+- instance switch
+
+After bounded failed attempts, stop and report root cause + next best option.
+
+## Teardown Enforcement
+- If no active training and no approved debugging reason, destroy instance quickly.
+- Always destroy on terminal `done` unless user asked to keep instance.
+- Never leave expensive idle instances running "just in case".
+
+## Efficiency and Risk Rules
+- Prefer low-complexity changes first on single-GPU runs.
+- Do not introduce high-complexity optimizations unless baseline is stable and bottleneck is confirmed.
+- Optimize where measured bottleneck exists (data, compute, memory, logging), not by speculation.
+- Keep change size small to reduce bug-introduction risk.
+
 ## Early-Stop Policy Guardrail
-For long/comprehensive finetunes, prevent premature stop:
-- set `auto_stop_min_steps` to a meaningful floor (e.g., mid/late training)
-- use less aggressive `min_delta`/patience than short probes
-- treat early stop as a policy outcome, not a crash
+For comprehensive finetuning, prevent premature stop:
+- set sufficiently high `min_steps`
+- use non-aggressive patience/min-delta
+- treat early stop as policy behavior, not crash
 
-## Teardown Policy
-Make teardown explicit per run:
-- `destroy_on_done` (usually true for cost control)
-- `destroy_on_fail` (usually true unless interactive debugging is planned)
-
-Never leave idle expensive instances running.
-
-## Decision Rules
-- healthy and stable: sparse cadence
-- uncertain/alerting: dense cadence
-- repeated failure after retry budget: fail fast, tear down, report root cause + next change
+## Accountability Rule
+Do not just acknowledge goals. Enforce them with actions:
+- terminate idle spend
+- keep a babysitter agent assigned
+- execute fixes autonomously
+- update status with what was done
