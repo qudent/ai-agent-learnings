@@ -8,13 +8,15 @@
   - a 10-minute validation loop with contradiction thresholds.
 
 ## Instance Selection
-- Some instances have terrible internet -- 170 KB/s observed. Test bandwidth early: `curl -o /dev/null -w '%{speed_download}' https://speed.hetzner.de/100MB.bin` before committing to a long setup.
+- Some instances have terrible internet -- 170 KB/s observed.
+- Always test transfer speed early against the **actual sources/sinks you will use** (GitHub/Hugging Face/object storage/target region), not only a generic speed endpoint.
+- Keep one neutral sanity check endpoint too (e.g., `https://nbg1-speed.hetzner.com/100MB.bin`) and compare with your real artifact path.
 - **Always check RAM specs before renting**: both GPU VRAM and system RAM. CPU optimizer offloading, large batch sizes, and gradient accumulation all consume system RAM. 32GB instances can OOM silently during gradient computation. Example: GRPO training with batch 64 and CPU offloading needs >=64GB system RAM.
 - Always check the instance has enough disk for model weights + checkpoints before starting.
 
 ## Setup Checklist
 Before launching any training:
-1. Test internet speed
+1. Test internet speed to real artifact endpoints (and one sanity endpoint)
 2. Confirm GPU is visible: `nvidia-smi`
 3. Clone repo + install deps
 4. Run smoke test -- 50 steps, confirm loss decreases and reward > 0
