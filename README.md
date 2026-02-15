@@ -15,6 +15,12 @@ It is backed by `~/Dropbox/learnings` so the same guidance is available across m
 - When learnings workflow/structure changes, update this `README.md` and `STATUS.md` in the same session.
 - Commit and push learnings updates (`~/Dropbox/learnings` git repo) before ending the task.
 
+## Vast Workflow Policy
+
+- Vast guidance is now **run-first**: launch a real probe quickly, then analyze ETA/cost from live throughput while the run is active.
+- `vast-ai.md` is the operating workflow.
+- `vast-preestimate.md` is the estimation method, calibrated from the probe (not a hard pre-rent gate).
+
 Current learnings files:
 - `antipatterns.md`
 - `ml-experiments.md`
