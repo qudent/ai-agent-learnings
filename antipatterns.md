@@ -1,81 +1,63 @@
 # Antipatterns -- Proactively Remind the User
 
-These are recurring mistakes from past sessions. **When you notice the user or an agent falling into one of these patterns, flag it immediately** -- don't wait until it has already wasted time.
+These are recurring mistakes from past sessions. Flag them immediately, before they burn time or spend.
 
 ## 1. Over-verifying locally before deploying
 
-**Pattern**: Building elaborate local smoke tests and validation steps that duplicate what you'd see in 2 minutes on the real environment. The verification itself becomes a rabbit hole.
+**Pattern**: building large local validation trees for failures that show up quickly on real hardware.
 
-**Examples from history**:
-- Planned multi-step local reward function validation + short training run + config checks before deploying to Vast.ai. Would have added hours of local work when a failed Vast.ai run shows the same signal in minutes.
-- Local CPU smoke tests that don't match GPU behavior anyway.
-
-**What to do instead**: Deploy to the real environment and watch the first few minutes. If reward is 0 or loss doesn't move by step 50, you know immediately and can fix on the live instance. Reserve local verification for things that are *hard to see* in production (subtle correctness bugs, wrong learning signal that looks like convergence).
-
-**Proactive reminder trigger**: When an agent proposes multiple pre-deployment validation steps, ask: "Would we see this failure in the first 2 minutes on the real instance anyway?"
+**Do instead**:
+- launch a real probe early
+- verify on the real environment in the first minutes
+- reserve local deep checks for subtle correctness issues
 
 ## 2. No feedback loop on long-running processes
 
-**Pattern**: Kicking off a multi-hour process -- training run, search, build -- with no way to tell if it's working until it finishes.
+**Pattern**: starting multi-hour runs with no early-kill criteria.
 
-**Examples from history**:
-- Countdown task: "it takes many hours to see if it is getting somewhere"
-- No streaming metrics, no early-stopping criteria, no intermediate checkpoints
+**Do instead**:
+- log metrics from the start
+- define abort conditions before launch
+- check early milestones in the first 5-15 minutes
 
-**What to do instead**: Before starting any process that takes >10 minutes:
-- Add logging every N steps to a file or stdout
-- Define an early-abort condition -- "if metric X hasn't moved by step Y, stop"
-- Check metrics within the first few minutes on the real instance
+## 3. Over-polling stable long runs
 
-**Proactive reminder trigger**: When launching a training run or long computation, ask: "What metric will we check, how often, and what's the kill threshold?"
+**Pattern**: checking every 1-2 minutes for hours, creating token noise without decisions.
 
-## 3. Parallel agents with no coordination structure
+**Do instead**:
+- use adaptive cadence:
+  - dense early checks while risk is high
+  - sparse milestone checks once stable
+- increase check frequency only when alert triggers fire
 
-**Pattern**: Spawning multiple tmux agents without clear completion criteria, output locations, or status tracking. Then losing visibility and doing "check in" rounds that waste time.
+**Trigger question**: "Are these checks changing decisions, or just burning tokens?"
 
-**Examples from history**:
-- Multiple "check in on vast" queries with unclear responses
-- Agents doing overlapping or conflicting work
-- No single source of truth for what's running and what's done
+## 4. Detached watcher with no consumer
 
-**What to do instead**:
-- Each dispatched agent gets: explicit goal, where to write output, a done-signal
-- Use the project's STATUS.md as the coordination point
-- Batch-check all sessions with the tmux capture-pane loop, don't check one by one
+**Pattern**: running watchers that no one reads and assuming automatic wake-up.
 
-**Proactive reminder trigger**: When spawning 2+ parallel agents, ask: "Where will each agent write its result, and how will we know it's done?"
+**Do instead**:
+- use one blocking watcher that returns on `ALERT|CRASH|DONE|TIMEOUT`
+- avoid parallel watcher stacks
 
-## 4. Tool friction -- adapting to a broken tool instead of switching
+## 5. Parallel agents with weak coordination
 
-**Pattern**: Spending hours working around a tool's limitations instead of just using a different tool.
+**Pattern**: multiple agents with unclear done criteria and output locations.
 
-**Examples from history**:
-- Claude Code `-p` flag for tmux integration -- multiple sessions debugging CLI flags
-- PDF processing -- built extraction pipeline when just using a different tool would've worked
+**Do instead**:
+- explicit task + output path + done signal per agent
+- keep project `STATUS.md` current
 
-**What to do instead**: If a tool doesn't do what you need within 10 minutes, switch tools. Don't build adapters or workarounds.
+## 6. Tool friction without switching
 
-## 5. Redesigning mid-project because the spec was vague
+**Pattern**: prolonged workarounds for a failing tool.
 
-**Pattern**: Starting implementation with a fuzzy idea of what the output should look like, then redesigning 2-3 times when the result doesn't match expectations.
+**Do instead**:
+- if blocked ~10 minutes without progress, switch tools
 
-**Examples from history**:
-- Pilot "display" field -- should it show assistant response or JSON? Redesigned 3 times.
-- Context management -- append+truncate vs. fresh rewrite changed mid-project.
+## 7. Vague spec, repeated redesign
 
-**What to do instead**: Before coding, write 2-3 concrete input/output examples. "Given X, the system should return Y." If you can't write the examples, the spec isn't ready.
+**Pattern**: coding with ambiguous outputs and redesigning repeatedly.
 
-## 6. Detached watcher with no consumer
-
-**Pattern**: Starting a watcher in tmux and assuming it will wake or notify the agent automatically.
-
-**Why this fails**:
-- If no one is reading the watcher output, it provides no real feedback loop.
-- It creates false confidence while still requiring manual check-ins.
-
-**What to do instead**:
-- If unattended: run one blocking local wait command that returns on crash/completion/timeout.
-- If attended: do milestone checks at meaningful points instead of frequent polling.
-- Do not combine detached watcher + manual polling unless there is a real alert channel wired.
-
-**Proactive reminder trigger**: When someone proposes "let's run a watcher in tmux," ask: "Who or what is consuming that output, and how does it trigger action?"
+**Do instead**:
+- write concrete I/O examples before implementation

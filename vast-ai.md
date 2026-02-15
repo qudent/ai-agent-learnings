@@ -1,72 +1,78 @@
 # Vast.ai Learnings
 
-## Core Principle
-Run first, analyze in parallel.
-Do not block on elaborate upfront analysis that can be replaced by 5-10 minutes of real-run signal.
+## Core Objective
+Catch failures early without wasting tokens on noisy long-run polling.
 
-## Forest-First Workflow
-1. Pick a likely-fit instance quickly.
-2. Start a real smoke run quickly (20-100 steps).
-3. While it runs, measure throughput, memory, stability, and transfer speed.
-4. Decide quickly: keep, optimize, switch instance, or kill.
-5. Only after real measurements, do detailed ETA/$ projections.
+## Operating Principle
+Run first, then monitor adaptively.
+- Start a real probe quickly.
+- Use dense checks only while failure risk is highest.
+- Switch to sparse milestone checks once stable.
+- Escalate back to dense checks only when alerts fire.
 
-## Minimal Pre-Rent Gate (2-3 Minutes)
-Use only hard checks before renting:
-- GPU VRAM likely fits the run mode.
-- CPU RAM is not obviously too small.
-- Disk has enough room for model + checkpoints.
+## Minimal Pre-Rent Gate (Fast)
+Do only obvious fit checks before renting:
+- VRAM likely fits planned mode.
+- CPU RAM is not obviously insufficient.
+- Disk has room for model + checkpoints.
 - Reliability is acceptable.
 
-Do not spend long on speculative throughput math before this probe.
+Then launch.
 
-## Fast Bring-Up Checklist
-1. Confirm GPU visibility: `nvidia-smi`
-2. Bootstrap repo and dependencies
-3. Start smoke run with logging to file
-4. Verify the run is truly progressing (steps increase, no traceback)
-5. Record first live numbers:
-   - step/s or step time
-   - GPU util and memory
-   - eval cadence and eval runtime
+## Bring-Up Sequence
+1. Confirm GPU visibility (`nvidia-smi`).
+2. Bootstrap repo/deps.
+3. Launch a short real probe (20-100 steps) with logs.
+4. Capture baseline metrics from real run:
+   - step/s (or sec/step)
+   - eval runtime/frequency
+   - GPU util + VRAM
+   - error markers (traceback/OOM)
    - transfer speed to real endpoints
 
-## Analyze While Running
-As soon as smoke is alive, compute ETA and cost from observed step/s.
-Use optimistic/base/pessimistic ranges from live throughput rather than only hardware specs.
+## Adaptive Check-In Strategy
+Use one of these two modes.
 
-- If signal is good: continue or relaunch longer with early-stop policy.
-- If signal is bad: stop quickly, change one thing, retry.
+### Attended Mode
+- Early risk window: check at ~1, 3, 7, 15 minutes.
+- Stabilization window: every 10 minutes until 2 consecutive healthy windows.
+- Cruise window: every 30-60 minutes.
+- Milestones: check near critical step boundaries and once near expected finish.
 
-## Kill Fast Rules
-Stop and re-evaluate immediately when any of these hold:
-- Throughput stays below ~70% of expectation for 2 checks.
+### Unattended Mode
+- Run one blocking local watcher that returns only on:
+  - `ALERT`
+  - `CRASH`
+  - `DONE`
+  - `TIMEOUT`
+- Avoid chatty periodic output unless in alert mode.
+
+## Alert Conditions (Escalate Immediately)
+Switch to 2-5 minute checks when any trigger fires:
+- Step counter stalls across 2 checks.
+- Throughput stays below ~70% of baseline across 2 checks.
 - GPU utilization stays low (<60%) while job should be active.
-- No meaningful metric movement by early checkpoint.
-- Network/setup friction dominates and blocks progress.
-- Repeated runtime/dependency failures consume expensive GPU time.
+- Sustained high memory pressure (OOM risk).
+- New traceback/runtime errors.
+- Early eval trend is materially worse than expected.
 
-## Optimization Order (After It Runs)
-1. Batch/micro-batch sizing and gradient accumulation
-2. Data pipeline (`num_workers`, pinning, host bottlenecks)
-3. Logging/checkpoint overhead
-4. Precision and checkpointing tradeoffs
-5. Compile/distributed complexity only if needed
+## Check Output Contract (Token Budget)
+Every check should emit one compact summary line, not raw logs:
+- `ts step rate eta gpu mem eval status`
 
-Avoid heavyweight distributed stacks on single-GPU runs unless required.
+Only expand logs on alert.
 
-## Monitoring Model
-- Detached watcher tmux panes do not wake agents by themselves.
-- Prefer one of:
-  1. Interactive milestone checks
-  2. One blocking local wait loop for unattended windows
-- Avoid noisy detached watcher + manual polling combos.
+## Watcher Rules
+- Detached watcher output is useless unless consumed.
+- Do not run multiple watcher layers in parallel.
+- Prefer one canonical watcher and one canonical status sink (`STATUS.md`).
 
 ## Cost Discipline
-- Do not leave idle instances running.
-- If stuck, kill and relaunch intentionally.
-- Keep changing one variable at a time so failed spend teaches something.
+- Keep estimated completion time/cost updated from live throughput.
+- Do not keep idle instances running.
+- If run is unhealthy and unresolved after quick iteration, kill and relaunch intentionally.
 
-## SSH and Connectivity
-- Keep Vast SSH config ready for fast reconnect.
-- API keys live in environment (`$VAST_API_KEY`), not repos.
+## Decision Rule Summary
+- Healthy + stable: sparse checks.
+- Uncertain/unstable: dense checks.
+- Broken/expensive drift: stop and fix before spending more.

@@ -1,81 +1,78 @@
-# Vast.ai Runtime and Cost Estimation (Run-Calibrated)
+# Vast.ai Runtime and Cost Estimation (Adaptive, Run-Calibrated)
 
 ## Purpose
-Estimate runtime and cost from real measurements, not only speculation.
+Estimate wall-clock and cost with real telemetry while minimizing monitoring noise.
 
-## Important Policy
-This is **not** a hard blocker before renting.
-Default flow is:
-1. Launch a quick real probe run.
-2. Calibrate throughput from that probe.
-3. Produce ETA/$ estimates while the run is active.
+## Policy
+This process is not a long upfront blocker.
+Default loop:
+1. Launch probe quickly.
+2. Calibrate from observed throughput.
+3. Reforecast at smart intervals.
 
-## Required Output (Within First 10-15 Minutes)
-Publish one option table with:
-- `GPU option`, `$/h`, `VRAM`, `CPU RAM`, `TFLOPS`, `HBM BW`
-- observed or predicted `step/s`
-- `time (opt/base/pess)`
-- `cost (opt/base/pess)`
-- `setup/debug tax %`
-- `major risks`
-- `keep/switch/kill decision`
+## Required Deliverables
+Within the first 10-15 minutes of a live probe, produce:
+- Option table with:
+  - GPU option
+  - $/h
+  - VRAM / CPU RAM
+  - observed or predicted step/s
+  - time (opt/base/pess)
+  - cost (opt/base/pess)
+  - setup/debug tax
+  - major risks
+- A monitoring mode + cadence decision (attended/unattended)
 
-## Stage A: Minimal Pre-Rent Checks
-Do these quickly only to avoid obvious dead ends:
-- VRAM likely fits mode and batch.
-- CPU RAM is not obviously insufficient.
-- Disk has enough room for model + checkpoints + temp.
-- Reliability/network are not obviously bad.
-
-If it passes these checks, rent and probe.
-
-## Stage B: Probe Run First
-Run 20-100 steps on the real instance with real config family.
-Capture:
+## Step 1: Probe First
+Run 20-100 real steps and capture:
 - median step time (or step/s)
-- eval runtime at least once (if possible)
-- GPU util, memory util, VRAM used
-- transfer speed to real artifact endpoints
-- setup/debug time spent so far
+- eval runtime and cadence
+- GPU util + VRAM
+- early error markers
 
-## Stage C: Estimate From Live Throughput
-Use live measured throughput as baseline.
-
+## Step 2: Build Forecast
+Given target steps:
 - `train_hours = target_steps / (step_s * 3600)`
-- Add eval overhead from measured eval runtime and eval frequency.
+- Add eval overhead from measured eval runtime/frequency.
 - `wall_hours = setup_debug_hours + train_hours + eval_overhead_hours`
-- `cost_usd = wall_hours * dph_total`
+- `cost = wall_hours * dph_total`
 
 Scenarios:
 - optimistic: `step_s * 1.2`
 - base: `step_s * 1.0`
 - pessimistic: `step_s * 0.6`
 
-## Stage D: Setup/Debug Tax
+## Step 3: Reforecast Cadence (Adaptive)
+- Early instability window: reforecast every 10 minutes.
+- Stable cruise window: reforecast every 60 minutes.
+- Immediate reforecast on any alert trigger.
+
+Do not do high-frequency re-estimation during long stable periods.
+
+## Break-Even Speed Test
+For cost-per-step comparison against current baseline:
+- `required_step_s_candidate = step_s_current * (dph_candidate / dph_current)`
+
+If candidate cannot realistically exceed this, it is a wall-clock play, not a cost play.
+
+## Setup/Debug Tax
 - `setup_debug_tax = setup_debug_hours / wall_hours`
 
-Interpretation:
-- If tax is high (roughly >25%), avoid expensive hardware until run path is stable.
-- If tax is low and run is stable, upgrade hardware only if it improves total time materially.
+Use as decision aid:
+- High tax means reduce complexity first.
+- Low tax + stable run means scaling hardware may be justified.
 
-## Contradiction Triggers (Act Immediately)
-- Throughput <70% of expected for 2 consecutive checks.
-- GPU utilization <60% while job is active.
-- Sustained memory pressure near OOM.
-- No meaningful metric movement by early checkpoint.
+## Alert Triggers (Override Cadence)
+- Step progression stalls.
+- Throughput <70% of baseline for two checks.
+- Low GPU util while active.
+- Error markers or repeated instability.
 
-Action:
-- Stop or pause expensive run.
-- Identify bottleneck type: input, compute, memory, logging, infra.
-- Change one variable and relaunch quickly.
-
-## Optimization Priority
-1. Batch sizing and grad accumulation
-2. Data pipeline bottlenecks
-3. Logging/eval/checkpoint overhead
-4. Precision/checkpointing tradeoffs
-5. Advanced complexity (`torch.compile`, distributed) only after stable baseline
+On alert:
+- increase check density (2-5 min)
+- classify bottleneck quickly
+- change one variable and re-run
 
 ## Mindset
 Do not miss the forest for the trees.
-A running probe with clear telemetry beats long speculative pre-analysis.
+Use dense monitoring for early risk, sparse monitoring for long stable stretches.
