@@ -63,7 +63,19 @@ Flag these immediately; do not wait until they consume hours or budget.
 **Do instead**:
 - switch tools if blocked without forward progress
 
-## 8. Weak versioning discipline on learnings
+## 8. Destroying ephemeral instances before verifying artifact persistence
+
+**Pattern**: training finishes, agent destroys GPU instance immediately following "destroy on terminal done" — but the checkpoint upload failed (auth error, network issue) so the only copy of the model was on the instance that just got destroyed.
+
+**Do instead**:
+- Before destroying any ephemeral instance, verify artifacts exist at their remote destination (HF Hub, S3, local machine)
+- Check actual file sizes match expectations — don't trust a "done" message
+- If upload failed, fix and retry before destroy. A few extra minutes of instance cost is nothing compared to re-running hours of training
+- Env vars set at instance creation often don't propagate to tmux/screen — always verify auth works before relying on it
+
+**Trigger question**: "Can I prove the checkpoint exists somewhere that will survive instance destruction?"
+
+## 9. Weak versioning discipline on learnings
 
 **Pattern**: policy changed but not committed/pushed.
 

@@ -67,6 +67,12 @@ After bounded failed attempts, stop and report root cause + next best option.
 - Always destroy on terminal `done` unless user asked to keep instance.
 - Never leave expensive idle instances running "just in case".
 
+**Pre-destroy checklist (MANDATORY before `vast destroy`):**
+1. Verify checkpoint was persisted off-instance (HF upload succeeded, or `scp`/`rsync` completed).
+2. If upload failed (e.g. auth error, network), fix and retry — do NOT destroy until artifacts are safe.
+3. Confirm by checking the remote destination (HF API, local disk) that the files actually exist and are the right size.
+4. Env vars (HF_TOKEN, API keys) set at instance creation often do NOT propagate into tmux/screen sessions. Always `export` them in `~/.bashrc` or pass explicitly in the training command.
+
 ## Efficiency and Risk Rules
 - Prefer low-complexity changes first on single-GPU runs.
 - Do not introduce high-complexity optimizations unless baseline is stable and bottleneck is confirmed.
