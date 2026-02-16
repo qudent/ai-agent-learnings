@@ -1,28 +1,29 @@
 # ai-agent-learnings - Status
 
 ## Current State
-Vast learnings now encode explicit operational goals:
-- prevent idle spend,
-- autonomous crash recovery,
-- efficient training with proportional optimization complexity/risk.
-
-The canonical method is now agent-driven babysitting (LLM agent), not shell-heavy automation.
+Learnings repo now captures reusable agent operating guidance across:
+- experiment execution/antipattern prevention,
+- Vast.ai babysitting/teardown policy,
+- agent coordination with per-project `STATUS.md`,
+- Modal inference setup/debug patterns.
 
 ## Active Goals
 - [x] Keep learnings project-agnostic
-- [x] Encode user hard goals as non-negotiable constraints
-- [x] Encode LLM babysitter monitoring/recovery workflow
-- [x] Encode teardown enforcement rule
-- [ ] Calibrate alert thresholds from additional completed runs
+- [x] Encode anti-pattern interrupts
+- [x] Encode Vast operational/babysitter policy
+- [x] Encode coordination pattern (`STATUS.md` as source of truth)
+- [x] Add Modal inference reliability guidance
+- [ ] Calibrate monitoring thresholds from additional unattended runs
 
 ## Blockers
 - None
 
 ## Recent Results
-- Rewrote `vast-ai.md` around hard goals + agent babysitter algorithm.
-- Updated `README.md` Vast summary to match these goals.
-- Rewrote `STATUS.md` to reflect current policy and remaining calibration work.
+- Added `modal-inference.md` with practical setup/debug rules.
+- Updated `README.md` file index to include Modal learnings.
+- Maintained project-agnostic scope (no one-off repo paths/commands).
 
 ## Next Steps
-1. Collect additional unattended run traces and tune alert thresholds.
-2. Keep one-line milestone reporting to minimize token burn.
+1. Refine Modal guidance after more multi-model runs.
+2. Keep all new learnings concise, actionable, and stack-agnostic.
+3. Continue rewriting files instead of append-only drift.

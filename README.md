@@ -27,3 +27,4 @@ Project-agnostic operating guidance for local AI coding agents.
 - `vast-ai.md`
 - `vast-preestimate.md`
 - `agent-coordination.md`
+- `modal-inference.md`
