@@ -75,7 +75,20 @@ Flag these immediately; do not wait until they consume hours or budget.
 
 **Trigger question**: "Can I prove the checkpoint exists somewhere that will survive instance destruction?"
 
-## 9. Weak versioning discipline on learnings
+## 9. Ignoring main vserver memory limit (8 GB RAM)
+
+**Pattern**: writing scripts that materialise large datasets or intermediate structures in memory — e.g., loading 32K rows each containing a full book, `list(dataset)`, accumulating all tokenized docs before writing — then OOM-killing on the 8 GB Hetzner vserver.
+
+**Do instead**:
+- Stream/iterate datasets; never `list()` a HuggingFace dataset
+- Process one document at a time; write to parquet incrementally via `ParquetWriter`
+- Deduplicate eagerly (e.g., NarrativeQA has ~32K rows but only ~750 unique books — build a dedup map, don't hold all raw rows)
+- `gc.collect()` after freeing large objects (Arrow tables, dataset handles)
+- Peak RAM target: one document's text + token arrays at a time (~50-100 MB)
+
+**Trigger question**: "Will this script's peak RSS stay well under 8 GB?"
+
+## 10. Weak versioning discipline on learnings
 
 **Pattern**: policy changed but not committed/pushed.
 
