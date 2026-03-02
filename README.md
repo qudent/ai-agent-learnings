@@ -1,40 +1,30 @@
 # AI Agent Learnings
 
-Project-agnostic operating guidance for local AI coding agents.
+Project-agnostic operating guidance for local AI coding agents. This repo lives at `~/Dropbox/learnings` and is referenced by the global `~/.claude/CLAUDE.md`.
 
-## Setup
-- Directory: `~/Dropbox/learnings`
-- Keep content reusable across projects
-- Project-specific commands belong in each project's `STATUS.md` or docs
+## What this is
 
-## Maintenance Workflow
-- Rewrite files when policy changes (avoid append-only drift).
-- When workflow changes materially, update `README.md` and `STATUS.md` in the same session.
-- Commit and push learnings changes in the same session.
+A collection of hard-won lessons and policies that AI agents should read before starting non-trivial work. Everything here should be reusable across projects — project-specific commands and paths belong in each project's own docs.
 
-## STATUS.md -- every project gets one
+## How agents use it
 
-Each non-trivial project must have a `STATUS.md` at its root (~50-100 lines max). This is the coordination point for all agents working on that project.
+Agents are instructed (via `CLAUDE.md`) to read relevant files at the start of tasks and to proactively flag known antipatterns. The file-to-context mapping:
 
-- **Read it before starting work** on a project.
-- **Rewrite it when state changes meaningfully** -- goal completed, blocker found, direction changed.
-- **Rewrite, don't append** -- it's current state, not a log. Keep it under 100 lines.
-- **Always update STATUS.md immediately after each meaningful state change** -- don't ask, just do it.
-- See `agent-coordination.md` for the template and rules.
+| File | When to reference |
+|------|-------------------|
+| `antipatterns.md` | Always — patterns to watch for and interrupt |
+| `ml-experiments.md` | Any training run, search, or optimization task |
+| `vast-ai.md` | Any work involving Vast.ai GPU instances |
+| `vast-preestimate.md` | Pre-estimate checks before launching Vast instances |
+| `agent-coordination.md` | Any time parallel agents are dispatched |
+| `modal-inference.md` | Modal inference deployments |
 
-## Vast Policy Summary
-- Hard goals:
-  - no long-idle paid instances,
-  - autonomous crash detection and recovery,
-  - efficient training with complexity-appropriate optimization risk.
-- Use a dedicated LLM babysitter agent (Codex) for monitoring/recovery.
-- Adaptive check cadence (dense early, sparse stable, dense on alerts).
-- Explicit teardown enforcement.
+## Maintenance rules
 
-## Files
-- `antipatterns.md`
-- `ml-experiments.md`
-- `vast-ai.md`
-- `vast-preestimate.md`
-- `agent-coordination.md`
-- `modal-inference.md`
+- **Rewrite, don't append** — files should reflect current policy, not be a changelog.
+- When workflow changes materially, update this README in the same session.
+- Commit and push changes in the same session they're made.
+
+## Related: STATUS.md convention
+
+`CLAUDE.md` defines a `STATUS.md` scheme for project coordination. Every non-trivial project gets a `STATUS.md` at its root (~50–100 lines) that agents read before starting work and rewrite (not append) when state changes. The template and full rules live in `agent-coordination.md` in this repo.
