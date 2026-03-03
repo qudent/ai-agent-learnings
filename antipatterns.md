@@ -65,29 +65,13 @@ Flag these immediately; do not wait until they consume hours or budget.
 
 ## 8. Destroying ephemeral instances before verifying artifact persistence
 
-**Pattern**: training finishes, agent destroys GPU instance immediately following "destroy on terminal done" — but the checkpoint upload failed (auth error, network issue) so the only copy of the model was on the instance that just got destroyed.
+**Pattern**: training finishes, agent destroys GPU instance immediately — but the checkpoint upload failed so the only copy was on the destroyed instance.
 
-**Do instead**:
-- Before destroying any ephemeral instance, verify artifacts exist at their remote destination (HF Hub, S3, local machine)
-- Check actual file sizes match expectations — don't trust a "done" message
-- If upload failed, fix and retry before destroy. A few extra minutes of instance cost is nothing compared to re-running hours of training
-- Env vars set at instance creation often don't propagate to tmux/screen — always verify auth works before relying on it
+**Do instead**: see pre-destroy checklist in `vast-ai.md`. Always verify artifacts exist at their remote destination before destroying.
 
 **Trigger question**: "Can I prove the checkpoint exists somewhere that will survive instance destruction?"
 
-## 9. Main vserver resource limits (8 GB RAM, ~12 GB free disk)
-
-**Pattern**: writing code that assumes generous RAM or disk — materialising large datasets in memory, downloading multi-GB files to local disk, etc. The main Hetzner vserver has 8 GB RAM and ~75 GB disk (often <15 GB free).
-
-**Do instead**:
-- Stream data rather than loading it all into memory
-- Large datasets should live on HuggingFace, be processed on Modal, or be streamed — not downloaded and held locally
-- Write outputs incrementally (e.g., `ParquetWriter`) instead of accumulating everything before a final write
-- Budget disk for downloads + outputs before starting
-
-**Trigger question**: "Will peak RAM stay well under 8 GB, and do I have enough free disk?"
-
-## 10. Weak versioning discipline on learnings
+## 9. Weak versioning discipline on learnings
 
 **Pattern**: policy changed but not committed/pushed.
 

@@ -73,6 +73,36 @@ After bounded failed attempts, stop and report root cause + next best option.
 3. Confirm by checking the remote destination (HF API, local disk) that the files actually exist and are the right size.
 4. Env vars (HF_TOKEN, API keys) set at instance creation often do NOT propagate into tmux/screen sessions. Always `export` them in `~/.bashrc` or pass explicitly in the training command.
 
+## Runtime and Cost Estimation
+
+Forecasting is run-calibrated, not a long pre-launch blocker.
+
+Workflow:
+1. Launch quickly after hard-fit checks.
+2. Calibrate from live probe/run telemetry.
+3. Reforecast on schedule + alert triggers.
+
+Within 10-15 minutes of live run start, produce:
+- Option table: GPU, $/h, VRAM, observed step/s, time/cost (opt/base/pess), risks
+- Monitoring mode and cadence
+- Teardown policy (`on_done`, `on_fail`)
+
+Live throughput model:
+- `train_hours = target_steps / (step_s * 3600)`
+- `wall_hours = setup_hours + train_hours + eval_overhead`
+- `cost = wall_hours * dph_total`
+- Scenarios: optimistic (step_s * 1.2), base (step_s), pessimistic (step_s * 0.6)
+
+Reforecast cadence:
+- Early instability: every 10 min
+- Stable cruise: every 60 min
+- Immediate on alert triggers
+
+Cost-per-step break-even for candidate vs baseline:
+- `required_step_s = step_s_current * (dph_candidate / dph_current)`
+
+Setup/debug tax: `setup_debug_hours / wall_hours` — if high, reduce complexity first.
+
 ## Efficiency and Risk Rules
 - Prefer low-complexity changes first on single-GPU runs.
 - Do not introduce high-complexity optimizations unless baseline is stable and bottleneck is confirmed.

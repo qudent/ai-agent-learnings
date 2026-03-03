@@ -25,13 +25,3 @@ Hindsight makes it look like "we should have picked the right algorithm first." 
 - Write a 2-sentence result in STATUS.md: "Approach X got metric Y. Next: try Z."
 - Don't delete failed experiments -- note what didn't work and why, so it doesn't get re-tried.
 
-## GRPO-Zero specific
-- "Rate 0" / no learning signal: watch the first 50 steps on the real instance. If reward is flat, investigate on the live environment -- don't burn time building local validation harnesses.
-- Fork-race: metric filtering matters -- make sure you're not averaging over branch-B samples that pollute the signal.
-- Config proliferation: too many config files -- config.yaml, config_24GB.yaml, config_fork.yaml, config_vast_*.yaml. Consolidate or use overrides.
-- **The real risk is subtle bugs** (wrong convergence, not no convergence). Fast failure is cheap; wrong learning is expensive. Focus verification effort on output quality, not "does it run."
-
-## Jane puzzle specific
-- CPU-bound permutation search was the bottleneck, not the algorithm choice.
-- Should have profiled first to see that ~1 perm/sec was the constraint, then focused on making evaluation faster before trying fancier search.
-- Renting a GPU helped but only after the evaluation was vectorized.

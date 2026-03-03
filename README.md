@@ -14,8 +14,7 @@ Agents are instructed (via `CLAUDE.md`) to read relevant files at the start of t
 |------|-------------------|
 | `antipatterns.md` | Always — patterns to watch for and interrupt |
 | `ml-experiments.md` | Any training run, search, or optimization task |
-| `vast-ai.md` | Any work involving Vast.ai GPU instances |
-| `vast-preestimate.md` | Pre-estimate checks before launching Vast instances |
+| `vast-ai.md` | Any work involving Vast.ai GPU instances (includes cost estimation) |
 | `agent-coordination.md` | Any time parallel agents are dispatched |
 | `modal-inference.md` | Modal inference deployments |
 
