@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+state="${1:-}"
+tmp="$(mktemp)"
+trap 'rm -f "$tmp"' EXIT
+cat >"$tmp"
+
+[[ "$state" == committed ]] || exit 0
+[[ "${AGENT_DISPATCH_ACTIVE:-0}" == 1 ]] && exit 0
+
+required_host="${AGENT_DISPATCH_HOST:-theserver}"
+current_host="$(hostname -s 2>/dev/null || hostname)"
+[[ "$current_host" == "$required_host" ]] || exit 0
+
+dispatcher="${AGENT_DISPATCHER:-/home/name/learnings/scripts/dispatch-agent.sh}"
+[[ -x "$dispatcher" ]] || exit 0
+command -v tmux >/dev/null 2>&1 || exit 0
+
+repo="${AGENT_DISPATCH_REPO:-$(git rev-parse --show-toplevel)}"
+session="${AGENT_DISPATCH_TMUX_SESSION:-agent-dispatch}"
+log_dir="${AGENT_DISPATCH_LOG_DIR:-/home/name/agent-dispatch-logs}"
+zero="0000000000000000000000000000000000000000"
+mkdir -p "$log_dir"
+tmux has-session -t "$session" 2>/dev/null || tmux new-session -d -s "$session" -c "$repo"
+
+while read -r _old new ref; do
+  [[ "$ref" == refs/heads/* ]] || continue
+  [[ "$new" != "$zero" ]] || continue
+
+  msg="$(git log -1 --format=%B "$new" 2>/dev/null || true)"
+  grep -Eqi '(^|[[:space:]])(@no-dispatch|\[no-dispatch\])([[:space:][:punct:]]|$)' <<<"$msg" && continue
+  grep -Eqi '(^|[[:space:]])@(codex|claude)([[:space:][:punct:]]|$)' <<<"$msg" || continue
+
+  branch="${ref#refs/heads/}"
+  safe_branch="${branch//\//-}"
+  log_file="$log_dir/dispatch-$safe_branch-${new:0:12}.log"
+  cmd="$(printf 'AGENT_DISPATCH_ACTIVE=1 AGENT_DISPATCH_LOG_DIR=%q %q %q %q %q >> %q 2>&1' "$log_dir" "$dispatcher" "$repo" "$new" "$branch" "$log_file")"
+  tmux new-window -d -t "$session:" -n "dispatch-${new:0:7}" "$cmd"
+done <"$tmp"

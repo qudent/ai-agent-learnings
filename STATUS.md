@@ -1,10 +1,10 @@
 # AI Agent Learnings - Status
 
 ## Current State
-This repo stores project-agnostic operating guidance for local AI coding agents. `AGENTS.md` is the canonical global instruction source, global agent config files symlink to it, and branch-scoped one-shot `@codex`/`@claude` dispatch helpers now live under `scripts/`.
+This repo stores project-agnostic operating guidance for local AI coding agents. `AGENTS.md` is the canonical global instruction source, global agent config files symlink to it, and one-shot `@codex`/`@claude` dispatch helpers now live under `scripts/`. Dispatch runs in the worktree associated with the triggering branch, not in `agent/<tool>/<branch>` child branches.
 
 ## Human Prompts
-wait what does "the hook knows this" mean? my understanding is basically that when i commit to the main branch or branch x, then the commit that these branches point to change. so i would like a hook that detects when the pointer of any branch changes, and then if the commit message the new thing points to contains @codex, it should trigger
+- None active.
 
 ## Active Goals
 - [x] Move canonical global instructions into `~/learnings/AGENTS.md`.
@@ -12,9 +12,11 @@ wait what does "the hook knows this" mean? my understanding is basically that wh
 - [x] Replace global `AGENTS.md`/`CLAUDE.md` files with symlinks to `~/learnings/AGENTS.md`.
 - [x] Commit and push the learnings repo update.
 - [x] Add durable human-input conventions around commit messages and `USER_IO.md`.
-- [x] Add branch-scoped one-shot dispatcher and local human-input logging helper.
+- [x] Add one-shot branch-worktree dispatcher and local human-input logging helper.
 - [x] Add a first-pass main-branch dispatcher for `@codex` and `@claude` commits.
 - [x] Clarify dispatcher prompt semantics and align new-worktree initialization with `parallel-worktrees`.
+- [x] Merge `agent/codex/main` into `main` and correct dispatch semantics to branch-owned worktrees.
+- [x] Install guarded local branch-update hooks for `~/learnings` and `~/repos/endepromotion`.
 
 ## Blockers
 - None.
@@ -23,16 +25,18 @@ wait what does "the hook knows this" mean? my understanding is basically that wh
 - Added git-dispatched worktree workflow guidance.
 - Removed separate `agent-coordination.md` from the intended policy surface.
 - Replaced `/home/name/AGENTS.md`, `/home/name/.codex/AGENTS.md`, and `/home/name/.claude/CLAUDE.md` with symlinks to `/home/name/learnings/AGENTS.md`.
-- Added `scripts/dispatch-agent.sh` and a sample laptop `post-commit` hook for triggering `/home/name/repos/endepromotion`.
+- Added `scripts/dispatch-agent.sh` and guarded local hook samples for triggering dispatch on `theserver`.
 - Added `[no-dispatch]` / `@no-dispatch` suppression and clarified that only commit messages trigger dispatch.
 - Removed the cron-based watcher; dispatch is trigger-based, not polling-based.
 - Added `USER_IO.md` convention: human-owned durable prompts are distinct from agent-owned `STATUS.md` output.
-- Changed dispatcher branches from one branch per SHA to one branch per tool/source branch, e.g. `agent/codex/main`.
 - Clarified that the whole trigger commit message and human-authored patch are durable prompt input; post-tag text is extra prompt content, not the only prompt.
-- Updated the dispatcher to initialize new agent worktrees with `pnpm install` when `package.json` exists, matching the `parallel-worktrees` setup convention.
+- Merged the old `agent/codex/main` result into `main`.
+- Corrected dispatcher behavior: it receives the source branch, finds or creates that branch's worktree, runs the agent there, commits to the same branch, and queues concurrent trigger commits with a blocking lock.
+- Added `scripts/reference-transaction-dispatch.sample`, which watches committed `refs/heads/<branch>` pointer updates and triggers only when the new tip commit message contains `@codex` or `@claude`.
+- Installed local `.git/hooks/reference-transaction` wrappers in `~/learnings` and `~/repos/endepromotion`; the hook exits cleanly off `theserver` or when the dispatcher script is absent, starts dispatch inside persistent `tmux`, and logs under `/home/name/agent-dispatch-logs`.
 
 ## Agent Output
-- Resolved the active review prompt: `AGENTS.md`, `README.md`, and the generated dispatcher prompt now say that the full trigger commit message and human-authored patch are prompt context. The dispatcher keeps its branch-scoped agent names but mirrors the `parallel-worktrees` initialization behavior for new worktrees by running `pnpm install` when `package.json` is present.
+- Resolved the active correction: dispatch is now keyed by branch ref updates, not by guessing from a commit after the fact. The branch itself owns the worktree where the agent runs; extra instructions during a run should arrive as another `@codex`/`@claude` commit, which waits on the dispatcher lock.
 
 ## Next Steps
-- Install the laptop hook or webhook trigger for target repos when ready.
+- Remove the stale `agent/codex/main` branch/worktree after the merged result is pushed.

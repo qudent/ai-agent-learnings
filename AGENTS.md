@@ -83,32 +83,32 @@ One paragraph: what this project is and what phase it is in right now.
 - Concrete next actions in priority order.
 ```
 
-## Git-Dispatched Parallel Work
+## Git-Dispatched Branch Work
 
-Prefer git-dispatched worktrees over interactive tmux subagents for parallel development. Tmux agents were fragile because prompts could fail to submit, sessions accumulated stale state, and coordination depended on reading panes instead of commits.
+Prefer git-dispatched branch worktrees over interactive tmux subagents for parallel development. Tmux is useful for launching and logging long-running dispatcher processes, but commits remain the coordination primitive.
 
 Preferred workflow:
 
 1. Human creates a request branch and commits with `@codex` or similar in the commit message.
 2. The commit message and human-authored patch are the fresh durable human prompt. The human may put comments in any changed file, `USER_IO.md`, or `STATUS.md`.
-3. A dispatcher detects the `@codex` commit and creates or reuses a branch-scoped agent branch, for example `agent/codex/main`.
-4. The dispatcher creates or reuses a separate worktree for the agent branch, for example `<repo>.worktrees/codex-main`.
-5. The agent receives the repo instructions, current `STATUS.md`, branch metadata, and the full triggering commit patch.
+3. A local `reference-transaction` hook detects `refs/heads/<branch>` pointer updates. If the new tip commit message contains `@codex` or `@claude`, it passes both the new commit and branch name to the dispatcher.
+4. The dispatcher finds or creates the worktree associated with that exact branch, for example `main` at the primary repo path or `feature-x` at `<repo>.worktrees/feature-x`.
+5. The agent works directly in that branch worktree and receives the repo instructions, current `STATUS.md`, branch metadata, and the full triggering commit patch.
 6. The agent treats unchanged older text as context, not as a new request.
-7. The agent commits one coherent result to the agent branch and rewrites `STATUS.md`, including `Agent Output`.
+7. The agent commits one coherent result to the same branch and rewrites `STATUS.md`, including `Agent Output`.
 8. Human reviews, merges, or continues by making another `@codex` commit.
 
-The KISS implementation is a one-shot dispatcher at `scripts/dispatch-agent.sh`: call it as `dispatch-agent.sh REPO COMMITISH [SOURCE_BRANCH]`. A laptop commit can trigger the server through a local git hook that pushes the commit and SSHes to the always-on machine to invoke the dispatcher for that exact SHA and branch. A GitHub webhook can call the same command later. Polling is not the desired primitive. The dispatcher prompt includes the full trigger commit message and patch; text after the tag in the commit message is intentional extra prompt content, not the only prompt content.
+The KISS implementation is a one-shot dispatcher at `scripts/dispatch-agent.sh`: call it as `dispatch-agent.sh REPO COMMITISH SOURCE_BRANCH`. A local `reference-transaction` hook on the always-on machine starts it inside a persistent tmux session and writes logs under `/home/name/agent-dispatch-logs`. A GitHub webhook can call the same command later. Polling is not the desired primitive. The dispatcher prompt includes the full trigger commit message and patch; text after the tag in the commit message is intentional extra prompt content, not the only prompt content.
 
-The dispatcher mirrors the `parallel-worktrees` skill's sibling worktree layout (`<repo>.worktrees/<branch-ish>`) while using branch-scoped agent branches (`agent/<tool>/<source-branch>`). It creates or reuses the agent worktree and initializes a new worktree by running `pnpm install` when `package.json` is present, matching the skill's setup expectation without sourcing the interactive helper.
+The dispatcher mirrors the `parallel-worktrees` skill's sibling worktree layout (`<repo>.worktrees/<branch-ish>`) for branch worktrees beyond the primary repo. It creates or reuses the branch worktree and initializes a new worktree by running `pnpm install` when `package.json` is present, matching the skill's setup expectation without sourcing the interactive helper.
 
 Only commit messages trigger dispatch. Tags inside changed files are prompt content only when the commit message itself triggers an agent. Use `[no-dispatch]` or `@no-dispatch` in the commit message when mentioning `@codex`/`@claude` without wanting a new run. Live feedback typed into an active Codex/Claude chat should be logged with `scripts/log-human-input.sh` rather than turned into another trigger commit.
 
-Do not check out the human's trigger branch directly in the agent worktree. Git cannot safely check out one branch in two worktrees, and the human may keep editing it. Use a branch-scoped child agent branch and merge new human trigger commits into it.
+Do not create `agent/codex/<branch>` child branches for ordinary dispatch. The branch itself owns the worktree where the agent should work; if the worktree is dirty, the dispatcher should refuse rather than risk overwriting human edits.
 
 If a human leaves task comments in source files, the agent should either satisfy and remove them or convert them into durable documentation. Do not leave completed one-off prompt comments in code.
 
-Tmux is still acceptable for long-running commands, monitoring, or manual debugging, but it is not the default parallel agent dispatch mechanism.
+`codex exec` and `claude -p` are non-interactive once launched. To add instructions while a dispatched run is active, commit another `@codex`/`@claude` request on the same branch; the dispatcher lock queues it until the current run exits. Attach to tmux for monitoring logs, not as the primary prompt channel.
 
 ## Working Style
 

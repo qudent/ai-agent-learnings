@@ -46,15 +46,15 @@ The helper appends to `USER_IO.md` and commits with `[no-dispatch] usr: log huma
 ./scripts/dispatch-agent.sh /home/name/repos/endepromotion <commit-sha> main
 ```
 
-Workflow: commit with `@codex` or `@claude` in the commit message. The full trigger commit message and human-authored patch are included in the prompt; text after the tag is intentional extra prompt content, not the only prompt content. Tags inside changed files do not trigger dispatch by themselves. If a commit message must mention a tag without spawning an agent, include `[no-dispatch]` or `@no-dispatch`. The dispatcher creates or reuses `agent/<tool>/<source-branch>` in a sibling worktree, merges the trigger commit into that branch, feeds the triggering patch to `codex exec` or `claude -p`, commits any remaining changes, and pushes the agent branch. Agent worktrees are branch-scoped so follow-up trigger commits continue the same thread; set `DISPATCH_CLEANUP=1` if you want the local worktree removed after a run.
+Workflow: commit with `@codex` or `@claude` in the commit message. The full trigger commit message and human-authored patch are included in the prompt; text after the tag is intentional extra prompt content, not the only prompt content. Tags inside changed files do not trigger dispatch by themselves. If a commit message must mention a tag without spawning an agent, include `[no-dispatch]` or `@no-dispatch`. The dispatcher resolves the source branch, finds or creates that branch's worktree, feeds the triggering patch to `codex exec` or `claude -p` in that exact worktree, commits any remaining changes to the same branch, and pushes that branch.
 
-The dispatcher follows the same worktree setup convention as the `parallel-worktrees` skill: sibling worktrees under `<repo>.worktrees/`, with `pnpm install` run for a new worktree when `package.json` exists. It uses its own branch names (`agent/<tool>/<source-branch>`) and worktree names (`<tool>-<source-branch>`) so automated agent runs do not collide with manual feature worktrees.
+The hook passes the changed `refs/heads/<branch>` name as `SOURCE_BRANCH`; a commit object alone does not reliably identify which branch created it. When the branch has no worktree yet, the dispatcher follows the same setup convention as the `parallel-worktrees` skill: sibling worktrees under `<repo>.worktrees/`, with `pnpm install` run for a new worktree when `package.json` exists. Existing branch worktrees are reused exactly.
 
-To make laptop commits trigger the server, install `scripts/post-commit-dispatch.sample` as a local git hook on the laptop and set:
+To trigger agents when any local branch pointer changes on the always-on machine, install `scripts/reference-transaction-dispatch.sample` as a local `reference-transaction` hook in each target repo. It is guarded to run only on host `theserver`, exits successfully when the dispatcher script is missing, starts work in a persistent `tmux` session, and writes logs under `/home/name/agent-dispatch-logs` by default.
 
 ```bash
-export AGENT_DISPATCH_SSH=name@your-server
-export AGENT_DISPATCH_REPO=/home/name/repos/endepromotion
+cp /home/name/learnings/scripts/reference-transaction-dispatch.sample .git/hooks/reference-transaction
+chmod +x .git/hooks/reference-transaction
 ```
 
-That hook pushes the triggering commit, then SSHes to the always-on machine and invokes the one-shot dispatcher for that exact commit. A GitHub webhook can call the same command later; polling is intentionally not part of the design.
+`codex exec` and `claude -p` are non-interactive after launch. To add more instructions while a dispatched run is active, make another `@codex` or `@claude` commit on the same branch; the dispatcher lock queues it until the current run exits. Attach to the tmux session for monitoring, not for prompt input.
