@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_arg="${1:?usage: dispatch-agent.sh REPO COMMITISH [SOURCE_BRANCH]}"
-commitish="${2:?usage: dispatch-agent.sh REPO COMMITISH [SOURCE_BRANCH]}"
+repo_arg="${1:?usage: dispatch-agent.sh REPO COMMITISH SOURCE_BRANCH}"
+commitish="${2:?usage: dispatch-agent.sh REPO COMMITISH SOURCE_BRANCH}"
+source_branch="${3:?usage: dispatch-agent.sh REPO COMMITISH SOURCE_BRANCH}"
+source_branch="${source_branch#refs/heads/}"
 repo="$(git -C "$repo_arg" rev-parse --show-toplevel)"
 cd "$repo"
 
@@ -21,32 +23,13 @@ if grep -Eqi '(^|[[:space:]])(@no-dispatch|\[no-dispatch\])([[:space:][:punct:]]
   exit 0
 fi
 
+tools=()
+for tool in codex claude; do
+  grep -Eqi "(^|[[:space:]])@$tool([[:space:][:punct:]]|$)" <<<"$msg" && tools+=("$tool")
+done
+[[ "${#tools[@]}" -gt 0 ]] || exit 0
+
 git worktree prune
-
-detect_source_branch() {
-  if [[ "${3:-}" != "" ]]; then
-    sed 's#^refs/heads/##' <<<"$3"
-    return 0
-  fi
-
-  local branches
-  mapfile -t branches < <(git for-each-ref --format='%(refname:short) %(objectname)' refs/heads | awk -v sha="$sha" '$2 == sha && $1 !~ /^agent\// { print $1 }')
-  if [[ "${#branches[@]}" == 1 ]]; then
-    printf '%s\n' "${branches[0]}"
-    return 0
-  fi
-
-  mapfile -t branches < <(git branch --contains "$sha" --format='%(refname:short)' | awk '$1 !~ /^agent\// { print $1 }')
-  if [[ "${#branches[@]}" == 1 ]]; then
-    printf '%s\n' "${branches[0]}"
-    return 0
-  fi
-
-  echo "refusing dispatch: cannot infer a unique source branch for $sha; pass SOURCE_BRANCH" >&2
-  exit 1
-}
-
-source_branch="$(detect_source_branch "$@")"
 safe_branch="$(sed -E 's#[^A-Za-z0-9._-]+#-#g; s#^-+##; s#-+$##' <<<"$source_branch")"
 
 init_worktree() {
@@ -112,6 +95,13 @@ ensure_branch_worktree() {
 
 worktree="$(ensure_branch_worktree)"
 branch="$source_branch"
+if [[ "${DISPATCH_DRY_RUN:-0}" == 1 ]]; then
+  for tool in "${tools[@]}"; do
+    echo "would dispatch $tool for ${sha:0:12} on $branch in $worktree"
+  done
+  exit 0
+fi
+
 ensure_clean "$worktree"
 if ! git -C "$worktree" merge-base --is-ancestor "$sha" HEAD; then
   if git -C "$worktree" merge-base --is-ancestor HEAD "$sha"; then
@@ -122,16 +112,10 @@ if ! git -C "$worktree" merge-base --is-ancestor "$sha" HEAD; then
   fi
 fi
 
-for tool in codex claude; do
-  grep -Eqi "(^|[[:space:]])@$tool([[:space:][:punct:]]|$)" <<<"$msg" || continue
+for tool in "${tools[@]}"; do
   short="${sha:0:12}"
   done_file="$state_dir/done-$tool-$short"
   [[ -f "$done_file" ]] && continue
-
-  if [[ "${DISPATCH_DRY_RUN:-0}" == 1 ]]; then
-    echo "would dispatch $tool for $short on $branch in $worktree"
-    continue
-  fi
 
   prompt="$state_dir/prompt-$tool-$short.md"
   {
@@ -142,8 +126,8 @@ for tool in codex claude; do
     echo "Trigger commit: $sha"
     echo
     echo "Treat the commit message and human-authored patch text below as durable human input. The whole trigger commit is prompt context; text after @$tool is intentional extra prompt content, not the only prompt content."
-    echo "Read AGENTS.md, STATUS.md, and USER_IO.md if present. Human input is the non-ephemeral signal; do not rewrite USER_IO.md unless explicitly asked."
-    echo "Work directly in the listed branch worktree. Update STATUS.md Agent Output, clear handled active prompts, and commit all changes to $branch."
+    echo "Read AGENTS.md, STATUS.md, HUMAN_AGENTS_WHITEBOARD.md, and USER_IO.md if present. Human input is the non-ephemeral signal; do not rewrite USER_IO.md unless explicitly asked."
+    echo "Work directly in the listed branch worktree. Keep STATUS.md to compact project state. Put active human-agent communication, handled prompts, and agent notes in HUMAN_AGENTS_WHITEBOARD.md. Commit all changes to $branch."
     echo
     echo "## Trigger Commit Message"
     printf '%s\n' "$msg"

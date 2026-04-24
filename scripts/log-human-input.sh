@@ -7,15 +7,15 @@ repo="$(git -C "$repo_arg" rev-parse --show-toplevel)"
 cd "$repo"
 
 message="${*:-$(cat)}"
-file="${USER_IO_FILE:-USER_IO.md}"
+file="${HUMAN_AGENTS_WHITEBOARD_FILE:-HUMAN_AGENTS_WHITEBOARD.md}"
 ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 if [[ ! -f "$file" ]]; then
-  printf '# User IO\n\nDurable human prompts, feedback, and scribbles. Agents read this file but should not edit it unless explicitly asked.\n' >"$file"
+  printf '# Human/Agents Whiteboard\n\n## Active Human Prompts\n- None active.\n\n## Agent Notes\n- None.\n\n## Open Questions\n- None.\n' >"$file"
 fi
 
 {
-  printf '\n## %s\n\n' "$ts"
+  printf '\n## Human Note - %s\n\n' "$ts"
   printf '%s\n' "$message"
 } >>"$file"
 

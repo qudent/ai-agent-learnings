@@ -13,6 +13,8 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
 | File | When to reference |
 |------|-------------------|
 | `AGENTS.md` | Canonical global operating policy |
+| `STATUS.md` | Current state of this learnings repo |
+| `HUMAN_AGENTS_WHITEBOARD.md` | Active human-agent prompts, handoff notes, and communication |
 | `antipatterns.md` | Always — patterns to watch for and interrupt |
 | `ml-experiments.md` | Any training run, search, or optimization task |
 | `vast-ai.md` | Any work involving Vast.ai GPU instances (includes cost estimation) |
@@ -24,19 +26,19 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
 - When workflow changes materially, update this README in the same session.
 - Commit and push changes in the same session they're made.
 
-## Related: STATUS.md convention
+## Related: coordination files
 
-`AGENTS.md` defines the `STATUS.md` scheme for project coordination. Every non-trivial project gets a `STATUS.md` at its root (~50–100 lines) that agents read before starting work and rewrite (not append) when state changes. `STATUS.md` is current state and agent output; durable human prompts live in commit messages, human-authored diffs, and `USER_IO.md` when present. Stable repo instructions stay in each repo's `AGENTS.md`.
+`AGENTS.md` defines the repo coordination scheme. Every non-trivial project gets a `STATUS.md` at its root for compact project state and a `HUMAN_AGENTS_WHITEBOARD.md` for active prompts, questions, agent handoffs, and latest agent-to-human notes. Agents read both before starting work and rewrite them when state changes. Durable human prompts live in commit messages, human-authored diffs, `HUMAN_AGENTS_WHITEBOARD.md`, and `USER_IO.md` when present. Stable repo instructions stay in each repo's `AGENTS.md`.
 
 ## Human input convention
 
-Use `USER_IO.md` when human feedback is too long for a commit message or should feel like a scratchpad. Agents read it but should not edit it unless explicitly asked. For quick feedback typed into an active agent chat, commit it without triggering another run:
+Use `HUMAN_AGENTS_WHITEBOARD.md` for active instructions and agent communication. Use `USER_IO.md` only when the human wants a durable prompt archive or scratchpad that agents should not tidy. For quick feedback typed into an active agent chat, commit it without triggering another run:
 
 ```bash
 ./scripts/log-human-input.sh /home/name/repos/endepromotion 'usr: I do not like X; try Y instead.'
 ```
 
-The helper appends to `USER_IO.md` and commits with `[no-dispatch] usr: log human input`.
+The helper adds the note to `HUMAN_AGENTS_WHITEBOARD.md` and commits with `[no-dispatch] usr: log human input`.
 
 ## KISS dispatcher
 

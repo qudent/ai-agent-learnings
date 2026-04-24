@@ -77,5 +77,5 @@ Flag these immediately; do not wait until they consume hours or budget.
 
 **Do instead**:
 - rewrite relevant learnings files
-- update learnings `README.md` and `STATUS.md` when workflow meaningfully changes
+- update learnings `README.md`, `STATUS.md`, and `HUMAN_AGENTS_WHITEBOARD.md` when workflow meaningfully changes
 - commit and push in the same session
