@@ -33,6 +33,16 @@ Every repo `AGENTS.md` should include this coordination note or an equivalent:
 Read `./STATUS.md` before starting non-trivial work. `STATUS.md` is the current coordination surface: project state, human prompts, and agent output. Rewrite it after meaningful state changes; keep it compact and current. For git-dispatched `@codex` runs, treat the triggering commit diff as the primary prompt and use `STATUS.md` for current output/status.
 ```
 
+## Human Input vs Agent Output
+
+Human input is the durable, high-value part of the repository. Agent output is useful but fungible. Preserve that distinction:
+
+- **Human-owned input**: commit messages beginning with `usr:` or containing `@codex`/`@claude`, human edits to source/docs, and `USER_IO.md` when present.
+- **Agent-owned output**: code changes, generated artifacts, and the `Agent Output` section of `STATUS.md`.
+- **Do not rewrite `USER_IO.md`** unless the human explicitly asks. Agents should read it as durable prompt/context, not tidy it as status.
+- **Live chat feedback** typed into an active agent session should be committed as human input with `[no-dispatch] usr: ...` if it should survive. Use `scripts/log-human-input.sh` to append it to `USER_IO.md`.
+- **Commit prefix convention**: use `usr:` for human-only notes, `@codex`/`@claude` for dispatching human requests, and `agent:` or `<tool> result` for agent commits.
+
 ## STATUS.md -- project state and agent IO
 
 Each non-trivial project must have a `STATUS.md` at its root, kept to roughly 50-100 lines and 2-4KB. This is the coordination point and current human/agent communication surface for the project.
@@ -40,7 +50,7 @@ Each non-trivial project must have a `STATUS.md` at its root, kept to roughly 50
 - **Read it before starting work** on a project.
 - **Rewrite it when state changes meaningfully** -- goal completed, blocker found, direction changed.
 - **Rewrite, don't append** -- it is current state, not a log. Git history is the archive.
-- **Use it for human prompts and agent output** -- active human requests belong in `Human Prompts`; current agent results belong in `Agent Output`.
+- **Use it for active human prompts and agent output** -- active human requests belong in `Human Prompts`; durable prompt transcripts belong in commit messages or `USER_IO.md`; current agent results belong in `Agent Output`.
 - **Clear resolved prompts** -- do not leave stale requests in the current file once handled.
 - **Always update it immediately after each meaningful state change** -- do not ask first.
 
@@ -53,8 +63,8 @@ Recommended structure:
 One paragraph: what this project is and what phase it is in right now.
 
 ## Human Prompts
-- Current human requests or review notes that still need action.
-- Keep only active prompts here; git history is the archive.
+- Current human requests or review notes that still need action, or pointers to relevant `USER_IO.md` sections/commits.
+- Keep only active prompts here; commit history and `USER_IO.md` are the durable human-input archive.
 
 ## Active Goals
 - [ ] Goal A -- brief description
@@ -80,15 +90,19 @@ Prefer git-dispatched worktrees over interactive tmux subagents for parallel dev
 Preferred workflow:
 
 1. Human creates a request branch and commits with `@codex` or similar in the commit message.
-2. The commit diff is the fresh prompt. The human may put comments in any changed file or in `STATUS.md`.
-3. A dispatcher detects the `@codex` commit and creates a new agent branch from that exact commit, for example `codex/<trigger-branch>/<short-sha>`.
-4. The dispatcher creates a separate worktree for the agent branch, for example `<repo>.worktrees/codex-<short-sha>`.
+2. The commit message and diff are the fresh durable human prompt. The human may put comments in any changed file, `USER_IO.md`, or `STATUS.md`.
+3. A dispatcher detects the `@codex` commit and creates or reuses a branch-scoped agent branch, for example `agent/codex/main`.
+4. The dispatcher creates or reuses a separate worktree for the agent branch, for example `<repo>.worktrees/codex-main`.
 5. The agent receives the repo instructions, current `STATUS.md`, branch metadata, and the full triggering commit patch.
 6. The agent treats unchanged older text as context, not as a new request.
 7. The agent commits one coherent result to the agent branch and rewrites `STATUS.md`, including `Agent Output`.
 8. Human reviews, merges, or continues by making another `@codex` commit.
 
-Do not check out the human's trigger branch directly in the agent worktree. Git cannot safely check out one branch in two worktrees, and the human may keep editing it. Use a child agent branch from the trigger commit.
+The KISS implementation is a one-shot dispatcher at `scripts/dispatch-agent.sh`: call it as `dispatch-agent.sh REPO COMMITISH [SOURCE_BRANCH]`. A laptop commit can trigger the server through a local git hook that pushes the commit and SSHes to the always-on machine to invoke the dispatcher for that exact SHA and branch. A GitHub webhook can call the same command later. Polling is not the desired primitive. Text after the tag in the commit message is part of the agent prompt.
+
+Only commit messages trigger dispatch. Tags inside changed files are prompt content only when the commit message itself triggers an agent. Use `[no-dispatch]` or `@no-dispatch` in the commit message when mentioning `@codex`/`@claude` without wanting a new run. Live feedback typed into an active Codex/Claude chat should be logged with `scripts/log-human-input.sh` rather than turned into another trigger commit.
+
+Do not check out the human's trigger branch directly in the agent worktree. Git cannot safely check out one branch in two worktrees, and the human may keep editing it. Use a branch-scoped child agent branch and merge new human trigger commits into it.
 
 If a human leaves task comments in source files, the agent should either satisfy and remove them or convert them into durable documentation. Do not leave completed one-off prompt comments in code.
 

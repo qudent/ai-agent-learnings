@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+msg="$(git log -1 --format=%B HEAD)"
+grep -Eqi '(^|[[:space:]])(@no-dispatch|\[no-dispatch\])([[:space:][:punct:]]|$)' <<<"$msg" && exit 0
+grep -Eqi '(^|[[:space:]])@(codex|claude)([[:space:][:punct:]]|$)' <<<"$msg" || exit 0
+
+branch="$(git branch --show-current)"
+sha="$(git rev-parse HEAD)"
+git push origin "HEAD:$branch"
+ssh "${AGENT_DISPATCH_SSH:?set AGENT_DISPATCH_SSH}" \
+  "cd /home/name/learnings && ./scripts/dispatch-agent.sh '${AGENT_DISPATCH_REPO:?set AGENT_DISPATCH_REPO}' '$sha' '$branch'"

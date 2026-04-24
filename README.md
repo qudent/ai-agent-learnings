@@ -26,4 +26,33 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
 
 ## Related: STATUS.md convention
 
-`AGENTS.md` defines the `STATUS.md` scheme for project coordination. Every non-trivial project gets a `STATUS.md` at its root (~50–100 lines) that agents read before starting work and rewrite (not append) when state changes. `STATUS.md` is also the current human-prompt and agent-output surface; git history is the archive. Stable repo instructions stay in each repo's `AGENTS.md`.
+`AGENTS.md` defines the `STATUS.md` scheme for project coordination. Every non-trivial project gets a `STATUS.md` at its root (~50–100 lines) that agents read before starting work and rewrite (not append) when state changes. `STATUS.md` is current state and agent output; durable human prompts live in commit messages, human-authored diffs, and `USER_IO.md` when present. Stable repo instructions stay in each repo's `AGENTS.md`.
+
+## Human input convention
+
+Use `USER_IO.md` when human feedback is too long for a commit message or should feel like a scratchpad. Agents read it but should not edit it unless explicitly asked. For quick feedback typed into an active agent chat, commit it without triggering another run:
+
+```bash
+./scripts/log-human-input.sh /home/name/repos/endepromotion 'usr: I do not like X; try Y instead.'
+```
+
+The helper appends to `USER_IO.md` and commits with `[no-dispatch] usr: log human input`.
+
+## KISS dispatcher
+
+`scripts/dispatch-agent.sh` is a one-shot dispatcher for `@codex` and `@claude` commits:
+
+```bash
+./scripts/dispatch-agent.sh /home/name/repos/endepromotion <commit-sha> main
+```
+
+Workflow: commit with `@codex` or `@claude` in the commit message. Text after the tag is included in the prompt. Tags inside changed files do not trigger dispatch by themselves. If a commit message must mention a tag without spawning an agent, include `[no-dispatch]` or `@no-dispatch`. The dispatcher creates or reuses `agent/<tool>/<source-branch>` in a sibling worktree, merges the trigger commit into that branch, feeds the triggering patch to `codex exec` or `claude -p`, commits any remaining changes, and pushes the agent branch. Agent worktrees are branch-scoped so follow-up trigger commits continue the same thread; set `DISPATCH_CLEANUP=1` if you want the local worktree removed after a run.
+
+To make laptop commits trigger the server, install `scripts/post-commit-dispatch.sample` as a local git hook on the laptop and set:
+
+```bash
+export AGENT_DISPATCH_SSH=name@your-server
+export AGENT_DISPATCH_REPO=/home/name/repos/endepromotion
+```
+
+That hook pushes the triggering commit, then SSHes to the always-on machine and invokes the one-shot dispatcher for that exact commit. A GitHub webhook can call the same command later; polling is intentionally not part of the design.
