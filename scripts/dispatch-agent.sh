@@ -23,6 +23,14 @@ if grep -Eqi '(^|[[:space:]])(@no-dispatch|\[no-dispatch\])([[:space:][:punct:]]
 fi
 
 git worktree prune
+init_worktree() {
+  local wt="$1"
+  [[ "${DISPATCH_INSTALL:-1}" == 0 ]] && return 0
+  [[ -f "$wt/package.json" ]] || return 0
+  [[ -z "$(git -C "$wt" ls-files -u)" ]] || return 0
+  (cd "$wt" && pnpm install)
+}
+
 for tool in codex claude; do
   grep -Eqi "(^|[[:space:]])@$tool([[:space:][:punct:]]|$)" <<<"$msg" || continue
   short="${sha:0:12}"
@@ -38,13 +46,17 @@ for tool in codex claude; do
   fi
 
   mkdir -p "$root"
+  new_worktree=0
   if git show-ref --verify --quiet "refs/heads/$branch"; then
     existing_branch=1
   else
     existing_branch=0
     git branch "$branch" "$sha"
   fi
-  [[ -e "$worktree/.git" ]] || git worktree add "$worktree" "$branch"
+  if [[ ! -e "$worktree/.git" ]]; then
+    git worktree add "$worktree" "$branch"
+    new_worktree=1
+  fi
   if [[ "$existing_branch" == 1 ]]; then
     if ! git -C "$worktree" diff --quiet || ! git -C "$worktree" diff --cached --quiet || [[ -n "$(git -C "$worktree" ls-files --others --exclude-standard)" ]]; then
       echo "refusing dispatch: $worktree has uncommitted changes" >&2
@@ -52,6 +64,7 @@ for tool in codex claude; do
     fi
     git -C "$worktree" merge --no-edit "$sha" || true
   fi
+  [[ "$new_worktree" == 0 ]] || init_worktree "$worktree"
 
   prompt="$state_dir/prompt-$tool-$short.md"
   {
@@ -62,7 +75,7 @@ for tool in codex claude; do
     echo "Human/source branch: $source_branch"
     echo "Trigger commit: $sha"
     echo
-    echo "Treat the commit message and patch below as durable human input. Text after @$tool is intentional prompt content."
+    echo "Treat the commit message and human-authored patch text below as durable human input. The whole trigger commit is prompt context; text after @$tool is intentional extra prompt content, not the only prompt content."
     echo "Read AGENTS.md, STATUS.md, and USER_IO.md if present. Human input is the non-ephemeral signal; do not rewrite USER_IO.md unless explicitly asked."
     echo "Update STATUS.md Agent Output, clear handled active prompts, and commit all changes to $branch."
     echo

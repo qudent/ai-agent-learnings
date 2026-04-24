@@ -4,7 +4,7 @@
 This repo stores project-agnostic operating guidance for local AI coding agents. `AGENTS.md` is the canonical global instruction source, global agent config files symlink to it, and branch-scoped one-shot `@codex`/`@claude` dispatch helpers now live under `scripts/`.
 
 ## Human Prompts
-- is this consistent with the parallel working skill where the worktrees get initialized etc? also this may be unclear in that the text by human in the entire patch should be considered, you write "after @codex is human prompt"
+- None active.
 
 ## Active Goals
 - [x] Move canonical global instructions into `~/learnings/AGENTS.md`.
@@ -14,6 +14,7 @@ This repo stores project-agnostic operating guidance for local AI coding agents.
 - [x] Add durable human-input conventions around commit messages and `USER_IO.md`.
 - [x] Add branch-scoped one-shot dispatcher and local human-input logging helper.
 - [x] Add a first-pass main-branch dispatcher for `@codex` and `@claude` commits.
+- [x] Clarify dispatcher prompt semantics and align new-worktree initialization with `parallel-worktrees`.
 
 ## Blockers
 - None.
@@ -27,9 +28,11 @@ This repo stores project-agnostic operating guidance for local AI coding agents.
 - Removed the cron-based watcher; dispatch is trigger-based, not polling-based.
 - Added `USER_IO.md` convention: human-owned durable prompts are distinct from agent-owned `STATUS.md` output.
 - Changed dispatcher branches from one branch per SHA to one branch per tool/source branch, e.g. `agent/codex/main`.
+- Clarified that the whole trigger commit message and human-authored patch are durable prompt input; post-tag text is extra prompt content, not the only prompt.
+- Updated the dispatcher to initialize new agent worktrees with `pnpm install` when `package.json` exists, matching the `parallel-worktrees` setup convention.
 
 ## Agent Output
-- Implemented the prompt-preserving workflow: human input goes in commit messages, human diffs, or `USER_IO.md`; live chat feedback can be logged with `[no-dispatch]`; dispatch is one-shot and branch-scoped so follow-up commits continue the same agent branch.
+- Resolved the active review prompt: `AGENTS.md`, `README.md`, and the generated dispatcher prompt now say that the full trigger commit message and human-authored patch are prompt context. The dispatcher keeps its branch-scoped agent names but mirrors the `parallel-worktrees` initialization behavior for new worktrees by running `pnpm install` when `package.json` is present.
 
 ## Next Steps
 - Install the laptop hook or webhook trigger for target repos when ready.
