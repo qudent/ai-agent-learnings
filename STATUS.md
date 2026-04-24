@@ -4,7 +4,7 @@
 This repo stores project-agnostic operating guidance for local AI coding agents. `AGENTS.md` is the canonical global instruction source, global agent config files symlink to it, and branch-scoped one-shot `@codex`/`@claude` dispatch helpers now live under `scripts/`.
 
 ## Human Prompts
-- None active.
+wait what does "the hook knows this" mean? my understanding is basically that when i commit to the main branch or branch x, then the commit that these branches point to change. so i would like a hook that detects when the pointer of any branch changes, and then if the commit message the new thing points to contains @codex, it should trigger
 
 ## Active Goals
 - [x] Move canonical global instructions into `~/learnings/AGENTS.md`.
