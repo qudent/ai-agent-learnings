@@ -4,7 +4,7 @@
 This repo stores project-agnostic operating guidance for local AI coding agents. `AGENTS.md` is the canonical global instruction source, global agent config files symlink to it, and branch-scoped one-shot `@codex`/`@claude` dispatch helpers now live under `scripts/`.
 
 ## Human Prompts
-- None active.
+- is this consistent with the parallel working skill where the worktrees get initialized etc? also this may be unclear in that the text by human in the entire patch should be considered, you write "after @codex is human prompt"
 
 ## Active Goals
 - [x] Move canonical global instructions into `~/learnings/AGENTS.md`.
