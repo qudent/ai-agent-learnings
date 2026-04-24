@@ -1,18 +1,17 @@
 # AI Agent Learnings - Status
 
 ## Current State
-This repo stores project-agnostic operating guidance for local AI coding agents. `AGENTS.md` is now the canonical global instruction source, and the global agent config files symlink to it.
+This repo stores project-agnostic operating guidance for local AI coding agents. `AGENTS.md` is the canonical global instruction source, global agent config files symlink to it, and a KISS `@codex`/`@claude` dispatcher now lives under `scripts/`.
 
 ## Human Prompts
-great, now can you also implement this dispatcher? how to make it so that if i commit on my local macbook, this causes the dispatch to codex? also tagging @claude should be possible too. I would also be happy to do it in a main branch first. it should be made sure that this is cleaned up as well and doesn't become stale, and everything gets committed. (i think for claude the right thing that works programmatically is claude -p?) first make it KISS, having main branch only is fine, it shouldn't be more than a few lines of code right now.
-to be clear the repo i am working in right now is endepromotion, this could be a test case
-also to be clear it should be possible to write @codex <instruction> as well in the commit msg and this should be part of the prompt. for real "conversations", this is probably better.
+- None active.@codex trying this, i see the urge to give feedback to you while i see you working. there should be a way to prevent triggering another dispatch then, any idea how that is possible? maybe the model can become one agent per branch and codex resume? or we write into that branch? think of something. but also it doesn't have to be too complicated for now. maybe its enough if, if i type things into the codex chatbox as feedback, _you_ make sure it gets logged in the repo
 
 ## Active Goals
 - [x] Move canonical global instructions into `~/learnings/AGENTS.md`.
 - [x] Fold agent coordination guidance into `AGENTS.md`.
 - [x] Replace global `AGENTS.md`/`CLAUDE.md` files with symlinks to `~/learnings/AGENTS.md`.
 - [x] Commit and push the learnings repo update.
+- [x] Add a first-pass main-branch dispatcher for `@codex` and `@claude` commits.
 
 ## Blockers
 - None.
@@ -21,9 +20,10 @@ also to be clear it should be possible to write @codex <instruction> as well in 
 - Added git-dispatched worktree workflow guidance.
 - Removed separate `agent-coordination.md` from the intended policy surface.
 - Replaced `/home/name/AGENTS.md`, `/home/name/.codex/AGENTS.md`, and `/home/name/.claude/CLAUDE.md` with symlinks to `/home/name/learnings/AGENTS.md`.
+- Added `scripts/dispatch-agent.sh` and README setup notes for watching `/home/name/repos/endepromotion`.
 
 ## Agent Output
-- Canonical policy file and symlinks are in place. This status reflects the completed refactor.
+- Implemented a KISS polling dispatcher: push `@codex` or `@claude` commits to `origin/main`, run the script on the server, and it creates/pushes agent branches with the commit message and patch as prompt. Temporary worktrees/local branches are removed after successful push unless `DISPATCH_KEEP_WORKTREE=1`.
 
 ## Next Steps
-- None.
+- Install the dispatcher as a cron job or systemd timer on the always-on machine.
