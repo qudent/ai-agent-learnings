@@ -79,7 +79,7 @@ Prefer git-dispatched worktrees over interactive tmux subagents for parallel dev
 
 Preferred workflow:
 
-1. Human creates a request branch and commits with `@codex` in the commit message.
+1. Human creates a request branch and commits with `@codex` or similar in the commit message.
 2. The commit diff is the fresh prompt. The human may put comments in any changed file or in `STATUS.md`.
 3. A dispatcher detects the `@codex` commit and creates a new agent branch from that exact commit, for example `codex/<trigger-branch>/<short-sha>`.
 4. The dispatcher creates a separate worktree for the agent branch, for example `<repo>.worktrees/codex-<short-sha>`.
