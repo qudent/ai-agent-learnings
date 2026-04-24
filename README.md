@@ -26,4 +26,4 @@ Agents are instructed (via `CLAUDE.md`) to read relevant files at the start of t
 
 ## Related: STATUS.md convention
 
-`CLAUDE.md` defines a `STATUS.md` scheme for project coordination. Every non-trivial project gets a `STATUS.md` at its root (~50–100 lines) that agents read before starting work and rewrite (not append) when state changes. The template and full rules live in `agent-coordination.md` in this repo.
+`CLAUDE.md` defines a `STATUS.md` scheme for project coordination. Every non-trivial project gets a `STATUS.md` at its root (~50–100 lines) that agents read before starting work and rewrite (not append) when state changes. `STATUS.md` is also the current human-prompt and agent-output surface; git history is the archive. Stable repo instructions stay in `AGENTS.md`. The template and full rules live in `agent-coordination.md` in this repo.
