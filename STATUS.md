@@ -5,6 +5,7 @@ This repo stores project-agnostic operating guidance for local AI coding agents.
 
 ## Human Prompts
 great, now can you also implement this dispatcher? how to make it so that if i commit on my local macbook, this causes the dispatch to codex? also tagging @claude should be possible too. I would also be happy to do it in a main branch first. it should be made sure that this is cleaned up as well and doesn't become stale, and everything gets committed. (i think for claude the right thing that works programmatically is claude -p?) first make it KISS, having main branch only is fine, it shouldn't be more than a few lines of code right now.
+to be clear the repo i am working in right now is endepromotion, this could be a test case
 
 ## Active Goals
 - [x] Move canonical global instructions into `~/learnings/AGENTS.md`.
