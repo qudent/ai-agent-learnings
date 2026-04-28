@@ -25,10 +25,11 @@ Scope rule for learnings:
 
 **Do instead**:
 - rewrite relevant learnings files and AGENTS.md
-- update learnings when workflow meaningfully changes
 - commit and push in the same session
 
-```markdown
+**ANTIPATTERN**: project-specific learnings
+**Do instead**: Keep learnings project-agnostic
+
 ## Coordination
 
 Read `./STATUS.md` before starting non-trivial work. `STATUS.md` is the single coordination source of truth: compact project state, active human prompts, open questions, agent notes, handoffs, and the current TODO plan. Rewrite it after meaningful state changes; keep it compact and current.

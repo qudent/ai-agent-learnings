@@ -12,9 +12,7 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
 
 | File | When to reference |
 |------|-------------------|
-| `AGENTS.md` | Canonical global operating policy |
-| `STATUS.md` | Current state, active prompts, handoff notes, TODOs, and open questions for this learnings repo |
-| `antipatterns.md` | Always — patterns to watch for and interrupt |
+| `AGENTS.md` | Canonical global operating policy (CLAUDE.md and AGENTS.md symlink here)|
 | `ml-experiments.md` | Any training run, search, or optimization task |
 | `vast-ai.md` | Any work involving Vast.ai GPU instances (includes cost estimation) |
 | `modal-inference.md` | Modal inference deployments |
