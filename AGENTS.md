@@ -21,14 +21,21 @@ Scope rule for learnings:
 | `modal-inference.md` | Modal inference deployments |
 
 
-**ANTIPATTERN**: policy changed but not committed/pushed.
+You have a tendency to change policy but not commit/push.
 
 **Do instead**:
 - rewrite relevant learnings files and AGENTS.md
 - commit and push in the same session
 
-**ANTIPATTERN**: project-specific learnings
-**Do instead**: Keep learnings project-agnostic
+Avoid:
+You tend to enter things into the learnings directory that are specific to individual projects, using conventions, files and framings specific to the project.
+**Do instead**: Keep learnings project-agnostic. Before changing the learnings, confirm and write in your chain of thought whether this is indeed a generalizable insight.
+
+Avoid: provider model IDs from your general knowledge.
+- When using models on Openrouter or other providers, you have a tendency to use outdated model numbers if model version is not specific by user (using outdated models like "qwen-3"). 
+
+
+**Do instead:** Always search for state-of-the-art model versions yourself unless explicitly asked. if you choose which model to use, double check and confirm that this comes either from a research or directly from the user.
 
 ## Coordination
 
