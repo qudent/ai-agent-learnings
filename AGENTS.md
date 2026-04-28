@@ -30,28 +30,28 @@ Every repo `AGENTS.md` should include this coordination note or an equivalent:
 ```markdown
 ## Coordination
 
-Read `./STATUS.md` and `./HUMAN_AGENTS_WHITEBOARD.md` before starting non-trivial work. `STATUS.md` is compact project state; `HUMAN_AGENTS_WHITEBOARD.md` is the active human-agent communication surface for prompts, questions, agent notes, and handoffs. Rewrite both after meaningful state changes; keep them compact and current. For git-dispatched `@codex` runs, treat the triggering commit message and human-authored patch text as the primary prompt.
+Read `./STATUS.md` before starting non-trivial work. `STATUS.md` is the single coordination source of truth: compact project state, active human prompts, open questions, agent notes, handoffs, and the current TODO plan. Rewrite it after meaningful state changes; keep it compact and current. For git-dispatched `@codex` runs, treat the triggering commit message and human-authored patch text as the primary prompt.
 ```
 
 ## Human Input vs Agent Output
 
 Human input is the durable, high-value part of the repository. Agent output is useful but fungible. Preserve that distinction:
 
-- **Human-owned input**: commit messages beginning with `usr:` or containing `@codex`/`@claude`, human edits to source/docs, entries in `HUMAN_AGENTS_WHITEBOARD.md`, and `USER_IO.md` when present.
-- **Agent-owned output**: code changes, generated artifacts, and agent-written sections of `HUMAN_AGENTS_WHITEBOARD.md`.
+- **Human-owned input**: commit messages beginning with `usr:` or containing `@codex`/`@claude`, human edits to source/docs, human-authored entries in `STATUS.md`, and `USER_IO.md` when present.
+- **Agent-owned output**: code changes, generated artifacts, and agent-written status, TODO, result, or handoff sections in `STATUS.md`.
 - **Do not rewrite `USER_IO.md`** unless the human explicitly asks. Agents should read it as durable prompt/context, not tidy it as status.
-- **Live chat feedback** typed into an active agent session should be committed as human input with `[no-dispatch] usr: ...` if it should survive. Use `scripts/log-human-input.sh` to add it to `HUMAN_AGENTS_WHITEBOARD.md`.
+- **Live chat feedback** typed into an active agent session should be committed as human input with `[no-dispatch] usr: ...` if it should survive. Use `scripts/log-human-input.sh` to add it to `STATUS.md`.
 - **Commit prefix convention**: use `usr:` for human-only notes, `@codex`/`@claude` for dispatching human requests, and `agent:` or `<tool> result` for agent commits.
 
 ## STATUS.md -- Project State
 
-Each non-trivial project must have a `STATUS.md` at its root, kept to roughly 30-80 lines and 1-3KB. This is the current project-state snapshot, not a communication scratchpad.
+Each non-trivial project must have a `STATUS.md` at its root, kept compact and current. This is the single coordination file for project state, active human-agent communication, open questions, and the reviewable TODO plan.
 
 - **Read it before starting work** on a project.
 - **Rewrite it when state changes meaningfully** -- goal completed, blocker found, direction changed.
 - **Rewrite, don't append** -- it is current state, not a log. Git history is the archive.
-- **Do not put active prompt/chat text here** -- active human-agent communication belongs in `HUMAN_AGENTS_WHITEBOARD.md`.
-- **No agent-output diary** -- summarize durable results in `Recent Results`; put handoff notes and user-facing agent messages in the whiteboard.
+- **Include active prompt/chat text when it should coordinate future work** -- no separate human-agent whiteboard is expected.
+- **No agent-output diary** -- summarize durable results in `Recent Results`; keep handoff notes, open questions, and the latest TODO plan concise.
 - **Always update it immediately after each meaningful state change** -- do not ask first.
 
 Recommended structure:
@@ -62,37 +62,21 @@ Recommended structure:
 ## Current State
 One paragraph: what this project is and what phase it is in right now.
 
+## Active Human Prompts
+- Current unresolved human requests or review notes.
+
 ## Active Goals
 - [ ] Goal A -- brief description
 - [ ] Goal B -- brief description
+
+## TODO Plan
+- [ ] Concrete next action the human can review or edit.
 
 ## Blockers
 - Description of what is stuck and what would unblock it.
 
 ## Recent Results
 - Two or three bullets describing what was just tried and what happened.
-
-## Next Steps
-- Concrete next actions in priority order.
-```
-
-## HUMAN_AGENTS_WHITEBOARD.md -- Active Communication
-
-Each non-trivial project should also have `HUMAN_AGENTS_WHITEBOARD.md`, kept compact and current. This file is for active instructions and agent communication that should not pollute project state.
-
-- **Read it before starting work** after `STATUS.md`.
-- **Use it for active prompts, review notes, open questions, agent handoff notes, and latest agent-to-human output.**
-- **Rewrite, don't append blindly** -- keep only current prompts and useful handoff context; use commit history for the archive.
-- **Clear handled prompts** once resolved, but preserve unresolved human instructions exactly enough that the next agent can act.
-- **Do not put concrete project run commands here** if they are durable repo instructions; put those in the repo `AGENTS.md`, `STATUS.md`, or project docs as appropriate.
-
-Recommended structure:
-
-```markdown
-# Project Name - Human/Agents Whiteboard
-
-## Active Human Prompts
-- Current unresolved human requests, review notes, or clarifications needed.
 
 ## Agent Notes
 - Current agent handoff: what changed, what failed, and what needs attention.
@@ -108,19 +92,19 @@ Prefer git-dispatched branch worktrees over interactive tmux subagents for paral
 Preferred workflow:
 
 1. Human creates a request branch and commits with `@codex` or similar in the commit message.
-2. The commit message and human-authored patch are the fresh durable human prompt. The human may put comments in changed source/docs files, `HUMAN_AGENTS_WHITEBOARD.md`, or `USER_IO.md`.
+2. The commit message and human-authored patch are the fresh durable human prompt. The human may put comments in changed source/docs files, `STATUS.md`, or `USER_IO.md`.
 3. A local `reference-transaction` hook detects `refs/heads/<branch>` pointer updates. If the new tip commit message contains `@codex` or `@claude`, it passes both the new commit and branch name to the dispatcher.
 4. The dispatcher finds or creates the worktree associated with that exact branch, for example `main` at the primary repo path or `feature-x` at `<repo>.worktrees/feature-x`.
-5. The agent works directly in that branch worktree and receives the repo instructions, current `STATUS.md`, `HUMAN_AGENTS_WHITEBOARD.md`, branch metadata, and the full triggering commit patch.
+5. The agent works directly in that branch worktree and receives the repo instructions, current `STATUS.md`, branch metadata, and the full triggering commit patch.
 6. The agent treats unchanged older text as context, not as a new request.
-7. The agent commits one coherent result to the same branch, updates `STATUS.md` for state, and updates `HUMAN_AGENTS_WHITEBOARD.md` for active communication.
+7. The agent commits one coherent result to the same branch and updates `STATUS.md` for state, active communication, handoff notes, and TODOs.
 8. Human reviews, merges, or continues by making another `@codex` commit.
 
 The KISS implementation is a one-shot dispatcher at `scripts/dispatch-agent.sh`: call it as `dispatch-agent.sh REPO COMMITISH SOURCE_BRANCH`. A local `reference-transaction` hook on the always-on machine starts it inside a persistent tmux session and writes logs under `/home/name/agent-dispatch-logs`. A GitHub webhook can call the same command later. Polling is not the desired primitive. The dispatcher prompt includes the full trigger commit message and patch; text after the tag in the commit message is intentional extra prompt content, not the only prompt content.
 
 The dispatcher mirrors the `parallel-worktrees` skill's sibling worktree layout (`<repo>.worktrees/<branch-ish>`) for branch worktrees beyond the primary repo. It creates or reuses the branch worktree and initializes a new worktree by running `pnpm install` when `package.json` is present, matching the skill's setup expectation without sourcing the interactive helper.
 
-Only commit messages trigger dispatch. Tags inside changed files are prompt content only when the commit message itself triggers an agent. Use `[no-dispatch]` or `@no-dispatch` in the commit message when mentioning `@codex`/`@claude` without wanting a new run. Live feedback typed into an active Codex/Claude chat should be logged with `scripts/log-human-input.sh` rather than turned into another trigger commit.
+Only commit messages trigger dispatch. Tags inside changed files are prompt content only when the commit message itself triggers an agent. Use `[no-dispatch]` or `@no-dispatch` in the commit message when mentioning `@codex`/`@claude` without wanting a new run. Live feedback typed into an active Codex/Claude chat should be logged into `STATUS.md` with `scripts/log-human-input.sh` rather than turned into another trigger commit.
 
 Do not create `agent/codex/<branch>` child branches for ordinary dispatch. The branch itself owns the worktree where the agent should work; if the worktree is dirty, the dispatcher should refuse rather than risk overwriting human edits.
 

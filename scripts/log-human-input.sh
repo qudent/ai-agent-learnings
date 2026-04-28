@@ -7,15 +7,15 @@ repo="$(git -C "$repo_arg" rev-parse --show-toplevel)"
 cd "$repo"
 
 message="${*:-$(cat)}"
-file="${HUMAN_AGENTS_WHITEBOARD_FILE:-HUMAN_AGENTS_WHITEBOARD.md}"
+file="${STATUS_FILE:-STATUS.md}"
 ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 if [[ ! -f "$file" ]]; then
-  printf '# Human/Agents Whiteboard\n\n## Active Human Prompts\n- None active.\n\n## Agent Notes\n- None.\n\n## Open Questions\n- None.\n' >"$file"
+  printf '# Project Status\n\n## Current State\nUnknown.\n\n## Active Human Prompts\n- None active.\n\n## Active Goals\n- [ ] Define current goal.\n\n## TODO Plan\n- [ ] Update this status file.\n\n## Blockers\n- None known.\n\n## Recent Results\n- None yet.\n\n## Agent Notes\n- None.\n\n## Open Questions\n- None.\n' >"$file"
 fi
 
 {
-  printf '\n## Human Note - %s\n\n' "$ts"
+  printf '\n## Human Input - %s\n\n' "$ts"
   printf '%s\n' "$message"
 } >>"$file"
 

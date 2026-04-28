@@ -126,8 +126,8 @@ for tool in "${tools[@]}"; do
     echo "Trigger commit: $sha"
     echo
     echo "Treat the commit message and human-authored patch text below as durable human input. The whole trigger commit is prompt context; text after @$tool is intentional extra prompt content, not the only prompt content."
-    echo "Read AGENTS.md, STATUS.md, HUMAN_AGENTS_WHITEBOARD.md, and USER_IO.md if present. Human input is the non-ephemeral signal; do not rewrite USER_IO.md unless explicitly asked."
-    echo "Work directly in the listed branch worktree. Keep STATUS.md to compact project state. Put active human-agent communication, handled prompts, and agent notes in HUMAN_AGENTS_WHITEBOARD.md. Commit all changes to $branch."
+    echo "Read AGENTS.md, STATUS.md, and USER_IO.md if present. Human input is the non-ephemeral signal; do not rewrite USER_IO.md unless explicitly asked."
+    echo "Work directly in the listed branch worktree. Keep STATUS.md as the single source of truth for compact project state, active human-agent communication, handled prompts, agent notes, and TODOs. Commit all changes to $branch."
     echo
     echo "## Trigger Commit Message"
     printf '%s\n' "$msg"

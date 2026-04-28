@@ -1,1 +1,0 @@
-ok i think scaffolding is way too complicated. it should be plain simple maybe. the point is just: The human writes what they want, the agent replies with what they want to reply. They commit and push this individual file whenever there is something new. there is no expectation that the human reads the output log, therefore it should be committed that often. that's all.
