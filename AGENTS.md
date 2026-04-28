@@ -40,7 +40,7 @@ Human input is the durable, high-value part of the repository. Agent output is u
 - **Human-owned input**: commit messages beginning with `usr:` or containing `@codex`/`@claude`, human edits to source/docs, human-authored entries in `STATUS.md`, and `USER_IO.md` when present.
 - **Agent-owned output**: code changes, generated artifacts, and agent-written status, TODO, result, or handoff sections in `STATUS.md`.
 - **Do not rewrite `USER_IO.md`** unless the human explicitly asks. Agents should read it as durable prompt/context, not tidy it as status.
-- **Live chat feedback** typed into an active agent session should be committed as human input with `[no-dispatch] usr: ...` if it should survive. Use `scripts/log-human-input.sh` to add it to `STATUS.md`.
+- **Live chat feedback** typed into an active agent session should be preserved in `STATUS.md` or a human-authored commit with `[no-dispatch] usr: ...` if it should survive without starting another run.
 - **Commit prefix convention**: use `usr:` for human-only notes, `@codex`/`@claude` for dispatching human requests, and `agent:` or `<tool> result` for agent commits.
 
 ## STATUS.md -- Project State
@@ -100,11 +100,11 @@ Preferred workflow:
 7. The agent commits one coherent result to the same branch and updates `STATUS.md` for state, active communication, handoff notes, and TODOs.
 8. Human reviews, merges, or continues by making another `@codex` commit.
 
-The KISS implementation is a one-shot dispatcher at `scripts/dispatch-agent.sh`: call it as `dispatch-agent.sh REPO COMMITISH SOURCE_BRANCH`. A local `reference-transaction` hook on the always-on machine starts it inside a persistent tmux session and writes logs under `/home/name/agent-dispatch-logs`. A GitHub webhook can call the same command later. Polling is not the desired primitive. The dispatcher prompt includes the full trigger commit message and patch; text after the tag in the commit message is intentional extra prompt content, not the only prompt content.
+The tracked one-shot dispatcher helper scripts have been retired from this repo. If branch-ref dispatch is installed elsewhere, it should remain a trigger-driven local hook or webhook flow rather than polling, and the dispatcher prompt should include the full trigger commit message and patch. Text after the tag in the commit message is intentional extra prompt content, not the only prompt content.
 
 The dispatcher mirrors the `parallel-worktrees` skill's sibling worktree layout (`<repo>.worktrees/<branch-ish>`) for branch worktrees beyond the primary repo. It creates or reuses the branch worktree and initializes a new worktree by running `pnpm install` when `package.json` is present, matching the skill's setup expectation without sourcing the interactive helper.
 
-Only commit messages trigger dispatch. Tags inside changed files are prompt content only when the commit message itself triggers an agent. Use `[no-dispatch]` or `@no-dispatch` in the commit message when mentioning `@codex`/`@claude` without wanting a new run. Live feedback typed into an active Codex/Claude chat should be logged into `STATUS.md` with `scripts/log-human-input.sh` rather than turned into another trigger commit.
+Only commit messages trigger dispatch. Tags inside changed files are prompt content only when the commit message itself triggers an agent. Use `[no-dispatch]` or `@no-dispatch` in the commit message when mentioning `@codex`/`@claude` without wanting a new run. Live feedback typed into an active Codex/Claude chat should be preserved in `STATUS.md` or a human-authored `[no-dispatch] usr: ...` commit rather than turned into another trigger commit.
 
 Do not create `agent/codex/<branch>` child branches for ordinary dispatch. The branch itself owns the worktree where the agent should work; if the worktree is dirty, the dispatcher should refuse rather than risk overwriting human edits.
 

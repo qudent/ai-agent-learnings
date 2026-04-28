@@ -3,8 +3,8 @@
 ## Current State
 This repo stores project-agnostic operating guidance for local AI coding agents.
 `AGENTS.md` is the canonical global instruction source, global agent config
-files symlink to it, and branch-ref dispatched `@codex`/`@claude` helpers live
-under `scripts/`.
+files symlink to it, and branch-ref dispatch remains a policy pattern rather
+than a tracked helper-script implementation in this repo.
 
 `STATUS.md` is now the single coordination source of truth for project state,
 active human prompts, agent replies, handoff notes, open questions, and TODO
@@ -38,14 +38,16 @@ plans. The separate human-agent whiteboard pattern is retired.
 ## Recent Results
 - Replaced ordinary `agent/<tool>/<branch>` dispatch semantics with
   branch-owned worktree dispatch.
-- Added `scripts/reference-transaction-dispatch.sample` so committed
-  `refs/heads/<branch>` pointer updates trigger dispatch when the new tip commit
-  message contains `@codex` or `@claude`.
+- Removed `HUMAN_AGENTS_WHITEBOARD.md`; active coordination now belongs in
+  `STATUS.md`.
+- Removed tracked dispatcher/logging helper scripts from `scripts/` and cleaned
+  stale documentation references to them.
 - Updated coordination policy back to one file: `STATUS.md` contains state,
   active prompts, open questions, agent notes, and TODO plans.
 
 ## Agent Notes
-- `scripts/log-human-input.sh` writes human notes into `STATUS.md` and commits
-  with `[no-dispatch] usr: log human input`.
+- Tracked dispatcher/logging helper scripts are no longer present in this repo;
+  keep future docs at the policy level unless a replacement implementation is
+  added.
 - Stable repo instructions still belong in each repo's `AGENTS.md`; concrete run
   commands belong in repo docs or `STATUS.md`, not in project-agnostic learnings.

@@ -31,31 +31,12 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
 
 ## Human input convention
 
-Use `STATUS.md` for active instructions and agent communication. Use `USER_IO.md` only when the human wants a durable prompt archive or scratchpad that agents should not tidy. For quick feedback typed into an active agent chat, commit it without triggering another run:
-
-```bash
-./scripts/log-human-input.sh /home/name/repos/endepromotion 'usr: I do not like X; try Y instead.'
-```
-
-The helper adds the note to `STATUS.md` and commits with `[no-dispatch] usr: log human input`.
+Use `STATUS.md` for active instructions and agent communication. Use `USER_IO.md` only when the human wants a durable prompt archive or scratchpad that agents should not tidy. For quick feedback typed into an active agent chat, preserve it in `STATUS.md` or a human-authored commit, and use a `[no-dispatch] usr: ...` commit message when it should not start another agent run.
 
 ## KISS dispatcher
 
-`scripts/dispatch-agent.sh` is a one-shot dispatcher for `@codex` and `@claude` commits:
+The tracked local dispatcher helper scripts have been retired from this repo. The coordination contract remains: commit with `@codex` or `@claude` in the commit message when a local dispatcher is installed, and treat the full trigger commit message plus human-authored patch as the durable prompt. Tags inside changed files do not trigger dispatch by themselves. If a commit message must mention a tag without spawning an agent, include `[no-dispatch]` or `@no-dispatch`.
 
-```bash
-./scripts/dispatch-agent.sh /home/name/repos/endepromotion <commit-sha> main
-```
-
-Workflow: commit with `@codex` or `@claude` in the commit message. The full trigger commit message and human-authored patch are included in the prompt; text after the tag is intentional extra prompt content, not the only prompt content. Tags inside changed files do not trigger dispatch by themselves. If a commit message must mention a tag without spawning an agent, include `[no-dispatch]` or `@no-dispatch`. The dispatcher resolves the source branch, finds or creates that branch's worktree, feeds the triggering patch to `codex exec` or `claude -p` in that exact worktree, commits any remaining changes to the same branch, and pushes that branch.
-
-The hook passes the changed `refs/heads/<branch>` name as `SOURCE_BRANCH`; a commit object alone does not reliably identify which branch created it. When the branch has no worktree yet, the dispatcher follows the same setup convention as the `parallel-worktrees` skill: sibling worktrees under `<repo>.worktrees/`, with `pnpm install` run for a new worktree when `package.json` exists. Existing branch worktrees are reused exactly.
-
-To trigger agents when any local branch pointer changes on the always-on machine, install `scripts/reference-transaction-dispatch.sample` as a local `reference-transaction` hook in each target repo. It is guarded to run only on host `theserver`, exits successfully when the dispatcher script is missing, starts work in a persistent `tmux` session, and writes logs under `/home/name/agent-dispatch-logs` by default.
-
-```bash
-cp /home/name/learnings/scripts/reference-transaction-dispatch.sample .git/hooks/reference-transaction
-chmod +x .git/hooks/reference-transaction
-```
+When branch-ref dispatch is configured outside this repo, the hook should pass the changed `refs/heads/<branch>` name as `SOURCE_BRANCH`; a commit object alone does not reliably identify which branch created it. Branch work should happen in the branch-owned worktree, following the `parallel-worktrees` sibling layout for new worktrees.
 
 `codex exec` and `claude -p` are non-interactive after launch. To add more instructions while a dispatched run is active, make another `@codex` or `@claude` commit on the same branch; the dispatcher lock queues it until the current run exits. Attach to the tmux session for monitoring, not for prompt input.
