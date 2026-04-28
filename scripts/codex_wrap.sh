@@ -1,8 +1,11 @@
 # Source this file from bash:  . ./codex_wrap.sh
 
+: "${CODEX_WRAP_CODEX_FLAGS:=--dangerously-bypass-approvals-and-sandbox}"
+
+
 _codex_dir() {
   local gd
-  gd=$(git rev-parse --git-dir) || return
+  gd=$(git rev-parse --absolute-git-dir 2>/dev/null || git rev-parse --git-dir) || return
   mkdir -p "$gd/codex-wrap/logs"
   printf '%s\n' "$gd/codex-wrap"
 }
@@ -11,16 +14,55 @@ _codex_oneline() {
   printf '%s' "$*" | tr '\n\r\t' '   ' | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//' | cut -c1-180
 }
 
+_codex_head_subject() {
+  git log -1 --pretty=%s 2>/dev/null || true
+}
+
+_codex_git_commit_msg() {
+  local msg=$1 amend=${2:-0} tmp
+  tmp=$(mktemp) || return
+  printf '%s\n' "$msg" >"$tmp"
+  if [ "$amend" = 1 ]; then
+    git commit --allow-empty --amend --only -F "$tmp" >/dev/null
+  else
+    git commit --allow-empty --only -F "$tmp" >/dev/null
+  fi
+  local rc=$?
+  rm -f "$tmp"
+  return "$rc"
+}
+
 _codex_commit_marker() {
-  local msg=$1 dir
+  local msg=$1 dir subject amend=0
   dir=$(_codex_dir) || return
   (
     command -v flock >/dev/null 2>&1 && flock 9
-    if git log -1 --pretty=%s 2>/dev/null | grep -q '^\[autosave\]'; then
-      git commit --allow-empty --amend --only -m "$msg" >/dev/null
-    else
-      git commit --allow-empty --only -m "$msg" >/dev/null
+    subject=$(_codex_head_subject)
+    [ "${subject#\[autosave\]}" != "$subject" ] && amend=1
+    _codex_git_commit_msg "$msg" "$amend"
+  ) 9>"$dir/git.lock"
+}
+
+_codex_commit_agent() {
+  local text=$1 sid=$2 dir subject old msg amend=0
+  dir=$(_codex_dir) || return
+  (
+    command -v flock >/dev/null 2>&1 && flock 9
+    subject=$(_codex_head_subject)
+    msg="[codex] $(_codex_oneline "$text")"$'\n\n'"$text"$'\n\n'"$sid"
+    if [ "${subject#\[codex\]}" != "$subject" ]; then
+      old=$(git log -1 --format=%B 2>/dev/null || true)
+      msg="$msg"$'\n\n'"previous [codex]"$'\n\n'"$old"
+      amend=1
+    elif [ "${subject#\[autosave\]}" != "$subject" ]; then
+      amend=1
+      subject=$(git log -1 --pretty=%s HEAD^ 2>/dev/null || true)
+      if [ "${subject#\[codex\]}" != "$subject" ]; then
+        old=$(git log -1 --format=%B HEAD^ 2>/dev/null || true)
+        msg="$msg"$'\n\n'"previous [codex]"$'\n\n'"$old"
+      fi
     fi
+    _codex_git_commit_msg "$msg" "$amend"
   ) 9>"$dir/git.lock"
 }
 
@@ -43,39 +85,51 @@ _codex_banner() {
 }
 
 _codex_write_state() {
-  local dir=$1 runid=$2 pid=$3 pgid=$4 sid=${5:-}
+  local dir=$1 runid=$2 pid=$3 pgid=$4 sid=${5:-} tmp
+  tmp="$dir/current.$$"
   {
     printf 'runid=%q\n' "$runid"
     printf 'pid=%q\n' "$pid"
     printf 'pgid=%q\n' "$pgid"
     printf 'session_id=%q\n' "$sid"
-  } >"$dir/current"
+    printf 'cwd=%q\n' "$PWD"
+  } >"$tmp" && mv "$tmp" "$dir/current"
 }
 
 _codex_clear_state() {
-  local dir=$1 my_runid=$2 runid pid pgid session_id
+  local dir=$1 my_runid=$2 runid pid pgid session_id cwd
   [ -f "$dir/current" ] || return 0
   # shellcheck disable=SC1090
   . "$dir/current"
   [ "${runid:-}" = "$my_runid" ] && rm -f "$dir/current"
 }
 
-_codex_kill() {
-  local pid=$1 pgid=${2:-0}
-  if [ "$pgid" = 1 ]; then
-    kill -- "-$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true
+_codex_signal_live() {
+  local sig=$1 pid=$2 pgid=${3:-}
+  if [ -n "$pgid" ] && [ "$pgid" != 0 ]; then
+    kill "-$sig" -- "-$pgid" 2>/dev/null || kill "-$sig" "$pid" 2>/dev/null || true
   else
-    kill "$pid" 2>/dev/null || true
+    kill "-$sig" "$pid" 2>/dev/null || true
   fi
+}
+
+_codex_kill() {
+  local pid=$1 pgid=${2:-}
+  _codex_signal_live TERM "$pid" "$pgid"
+}
+
+_codex_exec_base() {
+  # shellcheck disable=SC2086
+  printf '%s\0' codex exec --json $CODEX_WRAP_CODEX_FLAGS
 }
 
 _codex_run() {
   command -v jq >/dev/null 2>&1 || { echo 'codex_wrap: jq is required for codex exec --json parsing' >&2; return 127; }
 
   local mode=$1; shift
-  local dir runid fifo jsonlog errlog pid pgid=0 session_id='' instruction='' started=0 rc=0
+  local dir runid fifo jsonlog errlog pid pgid= session_id='' instruction='' started=0 rc=0
   local line typ sid itype text itemid seen_ids='' banner subject
-  local -a cmd
+  local -a cmd base
 
   dir=$(_codex_dir) || return
   runid="$(date +%Y%m%d-%H%M%S)-$$-$RANDOM"
@@ -84,23 +138,28 @@ _codex_run() {
   errlog="$dir/logs/$runid.stderr"
   mkfifo "$fifo" || return
 
+  mapfile -d '' -t base < <(_codex_exec_base)
   case "$mode" in
     start)
       instruction="$*"
-      cmd=(codex exec --json "$@")
+      cmd=("${base[@]}" "$@")
       ;;
     resume)
       session_id=$1; shift
       instruction="$*"
       _codex_commit_marker "[codex_resume] $session_id"$'\n\n'"user"$'\n'"$instruction"
-      cmd=(codex exec --json resume "$session_id" "$@")
+      cmd=("${base[@]}" resume "$session_id" "$@")
+      ;;
+    *)
+      echo "codex_wrap: unknown run mode: $mode" >&2
+      return 2
       ;;
   esac
 
   if command -v setsid >/dev/null 2>&1; then
-    setsid "${cmd[@]}" >"$fifo" 2> >(tee -a "$errlog" >&2) & pid=$!; pgid=1
+    setsid "${cmd[@]}" >"$fifo" 2> >(tee -a "$errlog" >&2) & pid=$!; pgid=$pid
   else
-    "${cmd[@]}" >"$fifo" 2> >(tee -a "$errlog" >&2) & pid=$!; pgid=0
+    "${cmd[@]}" >"$fifo" 2> >(tee -a "$errlog" >&2) & pid=$!; pgid=
   fi
   _codex_write_state "$dir" "$runid" "$pid" "$pgid" "$session_id"
 
@@ -116,6 +175,7 @@ _codex_run() {
         session_id=$sid
         _codex_write_state "$dir" "$runid" "$pid" "$pgid" "$session_id"
       fi
+      [ -f "$dir/abort.$runid" ] && continue
       if [ "$mode" = start ] && [ "$started" = 0 ]; then
         banner=$(_codex_banner "$errlog" "$session_id")
         subject=$(_codex_oneline "$instruction")
@@ -128,6 +188,7 @@ _codex_run() {
     [ "$typ" = item.completed ] || continue
     itype=$(jq -r '.item.type // empty' <<<"$line")
     [ "$itype" = agent_message ] || continue
+    [ -f "$dir/abort.$runid" ] && continue
     text=$(jq -r '.item.text // empty' <<<"$line")
     [ -n "$text" ] || continue
     itemid=$(jq -r '.item.id // empty' <<<"$line")
@@ -135,8 +196,7 @@ _codex_run() {
     seen_ids="$seen_ids $itemid"
 
     printf '\ncodex\n%s\n' "$text" >&2
-    subject=$(_codex_oneline "$text")
-    _codex_commit_marker "[codex] $subject"$'\n\n'"$text"$'\n\n'"$session_id"
+    _codex_commit_agent "$text" "$session_id"
   done <"$fifo"
 
   wait "$pid"; rc=$?
@@ -173,31 +233,38 @@ codex_resume() {
 }
 
 codex_abort() {
-  local dir runid pid pgid session_id
+  local dir runid pid pgid session_id cwd _i
   dir=$(_codex_dir) || return
   [ -f "$dir/current" ] || { echo 'codex_wrap: no running Codex process recorded' >&2; return 1; }
   # shellcheck disable=SC1090
   . "$dir/current"
-  : "${session_id:=unknown}"
-  : "${pgid:=0}"
   : "${runid:=unknown}"
-  printf '%s\n' "$session_id" >"$dir/abort.$runid"
-  _codex_kill "$pid" "$pgid"
-  _codex_commit_marker "[codex_abort] $session_id"
+  printf '%s\n' "${session_id:-unknown}" >"$dir/abort.$runid"
+  _codex_kill "$pid" "${pgid:-}"
+
+  if [ -z "${session_id:-}" ] || [ "$session_id" = unknown ]; then
+    for _i in 1 2 3 4 5 6 7 8 9 10; do
+      sleep 0.05
+      [ -f "$dir/current" ] || break
+      # shellcheck disable=SC1090
+      . "$dir/current"
+      [ -n "${session_id:-}" ] && [ "$session_id" != unknown ] && break
+    done
+  fi
+  _codex_commit_marker "[codex_abort] ${session_id:-unknown}"
 }
 
 codex_new_message() {
-  local dir runid pid pgid session_id sid
+  local dir runid pid pgid session_id cwd sid
   dir=$(_codex_dir) || return
   sid=$(_codex_last_session_id)
   if [ -f "$dir/current" ]; then
     # shellcheck disable=SC1090
     . "$dir/current"
     [ -n "${session_id:-}" ] && sid=$session_id
-    : "${pgid:=0}"
     printf '%s\n' "${session_id:-unknown}" >"$dir/suppress_stop.$runid"
     _codex_commit_marker "[codex_stop] ${session_id:-unknown}"$'\n\n'"restart with new user message"
-    _codex_kill "$pid" "$pgid"
+    _codex_kill "$pid" "${pgid:-}"
   fi
   [ -n "$sid" ] || { echo 'codex_wrap: no Codex session id found in git history' >&2; return 1; }
   codex_resume "$sid" "$@"
