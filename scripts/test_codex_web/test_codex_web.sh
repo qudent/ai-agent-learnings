@@ -92,7 +92,8 @@ printf '%s' "$page" | grep -F 'Path changes auto-load' >/dev/null
 printf '%s' "$page" | grep -F 'Click a hash to copy it' >/dev/null
 printf '%s' "$page" | grep -F 'Full transcript' >/dev/null
 printf '%s' "$page" | grep -F 'Rename branch' >/dev/null
-printf '%s' "$page" | grep -F 'Paste or drop screenshots' >/dev/null
+printf '%s' "$page" | grep -F 'Paste or drop files' >/dev/null
+printf '%s' "$page" | grep -F 'Remove attachment' >/dev/null
 ! printf '%s' "$page" | grep -F 'Attach screenshot' >/dev/null
 printf '%s' "$page" | grep -F 'agent-active' >/dev/null
 printf '%s' "$page" | grep -F 'chatgit launcher' >/dev/null
@@ -136,14 +137,14 @@ printf '%s' "$transcript" | grep -F 'OpenAI Codex fake' >/dev/null
 printf '%s' "$transcript" | grep -F 'branch test' >/dev/null
 printf 'ok - transcript API returns full spawned process log\n'
 
-printf 'fake image bytes\n' >"$TMP/screenshot.png"
-upload_response=$(python3 - "$TMP/screenshot.png" "$REPO" "$PORT" <<'PY'
+printf 'plain text attachment\n' >"$TMP/notes.txt"
+upload_response=$(python3 - "$TMP/notes.txt" "$REPO" "$PORT" <<'PY'
 import base64, json, sys, urllib.request
 path, repo, port = sys.argv[1:]
 payload = json.dumps({
     "repo": repo,
-    "name": "screenshot.png",
-    "content_type": "image/png",
+    "name": "notes.txt",
+    "content_type": "text/plain",
     "data": base64.b64encode(open(path, "rb").read()).decode(),
 }).encode()
 req = urllib.request.Request(
@@ -157,15 +158,16 @@ PY
 upload_path=$(printf '%s' "$upload_response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["path"])')
 [ -s "$upload_path" ]
 printf '%s' "$upload_path" | grep -F 'chatgit-uploads' >/dev/null
+printf '%s' "$upload_response" | grep -F '"content_type": "text/plain"' >/dev/null
 upload_run=$(curl -fsS -X POST -H 'content-type: application/json' \
-  -d "{\"repo\":\"$REPO\",\"prompt\":\"describe screenshot\",\"mode\":\"fresh\",\"attachments\":[\"$upload_path\"]}" \
+  -d "{\"repo\":\"$REPO\",\"prompt\":\"read attached file\",\"mode\":\"fresh\",\"attachments\":[\"$upload_path\"]}" \
   "http://127.0.0.1:$PORT/api/run")
 upload_log=$(printf '%s' "$upload_run" | python3 -c 'import json,sys; print(json.load(sys.stdin)["process"]["log"])')
 upload_pid=$(printf '%s' "$upload_run" | python3 -c 'import json,sys; print(json.load(sys.stdin)["process"]["pid"])')
 wait_pid "$upload_pid"
 upload_transcript=$(curl -fsS "http://127.0.0.1:$PORT/api/transcript?repo=$(urlencode "$REPO")&log=$(urlencode "$upload_log")" | python3 -c 'import json,sys; print(json.load(sys.stdin)["transcript"])')
 printf '%s' "$upload_transcript" | grep -F "$upload_path" >/dev/null
-printf 'ok - screenshot upload stores a file and includes its path in prompts\n'
+printf 'ok - arbitrary file upload stores a file and includes its path in prompts\n'
 
 curl -fsS -X POST -H 'content-type: application/json' \
   -d "{\"repo\":\"$REPO\",\"prompt\":\"slow queue first\",\"mode\":\"fresh\",\"base_commit\":\"\"}" \

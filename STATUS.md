@@ -38,8 +38,8 @@ on local branch `dev`.
 - [x] Check how easy branch-name editing is; implement a low-risk rename flow if
   the Git/worktree mechanics are straightforward, otherwise document the
   blocker in the UI/status.
-- [x] Add screenshot upload to the chat composer and pass uploaded screenshot
-  paths along with prompts.
+- [x] Add pasted/dropped file upload to the chat composer and pass uploaded
+  file paths along with prompts.
 - [x] Add discoverability hints, including that clicking/copying hashes copies
   them.
 - [x] Queue web-submitted messages behind active runs for the same worktree.
@@ -72,6 +72,9 @@ on local branch `dev`.
 - Replaced the visible screenshot upload button with paste/drop screenshot
   handling in the composer and added a regression that active-agent branch
   marking clears after the Codex process exits.
+- Generalized composer uploads from screenshots to arbitrary pasted/dropped
+  files, added per-attachment `x` removal, and verified `text/plain` uploads
+  are stored under `codex-wrap/chatgit-uploads` and passed by path in prompts.
 - Created the `dev` worktree at `/home/name/learnings.worktrees/dev` and
   started a second `chatgit` web UI from that tree in tmux session
   `chatgit-dev` on `127.0.0.1:6175`.
