@@ -52,6 +52,15 @@ on local branch `dev`.
 - None.
 
 ## Recent Results
+- Implemented the next codex-web-interface dev pass on `dev`: `/api/worktrees`
+  now returns active worktrees with grouped runs plus archived runs from marker
+  commits/log files, the left pane renders Active worktrees and Archived runs,
+  finished/deleted branch runs can open transcripts, message action buttons no
+  longer embed prompt text in inline handlers, and web/wrapper tests cover shell
+  metacharacter prompts plus Git option-shaped commit rejection.
+- Updated the checked-in `parallel-worktrees` helper to match the installed
+  parent-metadata behavior, tightened commit-ish verification/quoting, and
+  synced the Codex, Claude, and Gemini installed skill copies.
 - Merged child branch
   `codex-web-interface-0e98811-20260429-203652-614022239` back into `dev` and
   removed the child worktree/branch. The merged change constrains left-pane
@@ -147,5 +156,12 @@ on local branch `dev`.
 - Current verification for the codex-web-interface is `python3 -m py_compile
   scripts/codex_web.py` and `bash scripts/test_codex_web/test_codex_web.sh
   scripts/codex_web.py`; the web test uses headless Chrome when available.
+- Current wrapper/backend verification is
+  `bash scripts/test_codex_wrap/test_codex_wrap.sh scripts/codex_wrap.sh`.
+- `codex_commit @ ...` remains plain prompt text. Branch/commit placement is
+  `codex_in_branch @ <branch-or-commit> <prompt...>` via `do_at_branch` /
+  `do_at_commit`; tracked dispatcher scripts are still retired, and the live
+  reference-transaction hook silently does nothing if its external sample script
+  is absent.
 - Stable repo instructions still belong in each repo's `AGENTS.md`; concrete run
   commands belong in repo docs or `STATUS.md`, not in project-agnostic learnings.

@@ -85,6 +85,10 @@ not be inferred from worktree directory names.
   detail pane.
 - Long active or queued status text must stay inside the branch pane instead of
   painting across adjacent panes.
+- Finished runs are durable run objects in `/api/worktrees`, grouped under
+  their owning active worktree when it still exists.
+- When a finished branch worktree has been merged and removed, its run remains
+  visible under an archived-runs section and can still open its transcript.
 
 ## Active Branches
 
@@ -93,6 +97,15 @@ not be inferred from worktree directory names.
 - and the row for that worktree has a visible active-agent indication.
 - Once that Codex process exits, `/api/worktrees` must stop marking the
   worktree active.
+
+## Prompt Safety
+
+- Prompts from the web UI are passed to Codex as argv, not interpolated into
+  shell source.
+- Shell metacharacters in prompt text must remain literal and must not execute
+  before reaching Codex.
+- Commit detail endpoints validate commit-ish input and reject values shaped
+  like Git options.
 
 ## File Uploads
 

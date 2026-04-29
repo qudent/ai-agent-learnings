@@ -93,6 +93,8 @@ printf '%s' "$page" | grep -F 'setInterval(()=>{if(!document.hidden)refreshAll()
 printf '%s' "$page" | grep -F 'Click a hash to copy it' >/dev/null
 printf '%s' "$page" | grep -F 'Full transcript' >/dev/null
 printf '%s' "$page" | grep -F 'Rename branch' >/dev/null
+printf '%s' "$page" | grep -F 'Active worktrees' >/dev/null
+printf '%s' "$page" | grep -F 'Archived runs' >/dev/null
 printf '%s' "$page" | grep -F 'Paste or drop files' >/dev/null
 printf '%s' "$page" | grep -F 'Remove attachment' >/dev/null
 printf '%s' "$page" | grep -F '.state-line{display:block;width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' >/dev/null
@@ -139,6 +141,12 @@ printf '%s' "$transcript" | grep -F 'OpenAI Codex fake' >/dev/null
 printf '%s' "$transcript" | grep -F 'branch test' >/dev/null
 printf 'ok - transcript API returns full spawned process log\n'
 
+worktree_runs=$(curl -fsS "http://127.0.0.1:$PORT/api/worktrees?repo=$(urlencode "$worktree")")
+printf '%s' "$worktree_runs" | grep -F '"runs": [' >/dev/null
+printf '%s' "$worktree_runs" | grep -F '"status": "finished"' >/dev/null
+printf '%s' "$worktree_runs" | grep -F 'branch test' >/dev/null
+printf 'ok - worktree API groups finished runs under active worktrees\n'
+
 printf 'plain text attachment\n' >"$TMP/notes.txt"
 upload_response=$(python3 - "$TMP/notes.txt" "$REPO" "$PORT" <<'PY'
 import base64, json, sys, urllib.request
@@ -170,6 +178,28 @@ wait_pid "$upload_pid"
 upload_transcript=$(curl -fsS "http://127.0.0.1:$PORT/api/transcript?repo=$(urlencode "$REPO")&log=$(urlencode "$upload_log")" | python3 -c 'import json,sys; print(json.load(sys.stdin)["transcript"])')
 printf '%s' "$upload_transcript" | grep -F "$upload_path" >/dev/null
 printf 'ok - arbitrary file upload stores a file and includes its path in prompts\n'
+
+injection_file="$TMP/should-not-exist"
+injection_run=$(python3 - "$REPO" "$PORT" "$injection_file" <<'PY'
+import json, sys, urllib.request
+repo, port, target = sys.argv[1:]
+prompt = f"literal shell metacharacters $(touch {target}) ; echo nope 'quoted'"
+payload = json.dumps({"repo": repo, "prompt": prompt, "mode": "fresh"}).encode()
+req = urllib.request.Request(
+    f"http://127.0.0.1:{port}/api/run",
+    data=payload,
+    headers={"content-type": "application/json"},
+)
+print(urllib.request.urlopen(req).read().decode())
+PY
+)
+injection_pid=$(printf '%s' "$injection_run" | python3 -c 'import json,sys; print(json.load(sys.stdin)["process"]["pid"])')
+injection_log=$(printf '%s' "$injection_run" | python3 -c 'import json,sys; print(json.load(sys.stdin)["process"]["log"])')
+wait_pid "$injection_pid"
+[ ! -e "$injection_file" ]
+injection_transcript=$(curl -fsS "http://127.0.0.1:$PORT/api/transcript?repo=$(urlencode "$REPO")&log=$(urlencode "$injection_log")" | python3 -c 'import json,sys; print(json.load(sys.stdin)["transcript"])')
+printf '%s' "$injection_transcript" | grep -F '$(touch ' >/dev/null
+printf 'ok - web prompts keep shell metacharacters literal\n'
 
 curl -fsS -X POST -H 'content-type: application/json' \
   -d "{\"repo\":\"$REPO\",\"prompt\":\"slow queue first\",\"mode\":\"fresh\",\"base_commit\":\"\"}" \
@@ -232,10 +262,23 @@ response2=$(curl -fsS -X POST -H 'content-type: application/json' \
 branch2=$(printf '%s' "$response2" | python3 -c 'import json,sys; print(json.load(sys.stdin)["worktree"]["branch"])')
 worktree2=$(printf '%s' "$response2" | python3 -c 'import json,sys; print(json.load(sys.stdin)["worktree"]["path"])')
 log2=$(printf '%s' "$response2" | python3 -c 'import json,sys; print(json.load(sys.stdin)["process"]["log"])')
+pid2=$(printf '%s' "$response2" | python3 -c 'import json,sys; print(json.load(sys.stdin)["process"]["pid"])')
+wait_pid "$pid2"
 [ "$branch2" != "$branch" ]
 [ "$worktree2" != "$worktree" ]
 [ "$log2" != "$log" ]
 printf 'ok - repeated tab branch requests get distinct branches and logs\n'
+
+git -C "$REPO" merge -q --no-edit "$branch2"
+git -C "$REPO" worktree remove --force "$worktree2"
+git -C "$REPO" branch -D "$branch2" >/dev/null
+archived=$(curl -fsS "http://127.0.0.1:$PORT/api/worktrees?repo=$(urlencode "$REPO")")
+printf '%s' "$archived" | grep -F '"archived_runs": [' >/dev/null
+printf '%s' "$archived" | grep -F "\"branch\": \"$branch2\"" >/dev/null
+archive_hash=$(printf '%s' "$archived" | python3 -c 'import json,sys; j=json.load(sys.stdin); print(j["archived_runs"][0]["hash"])')
+archive_transcript=$(curl -fsS "http://127.0.0.1:$PORT/api/transcript?repo=$(urlencode "$REPO")&commit=$archive_hash" | python3 -c 'import json,sys; print(json.load(sys.stdin)["transcript"])')
+printf '%s' "$archive_transcript" | grep -F 'second branch test' >/dev/null
+printf 'ok - archived runs survive finished branch cleanup with transcripts\n'
 
 renamed="renamed-$branch"
 rename_response=$(curl -fsS -X POST -H 'content-type: application/json' \
@@ -252,10 +295,18 @@ printf '%s' "$show" | grep -F 'AuthorDate:' >/dev/null
 printf '%s' "$show" | grep -F 'diff --git' >/dev/null
 printf 'ok - commit detail API returns fuller git show patch output\n'
 
+bad_show_code=$(curl -sS -o "$TMP/bad-show.json" -w '%{http_code}' "http://127.0.0.1:$PORT/api/show?repo=$REPO&commit=--help")
+[ "$bad_show_code" = 500 ]
+grep -F 'invalid commit' "$TMP/bad-show.json" >/dev/null
+printf 'ok - commit detail rejects git option-shaped commits\n'
+
 if command -v google-chrome >/dev/null 2>&1; then
   dom=$(google-chrome --headless --disable-gpu --no-sandbox --dump-dom --virtual-time-budget=3000 "http://127.0.0.1:$PORT/" 2>/dev/null)
   printf '%s' "$dom" | grep -F "$branch ← main" >/dev/null
   printf '%s' "$dom" | grep -F "$branch_child ← $branch" >/dev/null
+  printf '%s' "$dom" | grep -F 'Archived runs' >/dev/null
+  printf '%s' "$dom" | grep -F 'Transcript' >/dev/null
+  printf '%s' "$dom" | grep -F 'Patch' >/dev/null
   printf '%s' "$dom" | grep -F 'Copy hash' >/dev/null
   google-chrome --headless --disable-gpu --no-sandbox --window-size=1280,900 --screenshot="$TMP/chatgit-desktop.png" "http://127.0.0.1:$PORT/" >/dev/null 2>&1
   google-chrome --headless --disable-gpu --no-sandbox --window-size=390,900 --screenshot="$TMP/chatgit-narrow.png" "http://127.0.0.1:$PORT/" >/dev/null 2>&1

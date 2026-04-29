@@ -42,6 +42,21 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
   `do_at_branch`, `do_at_commit`, and thin tool-specific wrappers like
   `codex_in_branch`.
 
+### `do_at` direction
+
+Current branch-targeted execution is worktree-backed: `do_at_branch <branch>
+<command...>` reuses or creates the branch's worktree, `do_at_commit <commit>
+<command...>` creates a temporary branch/worktree rooted at that commit, and
+`codex_in_branch @ <branch-or-commit> <prompt...>` is only a Codex-specific edge
+around those generic helpers. Plain `codex_commit @ ...` remains prompt text; it
+does not create or select worktrees.
+
+An overlayfs or fuse-overlayfs backend may be useful later as an experimental
+provider for cheap, disposable `do_at --commit <cmd>` views. Keep Git worktrees
+as the stable provider for long-running agents until overlay sessions can prove
+mount cleanup, writable diff materialization, branch/index isolation, `.git`
+common-dir behavior, submodules/LFS, whiteouts/deletions, and crash recovery.
+
 ## Tests
 
 - `bash scripts/test_codex_wrap/test_codex_wrap.sh scripts/codex_wrap.sh`

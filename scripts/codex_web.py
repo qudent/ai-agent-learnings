@@ -66,7 +66,7 @@ def worktrees(repo):
         elif line.startswith('detached'): cur['branch'] = '(detached)'
     if cur:
         ans.append(add_worktree_metadata(repo, cur))
-    return ans
+    return attach_runs(repo, ans)
 
 def create_worktree(repo, commit):
     root = repo_root(repo)
@@ -212,6 +212,7 @@ def records(repo, limit=150):
         parts = rec.split('\x1f', 4)
         if len(parts) != 5: continue
         h, parents, ts, subj, raw = parts
+        h, parents, ts, subj = h.strip(), parents.strip(), ts.strip(), subj.strip()
         body = raw.split('\n\n', 1)[1] if '\n\n' in raw else ''
         role, kind, text = 'system', 'commit', subj
         if subj.startswith('[codex_start_user]') or subj.startswith('[codex_resume_user]'):
@@ -245,6 +246,89 @@ def active_run(repo):
             return row
     return {'hash': commit, 'short': commit[:7]}
 
+def infer_branch_from_cwd(cwd, path_branches):
+    if not cwd:
+        return '(unknown)'
+    try:
+        resolved = str(Path(cwd).expanduser().resolve())
+    except Exception:
+        resolved = str(cwd)
+    if resolved in path_branches:
+        return path_branches[resolved]
+    path = Path(resolved)
+    if '.worktrees' in path.parts:
+        return path.name
+    return path.name or '(archived)'
+
+def run_archive(repo, limit=300):
+    rows = records(repo, limit)
+    active_hash = active_run(repo).get('hash', '')
+    runs = {}
+    order = []
+    for row in rows:
+        if row['kind'] != 'user' or not row['fields'].get('pid'):
+            continue
+        h = row['hash']
+        runs[h] = {
+            'hash': h,
+            'short': row['short'],
+            'subject': row['subject'],
+            'prompt': row['text'],
+            'timestamp': row['timestamp'],
+            'session_id': row['fields'].get('session-id', ''),
+            'cwd': row['fields'].get('cwd', ''),
+            'started_at': row['fields'].get('started-at', ''),
+            'pid': row['fields'].get('pid', ''),
+            'status': 'active' if h == active_hash else 'open',
+            'stop_hash': '',
+            'message_count': 0,
+            'has_transcript': False,
+        }
+        order.append(h)
+    for row in rows:
+        start = row['fields'].get('run-start-commit-hash', '')
+        if start not in runs:
+            continue
+        if row['kind'] == 'assistant':
+            runs[start]['message_count'] += 1
+        elif row['kind'] in ('stop', 'abort'):
+            runs[start]['status'] = 'aborted' if row['kind'] == 'abort' else 'finished'
+            runs[start]['stop_hash'] = row['hash']
+    logs = codex_dir(repo) / 'logs'
+    for h, run in runs.items():
+        run['has_transcript'] = (logs / f'{h}.stderr').exists() or (logs / f'{h}.jsonl').exists()
+    return [runs[h] for h in reversed(order)]
+
+def attach_runs(repo, wts):
+    path_branches = {}
+    for wt in wts:
+        try:
+            path_branches[str(Path(wt.get('path', '')).resolve())] = wt.get('branch') or '(detached)'
+        except Exception:
+            pass
+        wt['runs'] = []
+        try:
+            status = run_status(Path(wt.get('path', repo)))
+            wt['queue'] = status.get('queue', [])
+            if status.get('active'):
+                wt['active'] = status.get('active')
+        except Exception:
+            wt['queue'] = []
+    by_path = {str(Path(wt.get('path', '')).resolve()): wt for wt in wts if wt.get('path')}
+    archived = []
+    for run in run_archive(repo):
+        cwd = run.get('cwd', '')
+        try:
+            key = str(Path(cwd).expanduser().resolve()) if cwd else ''
+        except Exception:
+            key = cwd
+        run['branch'] = infer_branch_from_cwd(cwd, path_branches)
+        if key in by_path:
+            by_path[key]['runs'].append(run)
+        else:
+            archived.append(run)
+    return {'worktrees': wts, 'archived_runs': archived}
+
 def codex_dir(repo):
     return common_dir(repo) / 'codex-wrap'
 
@@ -255,11 +339,22 @@ def safe_codex_path(repo, value):
         raise ValueError('path is outside codex-wrap state')
     return path
 
+def safe_commit(repo, value):
+    value = str(value or '').strip()
+    if not value:
+        raise ValueError('missing commit')
+    proc = sh(['git', 'rev-parse', '--verify', '--quiet', '--end-of-options', f'{value}^{{commit}}'], repo, check=False)
+    commit = proc.stdout.strip()
+    if not re.fullmatch(r'[0-9a-fA-F]{40}', commit or ''):
+        raise ValueError('invalid commit')
+    return commit
+
 def transcript(repo, log='', commit=''):
     paths = []
     if log:
         paths.append(safe_codex_path(repo, log))
     if commit:
+        commit = safe_commit(repo, commit)
         logs = codex_dir(repo) / 'logs'
         paths.extend([logs / f'{commit}.stderr', logs / f'{commit}.jsonl'])
     chunks = []
@@ -313,24 +408,27 @@ def rename_branch(repo, old_branch, new_branch):
     return {'branch': new_branch}
 
 def show(repo, commit):
-    return git(repo, 'show', '--format=fuller', '--patch', '--stat', '--find-renames', '--find-copies', '--no-ext-diff', commit, check=False)
+    commit = safe_commit(repo, commit)
+    return git(repo, 'show', '--format=fuller', '--patch', '--stat', '--find-renames', '--find-copies', '--no-ext-diff', '--end-of-options', commit, check=False)
 
 HTML = r'''<!doctype html><meta charset="utf-8"><title>codex-web-interface</title>
 <style>
-*{box-sizing:border-box}body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;margin:0;color:CanvasText;background:Canvas}header{position:sticky;top:0;z-index:2;display:flex;gap:.5rem;align-items:center;padding:.65rem .75rem;border-bottom:1px solid #8885;background:Canvas}input,textarea,button{font:inherit}input,textarea{border:1px solid #8888;border-radius:.45rem;padding:.45rem;background:Field;color:FieldText;min-width:0}button{border:1px solid #8888;border-radius:.45rem;padding:.4rem .62rem;cursor:pointer;background:ButtonFace;color:ButtonText;white-space:nowrap}button:disabled{opacity:.5;cursor:default}main{display:grid;grid-template-columns:minmax(220px,24vw) minmax(320px,1fr) minmax(360px,39vw);height:calc(100vh - 57px);min-height:0}.brand{font-weight:750}.top-hint{max-width:24rem}.pane{min-width:0;min-height:0;border-right:1px solid #8885;display:flex;flex-direction:column}.pane:last-child{border-right:0}.pane-head{padding:.75rem;border-bottom:1px solid #8885;display:grid;gap:.35rem}.pane-title{font-weight:700}.hint{font-size:.82rem;opacity:.68}.row{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap}.repo-row{flex:1;min-width:240px}.repo-row input{width:100%}#worktrees{overflow:auto;padding:.5rem}.wt{width:100%;text-align:left;display:grid;gap:.18rem;border:1px solid transparent;background:transparent;color:CanvasText;border-radius:.35rem;margin-bottom:.35rem;padding:.5rem}.wt:hover,.wt.active{border-color:#8887;background:color-mix(in srgb,CanvasText 6%,Canvas)}.wt.running{border-color:#0b7d53;background:color-mix(in srgb,#0b7d53 12%,Canvas)}.wt-main{font-weight:650;overflow:hidden;text-overflow:ellipsis}.wt-path,.wt-parent,.wt-status{font-size:.78rem;opacity:.7;overflow:hidden;text-overflow:ellipsis}.agent-active{color:#0b7d53;font-weight:700;opacity:1}#state{min-width:0;overflow:hidden;border-top:1px solid #8885;padding:.6rem .75rem;display:grid;gap:.3rem}.state-line{display:block;width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.82rem;text-align:left}.queued{color:#8a5a00}.active-run{color:#06623b}#chat{overflow:auto;padding:.8rem;flex:1}.msg{margin:.55rem 0;padding:.65rem .72rem;border:1px solid #8884;border-radius:.5rem;white-space:pre-wrap}.msg.selected{border-color:#888;background:color-mix(in srgb,CanvasText 5%,Canvas)}.user{margin-left:2rem;background:color-mix(in srgb,CanvasText 7%,Canvas)}.assistant{margin-right:2rem}.system{opacity:.78;font-size:.88rem;border-style:dashed}.meta{display:flex;gap:.38rem;align-items:center;opacity:.78;font-size:.78rem;margin-bottom:.35rem;white-space:nowrap;min-width:0}.subject{overflow:hidden;text-overflow:ellipsis}.actions{margin-left:auto;display:flex;gap:.25rem;flex-wrap:wrap}.hash{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}#composer{padding:.75rem;border-top:1px solid #8885;display:grid;gap:.5rem}#composer.dragging{background:color-mix(in srgb,#0b7d53 10%,Canvas)}#prompt{min-height:6rem;resize:vertical}.attachments{display:flex;gap:.35rem;flex-wrap:wrap}.drop-hint{border:1px dashed #8888;border-radius:.45rem;padding:.42rem .55rem;font-size:.82rem;opacity:.74}.chip{display:inline-flex;gap:.35rem;align-items:center;max-width:100%;border:1px solid #8886;border-radius:.35rem;padding:.18rem .25rem .18rem .4rem;font-size:.78rem}.chip-name{overflow:hidden;text-overflow:ellipsis}.chip-x{border:0;background:transparent;padding:.05rem .25rem}.detail-tools{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap}.detail-hash{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.82rem;overflow:hidden;text-overflow:ellipsis}#diff{flex:1;overflow:auto;padding:.8rem;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.8rem;white-space:pre-wrap;overflow-wrap:anywhere}.empty{padding:.8rem;color:color-mix(in srgb,CanvasText 58%,Canvas)}
+*{box-sizing:border-box}body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;margin:0;color:CanvasText;background:Canvas}header{position:sticky;top:0;z-index:2;display:flex;gap:.5rem;align-items:center;padding:.65rem .75rem;border-bottom:1px solid #8885;background:Canvas}input,textarea,button{font:inherit}input,textarea{border:1px solid #8888;border-radius:.45rem;padding:.45rem;background:Field;color:FieldText;min-width:0}button{border:1px solid #8888;border-radius:.45rem;padding:.4rem .62rem;cursor:pointer;background:ButtonFace;color:ButtonText;white-space:nowrap}button:disabled{opacity:.5;cursor:default}main{display:grid;grid-template-columns:minmax(220px,24vw) minmax(320px,1fr) minmax(360px,39vw);height:calc(100vh - 57px);min-height:0}.brand{font-weight:750}.top-hint{max-width:24rem}.pane{min-width:0;min-height:0;border-right:1px solid #8885;display:flex;flex-direction:column}.pane:last-child{border-right:0}.pane-head{padding:.75rem;border-bottom:1px solid #8885;display:grid;gap:.35rem}.pane-title{font-weight:700}.hint{font-size:.82rem;opacity:.68}.row{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap}.repo-row{flex:1;min-width:240px}.repo-row input{width:100%}#worktrees{overflow:auto;padding:.5rem}.section-title{font-size:.74rem;font-weight:750;text-transform:uppercase;letter-spacing:0;margin:.45rem .2rem .3rem;opacity:.62}.wt{width:100%;text-align:left;display:grid;gap:.25rem;border:1px solid transparent;background:transparent;color:CanvasText;border-radius:.35rem;margin-bottom:.35rem;padding:.5rem}.wt:hover,.wt.active{border-color:#8887;background:color-mix(in srgb,CanvasText 6%,Canvas)}.wt.running{border-color:#0b7d53;background:color-mix(in srgb,#0b7d53 12%,Canvas)}.wt-main{font-weight:650;overflow:hidden;text-overflow:ellipsis}.wt-path,.wt-parent,.wt-status{font-size:.78rem;opacity:.7;overflow:hidden;text-overflow:ellipsis}.agent-active{color:#0b7d53;font-weight:700;opacity:1}.runs{display:grid;gap:.25rem;margin-top:.15rem}.run{display:grid;gap:.2rem;border-left:3px solid #8886;padding:.3rem .35rem;background:color-mix(in srgb,CanvasText 4%,Canvas);border-radius:.25rem}.run.active{border-color:#0b7d53}.run.finished{border-color:#4567b7}.run.aborted{border-color:#9a3b30}.run-title{font-size:.78rem;font-weight:650;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.run-meta{font-size:.74rem;opacity:.68;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.run-actions{display:flex;gap:.25rem;flex-wrap:wrap}.run-actions button{font-size:.76rem;padding:.22rem .38rem}#state{min-width:0;overflow:hidden;border-top:1px solid #8885;padding:.6rem .75rem;display:grid;gap:.3rem}.state-line{display:block;width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.82rem;text-align:left}.queued{color:#8a5a00}.active-run{color:#06623b}#chat{overflow:auto;padding:.8rem;flex:1}.msg{margin:.55rem 0;padding:.65rem .72rem;border:1px solid #8884;border-radius:.5rem;white-space:pre-wrap}.msg.selected{border-color:#888;background:color-mix(in srgb,CanvasText 5%,Canvas)}.user{margin-left:2rem;background:color-mix(in srgb,CanvasText 7%,Canvas)}.assistant{margin-right:2rem}.system{opacity:.78;font-size:.88rem;border-style:dashed}.meta{display:flex;gap:.38rem;align-items:center;opacity:.78;font-size:.78rem;margin-bottom:.35rem;white-space:nowrap;min-width:0}.subject{overflow:hidden;text-overflow:ellipsis}.actions{margin-left:auto;display:flex;gap:.25rem;flex-wrap:wrap}.hash{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}#composer{padding:.75rem;border-top:1px solid #8885;display:grid;gap:.5rem}#composer.dragging{background:color-mix(in srgb,#0b7d53 10%,Canvas)}#prompt{min-height:6rem;resize:vertical}.attachments{display:flex;gap:.35rem;flex-wrap:wrap}.drop-hint{border:1px dashed #8888;border-radius:.45rem;padding:.42rem .55rem;font-size:.82rem;opacity:.74}.chip{display:inline-flex;gap:.35rem;align-items:center;max-width:100%;border:1px solid #8886;border-radius:.35rem;padding:.18rem .25rem .18rem .4rem;font-size:.78rem}.chip-name{overflow:hidden;text-overflow:ellipsis}.chip-x{border:0;background:transparent;padding:.05rem .25rem}.detail-tools{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap}.detail-hash{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.82rem;overflow:hidden;text-overflow:ellipsis}#diff{flex:1;overflow:auto;padding:.8rem;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.8rem;white-space:pre-wrap;overflow-wrap:anywhere}.empty{padding:.8rem;color:color-mix(in srgb,CanvasText 58%,Canvas)}
 @media (max-width:900px){main{grid-template-columns:1fr;height:auto}.pane{min-height:40vh;border-right:0;border-bottom:1px solid #8885}header{position:static}.repo-row{min-width:100%}}
 </style>
 <header><span class="brand">codex-web-interface</span><span class="hint top-hint">Git-backed Codex interface; chatgit launcher; codex_wrap runner; worktree helpers. Path changes auto-load.</span><label class="repo-row"><input id="repo" aria-label="Repository path"></label><button onclick="refreshAll()">Sync now</button><button onclick="abortRun()">Abort active</button></header>
 <main>
-  <section class="pane" id="left"><div class="pane-head"><div class="pane-title">Branches</div><div class="hint">Worktrees and parent metadata</div></div><div id="worktrees"></div><div id="state"></div></section>
+  <section class="pane" id="left"><div class="pane-head"><div class="pane-title">Branches</div><div class="hint">Active worktrees and archived runs</div></div><div id="worktrees"></div><div id="state"></div></section>
   <section class="pane"><div class="pane-head"><div class="pane-title">Conversation</div><div id="base" class="hint">No branch base selected. Click a hash to copy it.</div></div><div id="chat"></div><div id="composer"><textarea id="prompt" placeholder="Prompt. Send queues behind an active run; Fresh starts a new session; Branch starts a child worktree from selected commit."></textarea><div id="dropHint" class="drop-hint">Paste or drop files into this composer.</div><div id="attachments" class="attachments"></div><div class="row"><button onclick="send('send')">Send / queue</button><button onclick="send('fresh')">Fresh</button><button onclick="send('branch')">Branch from selected</button><button onclick="clearBase()">Clear base</button></div></div></section>
   <aside class="pane"><div class="pane-head"><div class="pane-title">Detail</div><div class="hint">Commit patch or Full transcript. Click a hash to copy it.</div><div class="detail-tools"><span id="detailHash" class="detail-hash hint">Select a commit or process</span><button id="copyDetail" onclick="copySelected()" disabled>Copy hash</button></div></div><pre id="diff" class="empty">Select a commit to view git show --format=fuller --patch output, or click a process row for its Full transcript.</pre></aside>
 </main>
 <script>
-let baseCommit='', selectedCommit='', repoTimer=null, attachments=[], refreshing=false;
+let baseCommit='', selectedCommit='', repoTimer=null, attachments=[], refreshing=false, messagesByHash={};
 const $=id=>document.getElementById(id);
 const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 async function api(path,opt={}){let r=await fetch(path,opt),j=await r.json(); if(!r.ok||j.error)throw new Error(j.error||r.statusText); return j}
+function ce(tag, cls='', text=''){let e=document.createElement(tag); if(cls)e.className=cls; if(text!==undefined&&text!=='')e.textContent=text; return e}
+function action(label, fn){let b=ce('button','',label); b.type='button'; b.onclick=e=>{e.stopPropagation(); fn(e)}; return b}
 function setBase(h,t=''){baseCommit=h; $('base').textContent='Branch base: '+h.slice(0,12); if(t)$('prompt').value=t}
 function clearBase(){baseCommit=''; $('base').textContent='No branch base selected.'}
 function setRepo(path){$('repo').value=path; selectedCommit=''; clearBase(); refreshAll()}
@@ -356,14 +454,43 @@ async function handleDrop(e){
 async function loadWorktrees(){
   let j=await api('/api/worktrees?repo='+encodeURIComponent($('repo').value));
   let box=$('worktrees'), cur=$('repo').value; box.innerHTML='';
+  box.appendChild(ce('div','section-title','Active worktrees'));
   for(let wt of j.worktrees){
-    let b=document.createElement('button'); b.className='wt'+(wt.path===cur?' active':'')+(wt.active?' running':''); b.onclick=()=>setRepo(wt.path);
+    let b=ce('div','wt'+(wt.path===cur?' active':'')+(wt.active?' running':'')); b.onclick=e=>{if(!e.target.closest('button'))setRepo(wt.path)};
     let p=wt.parent_branch?' ← '+wt.parent_branch:''; let pc=wt.parent_commit?' @ '+wt.parent_commit.slice(0,12):'';
-    let active=wt.active?`<span class="wt-status agent-active">agent active ${esc(wt.active.short||'')}</span>`:'';
-    let pathArg=JSON.stringify(wt.path), branchArg=JSON.stringify(wt.branch||'');
-    b.innerHTML=`<span class="wt-main">${esc(wt.branch||'(detached)')}${esc(p)}</span><span class="wt-path">${esc(wt.path)}</span><span class="wt-parent">${esc(wt.parent_branch?'parent '+wt.parent_branch+pc:'root conversation')}</span>${active}<span class="actions"><button onclick='event.stopPropagation();renameBranch(${pathArg},${branchArg})'>Rename branch</button></span>`;
+    b.appendChild(ce('div','wt-main',(wt.branch||'(detached)')+p));
+    b.appendChild(ce('div','wt-path',wt.path||''));
+    b.appendChild(ce('div','wt-parent',wt.parent_branch?'parent '+wt.parent_branch+pc:'root conversation'));
+    if(wt.active)b.appendChild(ce('div','wt-status agent-active','agent active '+(wt.active.short||'')));
+    let acts=ce('div','actions'); acts.appendChild(action('Rename branch',()=>renameBranch(wt.path,wt.branch||''))); b.appendChild(acts);
+    renderRuns(b, wt.runs||[], wt.queue||[]);
     box.appendChild(b);
   }
+  let archived=j.archived_runs||[];
+  if(archived.length){
+    box.appendChild(ce('div','section-title','Archived runs'));
+    let wrap=ce('div','runs');
+    for(let run of archived.slice(0,20))renderRun(wrap, run, true);
+    box.appendChild(wrap);
+  }
+}
+function renderRuns(parent, runs, queue){
+  if(!(runs&&runs.length)&&!(queue&&queue.length))return;
+  let box=ce('div','runs');
+  for(let q of queue||[]){
+    let r=ce('div','run queued'); r.appendChild(ce('div','run-title','queued '+(q.mode||q.func||''))); r.appendChild(ce('div','run-meta',(q.prompt||'').slice(0,120))); box.appendChild(r);
+  }
+  for(let run of (runs||[]).slice(0,5))renderRun(box, run, false);
+  parent.appendChild(box);
+}
+function renderRun(parent, run, archived){
+  let r=ce('div','run '+(run.status||'open')); let branch=archived&&run.branch?' · '+run.branch:'';
+  r.appendChild(ce('div','run-title',(run.status||'open')+' '+(run.short||'')+branch));
+  r.appendChild(ce('div','run-meta',(run.prompt||run.subject||'Codex run').slice(0,130)));
+  let acts=ce('div','run-actions');
+  acts.appendChild(action('Transcript',()=>showTranscript(run.hash,'')));
+  acts.appendChild(action('Patch',()=>diff(run.hash)));
+  r.appendChild(acts); parent.appendChild(r);
 }
 async function loadStatus(){
   let j=await api('/api/status?repo='+encodeURIComponent($('repo').value));
@@ -377,11 +504,17 @@ async function loadStatus(){
 async function loadMessages(){
   let j=await api('/api/messages?repo='+encodeURIComponent($('repo').value)); let c=$('chat');
   let nearBottom=(c.scrollHeight-c.scrollTop-c.clientHeight)<80;
-  c.innerHTML='';
+  c.innerHTML=''; messagesByHash={};
   for(let m of j.messages){
-    let cls=m.role==='assistant'?'assistant':(m.role==='user'?'user':'system'); let d=document.createElement('div'); d.className='msg '+cls+(m.hash===selectedCommit?' selected':'');
-    let t=m.timestamp?new Date(m.timestamp*1000).toLocaleString():''; let edit=m.role==='user'?`<button onclick='setBase("${m.parent||m.hash}", ${JSON.stringify(m.text)})'>Edit branch</button>`:'';
-    d.innerHTML=`<div class="meta"><button class="hash" title="Click a hash to copy it" onclick="copyText('${m.hash}')">${m.short}</button><span>${esc(t)}</span><span class="subject">${esc(m.subject)}</span><span class="actions"><button onclick="diff('${m.hash}')">Show</button><button onclick="setBase('${m.hash}')">Branch here</button>${edit}</span></div><div>${esc(m.text)}</div>`;
+    messagesByHash[m.hash]=m;
+    let cls=m.role==='assistant'?'assistant':(m.role==='user'?'user':'system'); let d=ce('div','msg '+cls+(m.hash===selectedCommit?' selected':''));
+    let t=m.timestamp?new Date(m.timestamp*1000).toLocaleString():'';
+    let meta=ce('div','meta');
+    let hb=action(m.short,()=>copyText(m.hash)); hb.className='hash'; hb.title='Click a hash to copy it'; meta.appendChild(hb);
+    meta.appendChild(ce('span','',t)); meta.appendChild(ce('span','subject',m.subject));
+    let acts=ce('span','actions'); acts.appendChild(action('Patch',()=>diff(m.hash))); acts.appendChild(action('Branch here',()=>setBase(m.hash)));
+    if(m.role==='user')acts.appendChild(action('Edit branch',()=>setBase(m.parent||m.hash, (messagesByHash[m.hash]||m).text||'')));
+    meta.appendChild(acts); d.appendChild(meta); d.appendChild(ce('div','',m.text));
     c.appendChild(d);
   }
   if(nearBottom)c.scrollTop=c.scrollHeight;
@@ -430,7 +563,7 @@ class H(BaseHTTPRequestHandler):
                 b=HTML.encode(); self.send_response(200); self.send_header('content-type','text/html; charset=utf-8'); self.send_header('content-length',str(len(b))); self.end_headers(); self.wfile.write(b); return
             if u.path=='/api/config': self.j({'repo':str(ROOT),'wrapper':str(WRAPPER)}); return
             r=self.repo(q.get('repo',[str(ROOT)])[0])
-            if u.path=='/api/worktrees': self.j({'worktrees':worktrees(r)})
+            if u.path=='/api/worktrees': self.j(worktrees(r))
             elif u.path=='/api/messages': self.j({'messages':records(r,int(q.get('limit',['150'])[0]))})
             elif u.path=='/api/status': self.j(run_status(r))
             elif u.path=='/api/show': self.j({'patch':show(r,q.get('commit',[''])[0])})
