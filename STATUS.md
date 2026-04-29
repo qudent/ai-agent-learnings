@@ -16,6 +16,9 @@ plans. The separate human-agent whiteboard pattern is retired.
 - Keep coordination plain and simple: the human writes what they want, the agent
   replies with what they need to reply, and the current coordination file is
   committed and pushed whenever there is meaningful new information.
+- Fix the `codex_commit` interactive job-control `setsid` bug, commit that
+  regression fix, then move the wrapper engine from shell to Python while
+  keeping the sourced shell function interface.
 
 ## Active Goals
 - [x] Keep global agent instructions centralized in `~/learnings/AGENTS.md`.
@@ -31,11 +34,18 @@ plans. The separate human-agent whiteboard pattern is retired.
   unexpected ref-update edge case.
 - [ ] When touching existing project repos, remove stale whiteboard files only
   when the active context has been preserved in `STATUS.md`.
+- [ ] After the Python wrapper lands, run one live `codex_commit` smoke from an
+  interactive shell before treating the migration as fully proven.
 
 ## Blockers
 - None.
 
 ## Recent Results
+- Fixed the shell wrapper's interactive job-control `setsid` PID tracking bug
+  with a regression test; committed as `11c5765`.
+- Replaced the shell implementation with a Python engine behind the same
+  `codex_commit`/`codex_resume`/`codex_abort`/`codex_new_message` functions;
+  the fake-Codex wrapper suite and `py_compile` pass.
 - Replaced ordinary `agent/<tool>/<branch>` dispatch semantics with
   branch-owned worktree dispatch.
 - Removed `HUMAN_AGENTS_WHITEBOARD.md`; active coordination now belongs in
