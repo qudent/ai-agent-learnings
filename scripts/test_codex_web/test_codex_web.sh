@@ -96,7 +96,9 @@ printf '%s' "$page" | grep -F 'Rename' >/dev/null
 printf '%s' "$page" | grep -F 'Active worktrees' >/dev/null
 printf '%s' "$page" | grep -F 'Closed worktree runs' >/dev/null
 printf '%s' "$page" | grep -F 'recorded cwd no longer maps' >/dev/null
+printf '%s' "$page" | grep -F 'window.CHATGIT_CONFIG' >/dev/null
 printf '%s' "$page" | grep -F '/api/overview' >/dev/null
+! printf '%s' "$page" | grep -F "api('/api/config')" >/dev/null
 ! printf '%s' "$page" | grep -F 'Archived runs' >/dev/null
 printf '%s' "$page" | grep -F 'Paste or drop files' >/dev/null
 printf '%s' "$page" | grep -F 'Remove attachment' >/dev/null

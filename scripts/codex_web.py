@@ -435,6 +435,7 @@ HTML = r'''<!doctype html><meta charset="utf-8"><title>codex-web-interface</titl
   <aside class="pane"><div class="pane-head"><div class="pane-title">Detail</div><div class="hint">Commit patch or Full transcript. Click a hash to copy it.</div><div class="detail-tools"><span id="detailHash" class="detail-hash hint">Select a commit or process</span><button id="copyDetail" onclick="copySelected()" disabled>Copy hash</button></div></div><pre id="diff" class="empty">Select a commit to view git show --format=fuller --patch output, or click a process row for its Full transcript.</pre></aside>
 </main>
 <script>
+window.CHATGIT_CONFIG=__CHATGIT_CONFIG__;
 let baseCommit='', selectedCommit='', repoTimer=null, attachments=[], refreshing=false, messagesByHash={};
 const $=id=>document.getElementById(id);
 const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
@@ -561,7 +562,7 @@ async function send(mode){
 }
 async function abortRun(){await api('/api/abort',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({repo:$('repo').value})}); await refreshAll()}
 async function refreshAll(){if(refreshing)return; refreshing=true; try{let j=await api('/api/overview?repo='+encodeURIComponent($('repo').value)); await loadWorktrees(j); await loadMessages({messages:j.messages||[]}); await loadStatus(j.status||{})}catch(e){$('diff').textContent=String(e)}finally{refreshing=false}}
-window.onload=async()=>{let c=await api('/api/config'); $('repo').value=c.repo; $('repo').addEventListener('input',repoPathChanged); $('repo').addEventListener('change',repoPathChanged); $('repo').addEventListener('keydown',e=>{if(e.key==='Enter')repoPathChanged()}); let comp=$('composer'); comp.addEventListener('paste',handlePaste); comp.addEventListener('dragover',e=>{e.preventDefault(); comp.classList.add('dragging')}); comp.addEventListener('dragleave',()=>comp.classList.remove('dragging')); comp.addEventListener('drop',handleDrop); setInterval(()=>{if(!document.hidden)refreshAll()},2000); await refreshAll()}
+window.onload=async()=>{let c=window.CHATGIT_CONFIG; $('repo').value=c.repo; $('repo').addEventListener('input',repoPathChanged); $('repo').addEventListener('change',repoPathChanged); $('repo').addEventListener('keydown',e=>{if(e.key==='Enter')repoPathChanged()}); let comp=$('composer'); comp.addEventListener('paste',handlePaste); comp.addEventListener('dragover',e=>{e.preventDefault(); comp.classList.add('dragging')}); comp.addEventListener('dragleave',()=>comp.classList.remove('dragging')); comp.addEventListener('drop',handleDrop); setInterval(()=>{if(!document.hidden)refreshAll()},2000); await refreshAll()}
 </script>'''
 
 class H(BaseHTTPRequestHandler):
@@ -575,7 +576,8 @@ class H(BaseHTTPRequestHandler):
         try:
             u=urlparse(self.path); q=parse_qs(u.query)
             if u.path=='/':
-                b=HTML.encode(); self.send_response(200); self.send_header('content-type','text/html; charset=utf-8'); self.send_header('content-length',str(len(b))); self.end_headers(); self.wfile.write(b); return
+                html=HTML.replace('__CHATGIT_CONFIG__', json.dumps({'repo':str(ROOT),'wrapper':str(WRAPPER)}))
+                b=html.encode(); self.send_response(200); self.send_header('content-type','text/html; charset=utf-8'); self.send_header('content-length',str(len(b))); self.end_headers(); self.wfile.write(b); return
             if u.path=='/api/config': self.j({'repo':str(ROOT),'wrapper':str(WRAPPER)}); return
             r=self.repo(q.get('repo',[str(ROOT)])[0])
             if u.path=='/api/worktrees': self.j(worktrees(r))
