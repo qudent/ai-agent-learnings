@@ -91,9 +91,19 @@ printf '%s' "$worktrees" | grep -F '"parent_branch": "main"' >/dev/null
 printf '%s' "$worktrees" | grep -F "\"parent_commit\": \"$base\"" >/dev/null
 printf 'ok - worktree API exposes parent branch metadata\n'
 
+show=$(curl -fsS "http://127.0.0.1:$PORT/api/show?repo=$REPO&commit=$base" | python3 -c 'import json,sys; print(json.load(sys.stdin)["patch"])')
+printf '%s' "$show" | grep -F 'AuthorDate:' >/dev/null
+printf '%s' "$show" | grep -F 'diff --git' >/dev/null
+printf 'ok - commit detail API returns fuller git show patch output\n'
+
 if command -v google-chrome >/dev/null 2>&1; then
   dom=$(google-chrome --headless --disable-gpu --no-sandbox --dump-dom --virtual-time-budget=3000 "http://127.0.0.1:$PORT/" 2>/dev/null)
   printf '%s' "$dom" | grep -F "$branch ← main" >/dev/null
+  printf '%s' "$dom" | grep -F 'Copy hash' >/dev/null
+  google-chrome --headless --disable-gpu --no-sandbox --window-size=1280,900 --screenshot="$TMP/chatgit-desktop.png" "http://127.0.0.1:$PORT/" >/dev/null 2>&1
+  google-chrome --headless --disable-gpu --no-sandbox --window-size=390,900 --screenshot="$TMP/chatgit-narrow.png" "http://127.0.0.1:$PORT/" >/dev/null 2>&1
+  [ -s "$TMP/chatgit-desktop.png" ]
+  [ -s "$TMP/chatgit-narrow.png" ]
   printf 'ok - browser renders parent branch metadata\n'
 elif command -v playwright >/dev/null 2>&1; then
   playwright screenshot "http://127.0.0.1:$PORT/" "$TMP/chatgit.png" >/dev/null

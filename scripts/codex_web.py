@@ -112,26 +112,91 @@ def records(repo, limit=150):
         rows.append({'hash':h,'short':h[:7],'parents':parents.split(),'parent':parents.split()[0] if parents else '', 'timestamp':int(ts or 0),'subject':subj,'raw':raw,'body':body,'role':role,'kind':kind,'text':text,'fields':fields})
     rows.reverse(); return rows
 
+def active_run(repo):
+    script = 'source "$1"; codex_active'
+    proc = subprocess.run(
+        ['bash', '-lc', script, 'bash', str(WRAPPER)],
+        cwd=str(repo),
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    commit = proc.stdout.strip().splitlines()[-1] if proc.returncode == 0 and proc.stdout.strip() else ''
+    if not commit:
+        return {}
+    for row in records(repo, 200):
+        if row['hash'] == commit:
+            return row
+    return {'hash': commit, 'short': commit[:7]}
+
 def show(repo, commit):
-    return git(repo, 'show', '--patch', '--stat', '--find-renames', '--find-copies', '--no-ext-diff', commit, check=False)
+    return git(repo, 'show', '--format=fuller', '--patch', '--stat', '--find-renames', '--find-copies', '--no-ext-diff', commit, check=False)
 
 HTML = r'''<!doctype html><meta charset="utf-8"><title>Codex Git Chat</title>
 <style>
-body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;margin:0;color:CanvasText;background:Canvas}header{position:sticky;top:0;z-index:2;display:flex;gap:.5rem;align-items:center;padding:.7rem;border-bottom:1px solid #8885;background:Canvas}input,select,textarea,button{font:inherit}input,select,textarea{border:1px solid #8888;border-radius:.45rem;padding:.45rem;background:Field;color:FieldText}button{border:1px solid #8888;border-radius:.45rem;padding:.45rem .7rem;cursor:pointer}main{display:grid;grid-template-columns:minmax(0,1fr) minmax(330px,42vw);height:calc(100vh - 58px)}#chat{overflow:auto;padding:1rem}.msg{max-width:980px;margin:.65rem 0;padding:.75rem .85rem;border:1px solid #8884;border-radius:.75rem;white-space:pre-wrap}.user{margin-left:auto;background:color-mix(in srgb,CanvasText 7%,Canvas)}.assistant{margin-right:auto}.system{opacity:.75;font-size:.85rem;border-style:dashed}.meta{display:flex;gap:.4rem;align-items:center;opacity:.75;font-size:.78rem;margin-bottom:.35rem;white-space:nowrap}.actions{margin-left:auto;display:flex;gap:.25rem}#side{border-left:1px solid #8885;display:flex;flex-direction:column;min-width:0}#diff{flex:1;overflow:auto;padding:.8rem;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.82rem;white-space:pre}#composer{padding:.8rem;border-top:1px solid #8885;display:grid;gap:.5rem}#prompt{min-height:6rem}.hint{font-size:.85rem;opacity:.7}.row{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap}
+*{box-sizing:border-box}body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;margin:0;color:CanvasText;background:Canvas}header{position:sticky;top:0;z-index:2;display:flex;gap:.5rem;align-items:center;padding:.65rem .75rem;border-bottom:1px solid #8885;background:Canvas}input,textarea,button{font:inherit}input,textarea{border:1px solid #8888;border-radius:.45rem;padding:.45rem;background:Field;color:FieldText;min-width:0}button{border:1px solid #8888;border-radius:.45rem;padding:.4rem .62rem;cursor:pointer;background:ButtonFace;color:ButtonText;white-space:nowrap}button:disabled{opacity:.5;cursor:default}main{display:grid;grid-template-columns:minmax(220px,24vw) minmax(320px,1fr) minmax(360px,39vw);height:calc(100vh - 57px);min-height:0}.pane{min-width:0;min-height:0;border-right:1px solid #8885;display:flex;flex-direction:column}.pane:last-child{border-right:0}.pane-head{padding:.75rem;border-bottom:1px solid #8885;display:grid;gap:.35rem}.pane-title{font-weight:700}.hint{font-size:.82rem;opacity:.68}.row{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap}.repo-row{flex:1;min-width:240px}.repo-row input{width:100%}#worktrees{overflow:auto;padding:.5rem}.wt{width:100%;text-align:left;display:grid;gap:.18rem;border:1px solid transparent;background:transparent;color:CanvasText;border-radius:.35rem;margin-bottom:.35rem;padding:.5rem}.wt:hover,.wt.active{border-color:#8887;background:color-mix(in srgb,CanvasText 6%,Canvas)}.wt-main{font-weight:650;overflow:hidden;text-overflow:ellipsis}.wt-path,.wt-parent{font-size:.78rem;opacity:.7;overflow:hidden;text-overflow:ellipsis}#state{border-top:1px solid #8885;padding:.6rem .75rem;display:grid;gap:.3rem}.state-line{font-size:.82rem}.queued{color:#8a5a00}.active-run{color:#06623b}#chat{overflow:auto;padding:.8rem;flex:1}.msg{margin:.55rem 0;padding:.65rem .72rem;border:1px solid #8884;border-radius:.5rem;white-space:pre-wrap}.msg.selected{border-color:#888;background:color-mix(in srgb,CanvasText 5%,Canvas)}.user{margin-left:2rem;background:color-mix(in srgb,CanvasText 7%,Canvas)}.assistant{margin-right:2rem}.system{opacity:.78;font-size:.88rem;border-style:dashed}.meta{display:flex;gap:.38rem;align-items:center;opacity:.78;font-size:.78rem;margin-bottom:.35rem;white-space:nowrap;min-width:0}.subject{overflow:hidden;text-overflow:ellipsis}.actions{margin-left:auto;display:flex;gap:.25rem;flex-wrap:wrap}.hash{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}#composer{padding:.75rem;border-top:1px solid #8885;display:grid;gap:.5rem}#prompt{min-height:6rem;resize:vertical}.detail-tools{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap}.detail-hash{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.82rem;overflow:hidden;text-overflow:ellipsis}#diff{flex:1;overflow:auto;padding:.8rem;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.8rem;white-space:pre-wrap;overflow-wrap:anywhere}.empty{padding:.8rem;color:color-mix(in srgb,CanvasText 58%,Canvas)}
+@media (max-width:900px){main{grid-template-columns:1fr;height:auto}.pane{min-height:40vh;border-right:0;border-bottom:1px solid #8885}header{position:static}.repo-row{min-width:100%}}
 </style>
-<header><strong>Codex Git Chat</strong><input id="repo" size="44"><select id="wts"></select><button onclick="refreshAll()">Refresh</button><button onclick="abortRun()">Abort active</button></header>
-<main><section style="display:flex;flex-direction:column;min-width:0"><div id="chat"></div><div id="composer"><div class="row"><span id="base" class="hint">No branch base selected.</span><button onclick="clearBase()">Clear</button></div><textarea id="prompt" placeholder="Prompt. Send interrupts/resumes; Fresh starts a new session; Branch starts a sibling worktree from selected commit."></textarea><div class="row"><button onclick="send('send')">Send / interrupt</button><button onclick="send('fresh')">Fresh</button><button onclick="send('branch')">Branch from selected</button></div></div></section><aside id="side"><div style="padding:.8rem;border-bottom:1px solid #8885"><b>Diff</b><div class="hint">Click Diff on a message.</div></div><pre id="diff"></pre></aside></main>
+<header><strong>Codex Git Chat</strong><label class="repo-row"><input id="repo" aria-label="Repository path"></label><button onclick="refreshAll()">Refresh</button><button onclick="abortRun()">Abort active</button></header>
+<main>
+  <section class="pane" id="left"><div class="pane-head"><div class="pane-title">Branches</div><div class="hint">Worktrees and parent metadata</div></div><div id="worktrees"></div><div id="state"></div></section>
+  <section class="pane"><div class="pane-head"><div class="pane-title">Conversation</div><div id="base" class="hint">No branch base selected.</div></div><div id="chat"></div><div id="composer"><textarea id="prompt" placeholder="Prompt. Send interrupts/resumes; Fresh starts a new session; Branch starts a sibling worktree from selected commit."></textarea><div class="row"><button onclick="send('send')">Send / interrupt</button><button onclick="send('fresh')">Fresh</button><button onclick="send('branch')">Branch from selected</button><button onclick="clearBase()">Clear base</button></div></div></section>
+  <aside class="pane"><div class="pane-head"><div class="pane-title">Commit Detail</div><div class="detail-tools"><span id="detailHash" class="detail-hash hint">Select a commit</span><button id="copyDetail" onclick="copySelected()" disabled>Copy hash</button></div></div><pre id="diff" class="empty">Select a commit to view git show --format=fuller --patch output.</pre></aside>
+</main>
 <script>
-let baseCommit=''; const $=id=>document.getElementById(id); const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+let baseCommit='', selectedCommit='', queued=null;
+const $=id=>document.getElementById(id);
+const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 async function api(path,opt={}){let r=await fetch(path,opt),j=await r.json(); if(!r.ok||j.error)throw new Error(j.error||r.statusText); return j}
-function setBase(h,t=''){baseCommit=h; $('base').textContent='Branch base: '+h.slice(0,12); if(t)$('prompt').value=t} function clearBase(){baseCommit=''; $('base').textContent='No branch base selected.'}
-async function loadWorktrees(){let j=await api('/api/worktrees?repo='+encodeURIComponent($('repo').value)); let s=$('wts'), cur=$('repo').value; s.innerHTML=''; for(let wt of j.worktrees){let o=document.createElement('option'); o.value=wt.path; let p=wt.parent_branch?' ← '+wt.parent_branch:''; o.textContent=(wt.branch||'(detached)')+p+' — '+wt.path; if(wt.path===cur)o.selected=true; s.appendChild(o)} s.onchange=()=>{$('repo').value=s.value; clearBase(); refreshAll()}}
-async function loadMessages(){let j=await api('/api/messages?repo='+encodeURIComponent($('repo').value)); let c=$('chat'); c.innerHTML=''; for(let m of j.messages){let cls=m.role==='assistant'?'assistant':(m.role==='user'?'user':'system'); let d=document.createElement('div'); d.className='msg '+cls; let t=m.timestamp?new Date(m.timestamp*1000).toLocaleString():''; let edit=m.role==='user'?`<button onclick='setBase("${m.parent||m.hash}", ${JSON.stringify(m.text)})'>Edit→branch</button>`:''; d.innerHTML=`<div class="meta"><code>${m.short}</code><span>${esc(t)}</span><span>${esc(m.subject)}</span><span class="actions"><button onclick="diff('${m.hash}')">Diff</button><button onclick="setBase('${m.hash}')">Branch here</button>${edit}</span></div><div>${esc(m.text)}</div>`; c.appendChild(d)} c.scrollTop=c.scrollHeight}
-async function diff(h){let j=await api('/api/show?repo='+encodeURIComponent($('repo').value)+'&commit='+encodeURIComponent(h)); $('diff').textContent=j.patch}
-async function send(mode){let p=$('prompt').value.trim(); if(!p)return; if(mode==='branch'&&!baseCommit){alert('choose a branch base first');return} let body={repo:$('repo').value,prompt:p,mode:mode,base_commit:mode==='branch'?baseCommit:''}; let j=await api('/api/run',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}); if(j.worktree){$('repo').value=j.worktree.path; clearBase()} $('prompt').value=''; refreshAll()}
-async function abortRun(){await api('/api/abort',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({repo:$('repo').value})}); refreshAll()}
-async function refreshAll(){try{await loadWorktrees(); await loadMessages()}catch(e){$('diff').textContent=String(e)}}
-window.onload=async()=>{let c=await api('/api/config'); $('repo').value=c.repo; await refreshAll(); setInterval(loadMessages,2000)}
+function setBase(h,t=''){baseCommit=h; $('base').textContent='Branch base: '+h.slice(0,12); if(t)$('prompt').value=t}
+function clearBase(){baseCommit=''; $('base').textContent='No branch base selected.'}
+function setRepo(path){$('repo').value=path; selectedCommit=''; clearBase(); refreshAll()}
+async function copyText(text){try{await navigator.clipboard.writeText(text)}catch(e){window.prompt('Copy hash',text)}}
+function copySelected(){if(selectedCommit)copyText(selectedCommit)}
+async function loadWorktrees(){
+  let j=await api('/api/worktrees?repo='+encodeURIComponent($('repo').value));
+  let box=$('worktrees'), cur=$('repo').value; box.innerHTML='';
+  for(let wt of j.worktrees){
+    let b=document.createElement('button'); b.className='wt'+(wt.path===cur?' active':''); b.onclick=()=>setRepo(wt.path);
+    let p=wt.parent_branch?' ← '+wt.parent_branch:''; let pc=wt.parent_commit?' @ '+wt.parent_commit.slice(0,12):'';
+    b.innerHTML=`<span class="wt-main">${esc(wt.branch||'(detached)')}${esc(p)}</span><span class="wt-path">${esc(wt.path)}</span><span class="wt-parent">${esc(wt.parent_branch?'parent '+wt.parent_branch+pc:'root conversation')}</span>`;
+    box.appendChild(b);
+  }
+}
+async function loadStatus(){
+  let j=await api('/api/status?repo='+encodeURIComponent($('repo').value));
+  let lines=[];
+  if(queued)lines.push(`<div class="state-line queued">Queued: ${esc(queued.mode)} PID ${esc(String(queued.pid||''))}</div>`);
+  if(j.active&&j.active.hash)lines.push(`<div class="state-line active-run">Active: <span class="hash">${esc(j.active.short||j.active.hash.slice(0,7))}</span> ${esc(j.active.subject||'Codex run')}</div>`);
+  if(!lines.length)lines.push('<div class="state-line hint">No active run reported.</div>');
+  $('state').innerHTML=lines.join('');
+}
+async function loadMessages(){
+  let j=await api('/api/messages?repo='+encodeURIComponent($('repo').value)); let c=$('chat'); c.innerHTML='';
+  for(let m of j.messages){
+    let cls=m.role==='assistant'?'assistant':(m.role==='user'?'user':'system'); let d=document.createElement('div'); d.className='msg '+cls+(m.hash===selectedCommit?' selected':'');
+    let t=m.timestamp?new Date(m.timestamp*1000).toLocaleString():''; let edit=m.role==='user'?`<button onclick='setBase("${m.parent||m.hash}", ${JSON.stringify(m.text)})'>Edit branch</button>`:'';
+    d.innerHTML=`<div class="meta"><button class="hash" onclick="copyText('${m.hash}')">${m.short}</button><span>${esc(t)}</span><span class="subject">${esc(m.subject)}</span><span class="actions"><button onclick="diff('${m.hash}')">Show</button><button onclick="setBase('${m.hash}')">Branch here</button>${edit}</span></div><div>${esc(m.text)}</div>`;
+    c.appendChild(d);
+  }
+  c.scrollTop=c.scrollHeight;
+}
+async function diff(h){
+  selectedCommit=h; $('detailHash').textContent=h; $('copyDetail').disabled=false;
+  let j=await api('/api/show?repo='+encodeURIComponent($('repo').value)+'&commit='+encodeURIComponent(h));
+  $('diff').className=''; $('diff').textContent=j.patch; await loadMessages();
+}
+async function send(mode){
+  let p=$('prompt').value.trim(); if(!p)return; if(mode==='branch'&&!baseCommit){alert('choose a branch base first');return}
+  queued={mode:mode,prompt:p,pid:''}; await loadStatus();
+  let body={repo:$('repo').value,prompt:p,mode:mode,base_commit:mode==='branch'?baseCommit:''};
+  let j=await api('/api/run',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+  queued={mode:mode,prompt:p,pid:j.process&&j.process.pid}; if(j.worktree){$('repo').value=j.worktree.path; clearBase()}
+  $('prompt').value=''; await refreshAll();
+}
+async function abortRun(){queued=null; await api('/api/abort',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({repo:$('repo').value})}); await refreshAll()}
+async function refreshAll(){try{await loadWorktrees(); await loadMessages(); await loadStatus()}catch(e){$('diff').textContent=String(e)}}
+window.onload=async()=>{let c=await api('/api/config'); $('repo').value=c.repo; await refreshAll()}
 </script>'''
 
 class H(BaseHTTPRequestHandler):
@@ -150,6 +215,7 @@ class H(BaseHTTPRequestHandler):
             r=self.repo(q.get('repo',[str(ROOT)])[0])
             if u.path=='/api/worktrees': self.j({'worktrees':worktrees(r)})
             elif u.path=='/api/messages': self.j({'messages':records(r,int(q.get('limit',['150'])[0]))})
+            elif u.path=='/api/status': self.j({'active':active_run(r)})
             elif u.path=='/api/show': self.j({'patch':show(r,q.get('commit',[''])[0])})
             else: self.j({'error':'not found'},404)
         except Exception as e: self.j({'error':str(e)},500)

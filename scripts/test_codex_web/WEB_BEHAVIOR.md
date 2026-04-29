@@ -31,5 +31,12 @@ not be inferred from worktree directory names.
 
 - Given the server is running,
 - when a browser opens the root page,
-- then the page renders without an HTTP error and includes the current repo in
-  the worktree selector after JavaScript loads.
+- then the page renders without an HTTP error at desktop and narrow widths,
+- and includes the current repo in the branch/conversation list after JavaScript
+  loads.
+
+## Commit Detail
+
+- Given a user selects a commit,
+- then the detail pane shows `git show --format=fuller --patch` output,
+- and visible hash-copy controls are available for the selected commit.
