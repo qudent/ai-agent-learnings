@@ -1,4 +1,4 @@
-# Codex Web Behavior Contract
+# Codex Web Interface Behavior Contract
 
 These tests describe the minimum behavior `scripts/codex_web.py` and
 `scripts/chatgit` must preserve while the UI remains a small plain-JS app.
@@ -24,8 +24,8 @@ These tests describe the minimum behavior `scripts/codex_web.py` and
 
 - Given the server creates a branch from `main`,
 - then Git config records:
-  - `branch.<new-branch>.chatgit-parent = main`
-  - `branch.<new-branch>.chatgit-parent-commit = <base commit>`
+  - `branch.<new-branch>.parent-branch = main`
+  - `branch.<new-branch>.parent-commit = <base commit>`
 - and `/api/worktrees` returns both fields for the new branch.
 
 The UI may later render this as a proper tree. Until then, parent metadata must
@@ -57,9 +57,47 @@ not be inferred from worktree directory names.
 - then the page renders without an HTTP error at desktop and narrow widths,
 - and includes the current repo in the branch/conversation list after JavaScript
   loads.
+- The visible product wording should say `codex-web-interface` or otherwise make
+  clear that this is the Git-backed Codex interface, not a different Codex
+  product.
+- Repository path edits should auto-load the new path after input/change without
+  requiring the Refresh button.
+- Hash controls should include a visible hint that clicking a hash copies it.
+- Worktree rows with an active agent should have a distinct visual state, such
+  as color, border, or an `agent active` marker on the row itself.
+- The composer should support screenshot upload and include uploaded file paths
+  in the prompt sent to Codex.
 
 ## Commit Detail
 
 - Given a user selects a commit,
 - then the detail pane shows `git show --format=fuller --patch` output,
 - and visible hash-copy controls are available for the selected commit.
+
+## Process Transcripts
+
+- Given the server has spawned a wrapper process,
+- then `/api/transcript` can return the full web/wrapper log for that process,
+- and process/status rows in the UI are clickable to show that transcript in the
+  detail pane.
+
+## Active Branches
+
+- Given a branch/worktree has a currently running Codex process,
+- then `/api/worktrees` marks that worktree with active-run data,
+- and the row for that worktree has a visible active-agent indication.
+
+## Screenshot Uploads
+
+- Given the user attaches a screenshot in the composer,
+- then the server stores it under the repo's Git common directory,
+- returns a filesystem path for the uploaded screenshot,
+- and prompts sent with that attachment include the uploaded path.
+
+## Branch Renaming
+
+- Given a worktree owns a checked-out branch,
+- when the UI asks to rename that branch,
+- then the server validates the new branch name and uses Git's branch rename
+  mechanics from the owning worktree.
+- Worktree directory paths do not need to be renamed during this pass.

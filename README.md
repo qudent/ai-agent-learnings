@@ -25,13 +25,13 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
 
 ## Local helper scripts
 
-- `scripts/chatgit`: starts the Codex Git Chat web UI for the current
+- `scripts/chatgit`: launcher for the Git-backed `codex-web-interface` for the current
   repository. Add `export PATH="$HOME/learnings/scripts:$PATH"` to `.zshrc` or
   `.bashrc`, then run `chatgit` from any Git repo. Set `CHATGIT_PORT` to choose
   a non-default port.
 - `scripts/codex_web.py`: loopback web UI for Git-backed Codex conversations.
-  When it creates a branch, it records `branch.<name>.chatgit-parent` and
-  `branch.<name>.chatgit-parent-commit` in Git config so the UI has an explicit
+  When it creates a branch, it records `branch.<name>.parent-branch` and
+  `branch.<name>.parent-commit` in Git config so the UI has an explicit
   parent-branch convention instead of inferring ancestry from worktree paths.
 - `scripts/codex_wrap.sh` / `scripts/codex_wrap.py`: Codex session wrapper only.
   It records start/resume/agent/stop marker commits and manages the live Codex
