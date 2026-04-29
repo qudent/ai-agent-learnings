@@ -105,6 +105,7 @@ printf '%s' "$page" | grep -F 'Pause run' >/dev/null
 printf '%s' "$page" | grep -F 'Copy detail' >/dev/null
 printf '%s' "$page" | grep -F 'Select a commit for its patch, or a run for its transcript.' >/dev/null
 printf '%s' "$page" | grep -F 'A run is active. Use Queue to send this after it finishes, or Pause run first.' >/dev/null
+printf '%s' "$page" | grep -F 'function hasActiveRun(){let a=currentStatus&&currentStatus.active; return !!(a&&(a.hash||a.pid))}' >/dev/null
 ! printf '%s' "$page" | grep -F 'Abort run' >/dev/null
 printf '%s' "$page" | grep -F 'Full transcript' >/dev/null
 printf '%s' "$page" | grep -F 'Rename' >/dev/null
@@ -127,6 +128,9 @@ overview=$(curl -fsS "http://127.0.0.1:$PORT/api/overview?repo=$(urlencode "$REP
 printf '%s' "$overview" | grep -F '"worktrees": [' >/dev/null
 printf '%s' "$overview" | grep -F '"messages": [' >/dev/null
 printf '%s' "$overview" | grep -F '"status": {' >/dev/null
+printf '%s' "$overview" | python3 -c 'import json,sys; assert json.load(sys.stdin)["status"]["active"] is None'
+status=$(curl -fsS "http://127.0.0.1:$PORT/api/status?repo=$(urlencode "$REPO")")
+printf '%s' "$status" | python3 -c 'import json,sys; j=json.load(sys.stdin); assert j["active"] is None and j["queue_depth"] == 0'
 printf 'ok - overview API combines branch, message, and status data\n'
 
 base=$(git -C "$REPO" rev-parse HEAD)
@@ -243,6 +247,12 @@ done
 git -C "$REPO" log --format=%B -n 40 | grep -F 'queued followup' >/dev/null
 status=$(curl -fsS "http://127.0.0.1:$PORT/api/status?repo=$REPO")
 printf '%s' "$status" | grep -F '"queue_depth": 0' >/dev/null
+for _ in $(seq 1 50); do
+  status=$(curl -fsS "http://127.0.0.1:$PORT/api/status?repo=$(urlencode "$REPO")")
+  printf '%s' "$status" | python3 -c 'import json,sys; raise SystemExit(0 if json.load(sys.stdin)["active"] is None else 1)' && break
+  sleep 0.1
+done
+printf '%s' "$status" | python3 -c 'import json,sys; assert json.load(sys.stdin)["active"] is None'
 printf 'ok - web server queues messages behind active runs\n'
 
 active_response=$(curl -fsS -X POST -H 'content-type: application/json' \

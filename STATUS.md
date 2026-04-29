@@ -57,6 +57,10 @@ on local branch `dev`.
 - None.
 
 ## Recent Results
+- Fixed the Continue-button false active-run block: idle `/api/status` now
+  returns `active: null` instead of `{}`, and the browser active-run guard only
+  treats statuses with a real `hash` or `pid` as active. Regression coverage was
+  added to the web behavior contract and shell suite.
 - Moved the active-run stop control out of the header and into the composer as
   `Pause run`, beside Continue/Fresh/Branch/Queue; `Queue` is now the only
   composer action that intentionally queues behind an active run, while
@@ -114,8 +118,9 @@ on local branch `dev`.
   scripts/codex_web.py` and `bash scripts/test_codex_web/test_codex_web.sh
   scripts/codex_web.py`; the web test uses headless Chrome when available.
 - Latest dev verification passed both commands above; the web behavior contract
-  covered queue wording, copy-message controls, raw run-start commit messages,
-  and browser rendering.
+  now covers idle `active: null`, queue wording, copy-message controls, raw
+  run-start commit messages, and browser rendering. `chatgit-dev` was restarted
+  on `127.0.0.1:6175` after the fix.
 - Current wrapper/backend verification is
   `bash scripts/test_codex_wrap/test_codex_wrap.sh scripts/codex_wrap.sh`.
 - `codex_commit @ ...` remains plain prompt text. Branch/commit placement is

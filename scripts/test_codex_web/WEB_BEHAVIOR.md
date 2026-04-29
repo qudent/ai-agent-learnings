@@ -49,6 +49,8 @@ not be inferred from worktree directory names.
 - Queued messages run in submission order after the active process exits.
 - `/api/status` exposes the active process and queued messages so the UI can
   render both states without relying on browser-local state.
+- When there is no active run, `/api/status` returns `active: null`, not an
+  empty object, so the browser does not block Continue while no row is active.
 - Queued messages live in the web server process memory; restarting the server
   loses them.
 - The web UI labels the ordinary follow-up action as continuing the latest

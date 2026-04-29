@@ -192,7 +192,7 @@ def run_status(repo):
             state['active'] = None
         queued = [public_process(item) for item in state['queue']]
     git_active = active_run(repo)
-    active = git_active or web_active or {}
+    active = git_active or web_active
     if active and web_active:
         active = {**active, **web_active}
     return {'active': active, 'queue': queued, 'queue_depth': len(queued)}
@@ -456,7 +456,7 @@ function repoPathChanged(){updateRepoLabel(); clearTimeout(repoTimer); repoTimer
 async function copyText(text,label='Copy text'){try{await navigator.clipboard.writeText(text)}catch(e){window.prompt(label,text)}}
 function copyDetail(){let text=$('diff').textContent||''; if(text&&!$('copyDetail').disabled)copyText(text,'Copy detail')}
 function hasTextSelection(){let s=window.getSelection&&window.getSelection(); return !!(s&&!s.isCollapsed&&String(s).trim())}
-function hasActiveRun(){return !!(currentStatus&&currentStatus.active)}
+function hasActiveRun(){let a=currentStatus&&currentStatus.active; return !!(a&&(a.hash||a.pid))}
 function renderAttachments(){$('attachments').innerHTML=attachments.map((a,i)=>`<span class="chip"><span class="chip-name">${esc(a.name||a.path)}</span><button class="chip-x" title="Remove attachment" onclick="removeAttachment(${i})">x</button></span>`).join('')}
 function removeAttachment(i){attachments.splice(i,1); renderAttachments()}
 async function uploadFileList(files){
