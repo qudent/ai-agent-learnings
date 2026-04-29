@@ -9,6 +9,19 @@ REPO="$TMP/repo"
 FAKEBIN="$TMP/bin"
 PORT=${CODEX_WEB_TEST_PORT:-6192}
 
+urlencode() {
+  python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$1"
+}
+
+wait_pid() {
+  local pid=$1
+  for _ in $(seq 1 50); do
+    ps -p "$pid" >/dev/null 2>&1 || return 0
+    sleep 0.1
+  done
+  return 0
+}
+
 cleanup() {
   if [ -n "${SERVER_PID:-}" ]; then
     kill "$SERVER_PID" 2>/dev/null || true
@@ -46,6 +59,7 @@ prompt="$*"
 } >&2
 printf '{"type":"thread.started","thread_id":"%s"}\n' "$SID"
 printf '{"type":"item.completed","item":{"id":"agent-1","type":"agent_message","text":"done: %s"}}\n' "$prompt"
+if [[ "$prompt" == *"hold active"* ]]; then sleep 4; fi
 FAKE
 chmod +x "$FAKEBIN/codex"
 
@@ -71,6 +85,18 @@ config=$(curl -fsS "http://127.0.0.1:$PORT/api/config")
 printf '%s' "$config" | grep -F "\"repo\": \"$REPO\"" >/dev/null
 printf 'ok - chatgit serves the caller repository\n'
 
+page=$(curl -fsS "http://127.0.0.1:$PORT/")
+printf '%s' "$page" | grep -F 'codex-web-interface' >/dev/null
+printf '%s' "$page" | grep -F 'Path changes auto-load' >/dev/null
+printf '%s' "$page" | grep -F 'Click a hash to copy it' >/dev/null
+printf '%s' "$page" | grep -F 'Full transcript' >/dev/null
+printf '%s' "$page" | grep -F 'Rename branch' >/dev/null
+printf '%s' "$page" | grep -F 'Attach screenshot' >/dev/null
+printf '%s' "$page" | grep -F 'agent-active' >/dev/null
+printf '%s' "$page" | grep -F 'chatgit launcher' >/dev/null
+printf '%s' "$page" | grep -F 'codex_wrap runner' >/dev/null
+printf 'ok - page copy exposes interface name, auto-load, hash, transcript, and rename hints\n'
+
 base=$(git -C "$REPO" rev-parse HEAD)
 response=$(curl -fsS -X POST -H 'content-type: application/json' \
   -d "{\"repo\":\"$REPO\",\"prompt\":\"branch test\",\"mode\":\"branch\",\"base_commit\":\"$base\"}" \
@@ -78,13 +104,68 @@ response=$(curl -fsS -X POST -H 'content-type: application/json' \
 branch=$(printf '%s' "$response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["worktree"]["branch"])')
 worktree=$(printf '%s' "$response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["worktree"]["path"])')
 log=$(printf '%s' "$response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["process"]["log"])')
+pid=$(printf '%s' "$response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["process"]["pid"])')
+wait_pid "$pid"
 
 git -C "$worktree" merge-base --is-ancestor "$base" HEAD
-parent=$(git -C "$REPO" config --get "branch.$branch.chatgit-parent")
-parent_commit=$(git -C "$REPO" config --get "branch.$branch.chatgit-parent-commit")
+parent=$(git -C "$REPO" config --get "branch.$branch.parent-branch")
+parent_commit=$(git -C "$REPO" config --get "branch.$branch.parent-commit")
 [ "$parent" = main ]
 [ "$parent_commit" = "$base" ]
 printf 'ok - branch mode creates a child branch with explicit parent metadata\n'
+
+transcript=$(curl -fsS "http://127.0.0.1:$PORT/api/transcript?repo=$(urlencode "$worktree")&log=$(urlencode "$log")" | python3 -c 'import json,sys; print(json.load(sys.stdin)["transcript"])')
+printf '%s' "$transcript" | grep -F 'OpenAI Codex fake' >/dev/null
+printf '%s' "$transcript" | grep -F 'branch test' >/dev/null
+printf 'ok - transcript API returns full spawned process log\n'
+
+printf 'fake image bytes\n' >"$TMP/screenshot.png"
+upload_response=$(python3 - "$TMP/screenshot.png" "$REPO" "$PORT" <<'PY'
+import base64, json, sys, urllib.request
+path, repo, port = sys.argv[1:]
+payload = json.dumps({
+    "repo": repo,
+    "name": "screenshot.png",
+    "content_type": "image/png",
+    "data": base64.b64encode(open(path, "rb").read()).decode(),
+}).encode()
+req = urllib.request.Request(
+    f"http://127.0.0.1:{port}/api/upload",
+    data=payload,
+    headers={"content-type": "application/json"},
+)
+print(urllib.request.urlopen(req).read().decode())
+PY
+)
+upload_path=$(printf '%s' "$upload_response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["path"])')
+[ -s "$upload_path" ]
+printf '%s' "$upload_path" | grep -F 'chatgit-uploads' >/dev/null
+upload_run=$(curl -fsS -X POST -H 'content-type: application/json' \
+  -d "{\"repo\":\"$REPO\",\"prompt\":\"describe screenshot\",\"mode\":\"fresh\",\"attachments\":[\"$upload_path\"]}" \
+  "http://127.0.0.1:$PORT/api/run")
+upload_log=$(printf '%s' "$upload_run" | python3 -c 'import json,sys; print(json.load(sys.stdin)["process"]["log"])')
+upload_pid=$(printf '%s' "$upload_run" | python3 -c 'import json,sys; print(json.load(sys.stdin)["process"]["pid"])')
+wait_pid "$upload_pid"
+upload_transcript=$(curl -fsS "http://127.0.0.1:$PORT/api/transcript?repo=$(urlencode "$REPO")&log=$(urlencode "$upload_log")" | python3 -c 'import json,sys; print(json.load(sys.stdin)["transcript"])')
+printf '%s' "$upload_transcript" | grep -F "$upload_path" >/dev/null
+printf 'ok - screenshot upload stores a file and includes its path in prompts\n'
+
+active_response=$(curl -fsS -X POST -H 'content-type: application/json' \
+  -d "{\"repo\":\"$REPO\",\"prompt\":\"hold active\",\"mode\":\"fresh\"}" \
+  "http://127.0.0.1:$PORT/api/run")
+active_pid=$(printf '%s' "$active_response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["process"]["pid"])')
+active_seen=0
+for _ in $(seq 1 30); do
+  active_worktrees=$(curl -fsS "http://127.0.0.1:$PORT/api/worktrees?repo=$REPO")
+  if printf '%s' "$active_worktrees" | grep -F '"active": {' >/dev/null; then
+    active_seen=1
+    break
+  fi
+  sleep 0.1
+done
+[ "$active_seen" = 1 ]
+kill "$active_pid" 2>/dev/null || true
+printf 'ok - worktree API marks branches with active agents\n'
 
 worktrees=$(curl -fsS "http://127.0.0.1:$PORT/api/worktrees?repo=$REPO")
 printf '%s' "$worktrees" | grep -F "\"branch\": \"$branch\"" >/dev/null
@@ -102,6 +183,16 @@ log2=$(printf '%s' "$response2" | python3 -c 'import json,sys; print(json.load(s
 [ "$worktree2" != "$worktree" ]
 [ "$log2" != "$log" ]
 printf 'ok - repeated tab branch requests get distinct branches and logs\n'
+
+renamed="renamed-$branch"
+rename_response=$(curl -fsS -X POST -H 'content-type: application/json' \
+  -d "{\"repo\":\"$worktree\",\"old_branch\":\"$branch\",\"new_branch\":\"$renamed\"}" \
+  "http://127.0.0.1:$PORT/api/branch/rename")
+printf '%s' "$rename_response" | grep -F "\"branch\": \"$renamed\"" >/dev/null
+[ "$(git -C "$worktree" branch --show-current)" = "$renamed" ]
+renamed_worktrees=$(curl -fsS "http://127.0.0.1:$PORT/api/worktrees?repo=$worktree")
+printf '%s' "$renamed_worktrees" | grep -F "\"branch\": \"$renamed\"" >/dev/null
+printf 'ok - branch rename API renames the owning worktree branch\n'
 
 show=$(curl -fsS "http://127.0.0.1:$PORT/api/show?repo=$REPO&commit=$base" | python3 -c 'import json,sys; print(json.load(sys.stdin)["patch"])')
 printf '%s' "$show" | grep -F 'AuthorDate:' >/dev/null

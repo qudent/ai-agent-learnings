@@ -6,11 +6,11 @@ This repo stores project-agnostic operating guidance for local AI coding agents.
 files symlink to it, and branch-ref dispatch remains a policy pattern rather
 than a tracked helper-script implementation in this repo.
 
-## Active Human Prompts - chatgit web UI
-Desired state: typing `chatgit` in any Git repo starts the Codex Git Chat web UI
-for that repository. Keep the implementation small and plain: single-page JS is
-acceptable for now, but the web UI must have reliable branching behavior before
-larger UI redesign work.
+## Active Human Prompts - codex-web-interface dev pass
+Desired state: improve the dev worktree copy of the Git-backed Codex web UI so
+it is less confusing and more discoverable. The running dev server is
+`http://127.0.0.1:6175/` from `/home/name/learnings.worktrees/dev`; do this work
+on local branch `dev`.
 
 ## Active Goals
 - [x] Keep global agent instructions centralized in `~/learnings/AGENTS.md`.
@@ -21,25 +21,29 @@ larger UI redesign work.
   and communication across a whiteboard.
 
 ## TODO Plan
-- [x] Add a `chatgit` launcher that starts `codex_web.py` for the current repo.
-- [x] Document the lightweight install path in `README.md`.
-- [x] Establish explicit parent-branch metadata for web-created branches:
-  `branch.<name>.chatgit-parent` and
-  `branch.<name>.chatgit-parent-commit`.
-- [x] Specify expected web branching behavior in `scripts/test_codex_web/`.
-- [x] Fix the web UI's branch creation behavior against a
-  mock repo.
-- [x] Display parent-branch metadata in the UI so conversations can become a
-  branch tree instead of relying on worktree directory layout.
-- [x] Make repeated tab branch requests allocate distinct branches and web log
-  files.
-- [x] Revise the three-pane UI after branching works: branch/conversation list,
-  selected conversation, and selected commit detail.
-- [x] Add hash-copy controls and first-line commit-message expansion to full
-  `git show --format=fuller --patch` output.
-- [x] Show queued/active message state without adding a scheduler to the web UI.
-- [x] Verify the revised three-pane UI with browser automation at desktop and
-  narrow widths.
+- [ ] Rename visible UI wording away from ambiguous `codex-web` toward
+  `codex-web-interface` / Git-backed Codex interface language.
+- [ ] Review command/API/UI names for context drift: distinguish `chatgit`
+  launcher, `codex-web-interface` UI, `codex_wrap` runner functions, and
+  worktree helper commands.
+- [ ] Replace UI branch ancestry metadata keys with generic
+  `branch.<name>.parent-branch` and `branch.<name>.parent-commit`, matching the
+  parallel-worktrees skill.
+- [ ] Auto-refresh repo data when the repository path input changes, without
+  requiring the Refresh button.
+- [ ] Make process/status rows clickable so the full run transcript/log can be
+  shown in the detail pane.
+- [ ] Color or otherwise mark branch/worktree rows that currently have an
+  active agent run, instead of only showing active state below the branch list.
+- [ ] Check how easy branch-name editing is; implement a low-risk rename flow if
+  the Git/worktree mechanics are straightforward, otherwise document the
+  blocker in the UI/status.
+- [ ] Add screenshot upload to the chat composer and pass uploaded screenshot
+  paths along with prompts.
+- [ ] Add discoverability hints, including that clicking/copying hashes copies
+  them.
+- [ ] Drive the work TDD-style through `scripts/test_codex_web/` and then smoke
+  the running dev server.
 
 ## Blockers
 - None.
