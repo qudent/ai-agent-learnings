@@ -128,6 +128,21 @@ def marker(message: str) -> str:
     raise SystemExit(1)
 
 
+def agent_text_from_commit(commit: str) -> str:
+    lines = commit_body(commit).strip("\n").splitlines()
+    if lines and lines[0].startswith("[codex]"):
+        lines = lines[1:]
+    while lines and not lines[0].strip():
+        lines = lines[1:]
+    while lines and (
+        lines[-1].startswith("session-id:")
+        or lines[-1].startswith("run-start-commit-hash:")
+        or not lines[-1].strip()
+    ):
+        lines = lines[:-1]
+    return "\n".join(lines).strip()
+
+
 def agent_marker(text: str, sid: str, run_start: str) -> str | None:
     for _ in range(7):
         old = head()
@@ -138,7 +153,9 @@ def agent_marker(text: str, sid: str, run_start: str) -> str | None:
         mode = "normal"
         parent = old
         if subj.startswith("[codex]"):
-            message += f"\n\nprevious [codex]\n\n{commit_body(old)}"
+            previous = agent_text_from_commit(old)
+            if previous:
+                message = f"[codex] {oneline(text)}\n\n{text}\n\n{previous}\n\nsession-id: {sid or 'unknown'}\nrun-start-commit-hash: {run_start}"
             mode = "amend"
             parent = old
         elif subj.startswith("[autosave]"):
@@ -147,7 +164,9 @@ def agent_marker(text: str, sid: str, run_start: str) -> str | None:
             if git_ok(["rev-parse", "-q", "--verify", f"{old}^"]):
                 prev = subject(f"{old}^")
                 if prev.startswith("[codex]"):
-                    message += f"\n\nprevious [codex]\n\n{commit_body(f'{old}^')}"
+                    previous = agent_text_from_commit(f"{old}^")
+                    if previous:
+                        message = f"[codex] {oneline(text)}\n\n{text}\n\n{previous}\n\nsession-id: {sid or 'unknown'}\nrun-start-commit-hash: {run_start}"
                     parent = f"{old}^"
         new = update_ref(message, old, mode, parent, old)
         if new:

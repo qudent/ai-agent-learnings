@@ -163,8 +163,9 @@ test_fold_codex_messages_and_ignore_tools() {
   [ "$count" -eq 1 ] || fail "expected one folded [codex] commit, got $count"
   b=$(git log --format=%B --grep='^\[codex\]' -1)
   contains 'second output' "$b"
-  contains 'previous [codex]' "$b"
   contains 'first output' "$b"
+  not_contains 'previous [codex]' "$b"
+  not_contains '[codex] first output' "$b"
   not_contains 'command_execution' "$b"
   ok 'fold codex messages'
 }
@@ -294,8 +295,10 @@ test_text_transcript_fixture() {
   codex_commit from-text-transcript
   b=$(git log --format=%B --grep='^\[codex\]' -1)
   contains 'Fixed. main and origin/main are synchronized at 1cea926.' "$b"
-  contains 'previous [codex]' "$b"
   contains 'Both tips have exactly the same tree' "$b"
+  contains 'I’ll inspect the repo state first' "$b"
+  not_contains 'previous [codex]' "$b"
+  not_contains '[codex] Both tips have exactly the same tree' "$b"
   ok 'text transcript mock json'
 }
 

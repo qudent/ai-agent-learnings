@@ -19,6 +19,9 @@ plans. The separate human-agent whiteboard pattern is retired.
 - Fix the `codex_commit` interactive job-control `setsid` bug, commit that
   regression fix, then move the wrapper engine from shell to Python while
   keeping the sourced shell function interface.
+- Fix `[codex]` marker folding so repeated agent messages amend into one clean
+  commit body without recursive `previous [codex]` sections or duplicated
+  embedded commit messages.
 
 ## Active Goals
 - [x] Keep global agent instructions centralized in `~/learnings/AGENTS.md`.
@@ -46,6 +49,9 @@ plans. The separate human-agent whiteboard pattern is retired.
 - Replaced the shell implementation with a Python engine behind the same
   `codex_commit`/`codex_resume`/`codex_abort`/`codex_new_message` functions;
   the fake-Codex wrapper suite and `py_compile` pass.
+- Corrected Python marker folding to keep newest agent text first and prior
+  text as plain body content only; regression tests now reject `previous
+  [codex]` and embedded old `[codex]` subjects.
 - Replaced ordinary `agent/<tool>/<branch>` dispatch semantics with
   branch-owned worktree dispatch.
 - Removed `HUMAN_AGENTS_WHITEBOARD.md`; active coordination now belongs in
