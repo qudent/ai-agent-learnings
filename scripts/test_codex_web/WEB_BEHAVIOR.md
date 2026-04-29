@@ -27,6 +27,15 @@ These tests describe the minimum behavior `scripts/codex_web.py` and
 The UI may later render this as a proper tree. Until then, parent metadata must
 not be inferred from worktree directory names.
 
+## Parallel Tabs
+
+- Given two browser tabs are pointed at different branches or worktrees,
+- when both tabs submit commands,
+- then each command runs in the repo path sent by that tab.
+- Branch creation requests must receive distinct branch/worktree names.
+- Spawned wrapper processes must receive distinct web log files, even when they
+  start within the same second.
+
 ## Browser Smoke
 
 - Given the server is running,
