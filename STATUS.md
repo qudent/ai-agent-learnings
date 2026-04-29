@@ -57,6 +57,11 @@ on local branch `dev`.
 - None.
 
 ## Recent Results
+- In child branch `codex-web-interface-645442f-20260429-225724-691746016`,
+  reduced the visible button factory by replacing per-run Transcript/Patch/Copy
+  rows with a compact run action menu while keeping row-click transcripts,
+  shortened the header repo display behind a Change path disclosure, simplified
+  composer/detail copy, and added a calmer neutral/accent visual hierarchy.
 - Run timeline spacing was tightened up from the screenshot feedback: run rows
   now reserve a wider gutter for the timeline marker, align the marker to the
   rail, and add more spacing around the Transcript/Patch/Copy message action
@@ -81,8 +86,8 @@ on local branch `dev`.
   case where selection starts while an overview request is in flight; explicit
   actions still force refreshes.
 - Verification passed: `python3 -m py_compile scripts/codex_web.py`,
-  `bash scripts/test_codex_web/test_codex_web.sh scripts/codex_web.py`, and a
-  headless Chrome screenshot against a temporary server on port 6186.
+  `bash scripts/test_codex_web/test_codex_web.sh scripts/codex_web.py`, and
+  headless Chrome screenshots against temporary servers on ports 6186 and 6187.
 - Earlier dev commits in this pass added the overview endpoint/config embed,
   compact active-worktree UI, closed-worktree run grouping, parent metadata,
   path auto-load, process transcripts, branch rename, queueing, and file
