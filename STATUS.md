@@ -57,6 +57,10 @@ on local branch `dev`.
 - None.
 
 ## Recent Results
+- Finished child worktree
+  `codex-web-interface-645442f-20260429-225724-691746016`: its patch content
+  was already present in `dev`, `worktree_finish` merged the branch history into
+  `dev`, removed the child worktree, and deleted the child branch.
 - Fixed the Continue-button false active-run block: idle `/api/status` now
   returns `active: null` instead of `{}`, and the browser active-run guard only
   treats statuses with a real `hash` or `pid` as active. Regression coverage was
@@ -110,7 +114,9 @@ on local branch `dev`.
   added.
 - `git branch -r` currently shows only `origin/main`.
 - `git worktree list` currently shows `/home/name/learnings` on `main` and
-  `/home/name/learnings.worktrees/dev` on `dev`.
+  `/home/name/learnings.worktrees/dev` on `dev`; the
+  `codex-web-interface-645442f-20260429-225724-691746016` child worktree has
+  been removed.
 - Active web UI instances: existing main copy on `127.0.0.1:6174`, dev copy in
   tmux session `chatgit-dev` on `127.0.0.1:6175`; dev log path is
   `/tmp/chatgit-dev-6175.log`.
