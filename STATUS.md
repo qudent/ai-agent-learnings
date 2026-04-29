@@ -45,6 +45,11 @@ larger UI redesign work.
 - None.
 
 ## Recent Results
+- Merged the `dev` and `codex-web-9246530-20260429-183606` worktrees into
+  `main`, preserving both the parallel-tab collision fix and the three-pane web
+  UI work.
+- Removed both local feature worktrees and their local branch refs after
+  verifying they were merged into `HEAD`.
 - Revised `scripts/codex_web.py` into a three-pane layout: branch/worktree list,
   selected conversation, and selected commit detail.
 - Added hash-copy controls, `/api/status`, queued/active run display, and
@@ -91,5 +96,6 @@ larger UI redesign work.
 - Current verification for the chatgit UI is `python3 -m py_compile
   scripts/codex_web.py` and `bash scripts/test_codex_web/test_codex_web.sh
   scripts/codex_web.py`; the web test uses headless Chrome when available.
+- `git worktree list` currently shows only `/home/name/learnings` attached.
 - Stable repo instructions still belong in each repo's `AGENTS.md`; concrete run
   commands belong in repo docs or `STATUS.md`, not in project-agnostic learnings.
