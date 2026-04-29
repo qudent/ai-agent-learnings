@@ -45,6 +45,9 @@ larger UI redesign work.
 - None.
 
 ## Recent Results
+- Created the `dev` worktree at `/home/name/learnings.worktrees/dev` and
+  started a second `chatgit` web UI from that tree in tmux session
+  `chatgit-dev` on `127.0.0.1:6175`.
 - Deleted remote feature branches `origin/dev` and
   `origin/codex-web-9246530-20260429-183606`; `origin/main` is now the only
   remote branch after pruning.
@@ -96,11 +99,14 @@ larger UI redesign work.
 - Tracked dispatcher/logging helper scripts are no longer present in this repo;
   keep future docs at the policy level unless a replacement implementation is
   added.
-- `git branch -r` currently shows only `origin/main`; local `main` is still
-  ahead 4 and behind 1 relative to `origin/main`.
+- `git branch -r` currently shows only `origin/main`.
+- `git worktree list` currently shows `/home/name/learnings` on `main` and
+  `/home/name/learnings.worktrees/dev` on `dev`.
+- Active web UI instances: existing main copy on `127.0.0.1:6174`, dev copy in
+  tmux session `chatgit-dev` on `127.0.0.1:6175`; dev log path is
+  `/tmp/chatgit-dev-6175.log`.
 - Current verification for the chatgit UI is `python3 -m py_compile
   scripts/codex_web.py` and `bash scripts/test_codex_web/test_codex_web.sh
   scripts/codex_web.py`; the web test uses headless Chrome when available.
-- `git worktree list` currently shows only `/home/name/learnings` attached.
 - Stable repo instructions still belong in each repo's `AGENTS.md`; concrete run
   commands belong in repo docs or `STATUS.md`, not in project-agnostic learnings.
