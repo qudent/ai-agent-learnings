@@ -93,6 +93,10 @@ printf '%s' "$page" | grep -F 'hasTextSelection' >/dev/null
 printf '%s' "$page" | grep -F 'setInterval(()=>{if(!document.hidden&&!hasTextSelection())refreshAll()},2000)' >/dev/null
 printf '%s' "$page" | grep -F 'Click a hash to copy it' >/dev/null
 printf '%s' "$page" | grep -F 'Copy message' >/dev/null
+printf '%s' "$page" | grep -F "Click row to show this commit patch" >/dev/null
+printf '%s' "$page" | grep -F "Click row to show the full transcript" >/dev/null
+printf '%s' "$page" | grep -F "d.onclick=e=>{if(!e.target.closest('button')&&!hasTextSelection())diff(m.hash)}" >/dev/null
+printf '%s' "$page" | grep -F "r.onclick=e=>{if(!e.target.closest('button')&&!hasTextSelection())showTranscript(run.hash,'')}" >/dev/null
 printf '%s' "$page" | grep -F 'Continue resumes the latest session; active worktree runs are queued server-side until they finish.' >/dev/null
 printf '%s' "$page" | grep -F 'Stop the active Codex run in this worktree and clear web-queued messages' >/dev/null
 printf '%s' "$page" | grep -F 'Full transcript' >/dev/null

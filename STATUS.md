@@ -48,6 +48,8 @@ on local branch `dev`.
 - [x] Preserve browser text selection during passive auto-refresh.
 - [x] Change the detail-pane copy action from hash-copying to copying the
   displayed patch/transcript/message text.
+- [x] Make conversation commit rows clickable so clicking the row opens the
+  patch, while hash/buttons keep their specific actions.
 - [x] Drive the work TDD-style through `scripts/test_codex_web/` and then smoke
   the running dev server.
 
@@ -55,6 +57,9 @@ on local branch `dev`.
 - None.
 
 ## Recent Results
+- Commit-row click handling now opens the selected commit patch from the
+  conversation row, and run-row clicks open transcripts; both skip when the
+  user is selecting text or clicking an explicit button.
 - Commit `a07ec73` from child branch
   `codex-web-interface-b37b388-20260429-223907-346838682` revised the left
   pane run rows into a nested timeline: prompt-first rows, hash/status metadata

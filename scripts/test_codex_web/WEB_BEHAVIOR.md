@@ -76,6 +76,9 @@ not be inferred from worktree directory names.
 - Hash controls should include a visible hint that clicking a hash copies it.
 - Commit rows and run rows should expose a copy-message action for the full Git
   commit message when one is available.
+- Clicking a conversation commit row should open that commit's patch in the
+  detail pane; clicking a run row should open the full transcript. Drag-selecting
+  text must not trigger these row actions.
 - Worktree rows with an active agent should have a distinct visual state, such
   as color, border, or an `agent active` marker on the row itself.
 - The composer should support pasted or dropped arbitrary file uploads, allow
