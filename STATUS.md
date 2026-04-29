@@ -57,6 +57,10 @@ on local branch `dev`.
 - None.
 
 ## Recent Results
+- Run timeline spacing was tightened up from the screenshot feedback: run rows
+  now reserve a wider gutter for the timeline marker, align the marker to the
+  rail, and add more spacing around the Transcript/Patch/Copy message action
+  buttons.
 - Commit-row click handling now opens the selected commit patch from the
   conversation row, and run-row clicks open transcripts; both skip when the
   user is selecting text or clicking an explicit button.
@@ -76,8 +80,9 @@ on local branch `dev`.
 - Passive 2-second refresh now skips while text is selected, including the
   case where selection starts while an overview request is in flight; explicit
   actions still force refreshes.
-- Verification passed: `python3 -m py_compile scripts/codex_web.py` and
-  `bash scripts/test_codex_web/test_codex_web.sh scripts/codex_web.py`.
+- Verification passed: `python3 -m py_compile scripts/codex_web.py`,
+  `bash scripts/test_codex_web/test_codex_web.sh scripts/codex_web.py`, and a
+  headless Chrome screenshot against a temporary server on port 6186.
 - Earlier dev commits in this pass added the overview endpoint/config embed,
   compact active-worktree UI, closed-worktree run grouping, parent metadata,
   path auto-load, process transcripts, branch rename, queueing, and file
