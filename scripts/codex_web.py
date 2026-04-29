@@ -433,15 +433,15 @@ HTML = r'''<!doctype html><meta charset="utf-8"><title>codex-web-interface</titl
 @media (max-width:900px){body{height:auto;overflow:auto;width:100%}header{grid-template-columns:1fr}.header-actions{flex-wrap:wrap}main{overflow:hidden;max-width:100vw}.pane,#left,#worktrees{width:100%;max-width:100vw;overflow-x:hidden;background:#fff}.wt{max-width:calc(100vw - 1.2rem)}#repoLabel,.run-title{white-space:normal;overflow-wrap:anywhere}.run{max-width:100%;padding-right:.24rem}.run-title,.run-meta{width:calc(100vw - 5.2rem)}.run-menu{display:none}.run-actions,.msg .actions{opacity:1}}
 #worktrees,.runs,.wt,.run,.run-title,.run-meta,.repo-label-line,#repoLabel{min-width:0}.repo-label-line{overflow:hidden}.repo-caption{flex:0 0 auto}#repoLabel{max-width:100%}.run-title,.run-meta{display:block;max-width:100%}#worktrees{overflow-x:hidden}
 </style>
-<header><div class="brand-stack"><span class="brand">codex-web-interface</span><span class="hint top-hint">Local Codex sessions</span></div><div class="repo-row"><span class="repo-label-line"><span class="repo-caption">Repo</span><span id="repoLabel">Loading...</span></span><details class="repo-edit"><summary title="Edit repository path"></summary><input id="repo" aria-label="Repository path" title="Full repository path"></details></div><div class="header-actions"><button onclick="refreshAll()" title="Reload repository, branch, message, and status data">Sync</button><button onclick="abortRun()" title="Stop the active Codex run in this worktree and clear web-queued messages">Abort run</button></div></header>
+<header><div class="brand-stack"><span class="brand">codex-web-interface</span><span class="hint top-hint">Local Codex sessions</span></div><div class="repo-row"><span class="repo-label-line"><span class="repo-caption">Repo</span><span id="repoLabel">Loading...</span></span><details class="repo-edit"><summary title="Edit repository path"></summary><input id="repo" aria-label="Repository path" title="Full repository path"></details></div><div class="header-actions"><button onclick="refreshAll()" title="Reload repository, branch, message, and status data">Sync</button></div></header>
 <main>
   <section class="pane" id="left"><div class="pane-head"><div class="pane-title">Branches</div><div class="hint">Worktrees and recent runs</div></div><div id="worktrees"></div><div id="state"></div></section>
-  <section class="pane"><div class="pane-head"><div class="pane-title">Conversation</div><div id="base" class="hint">No base selected. Click a hash to copy it.</div></div><div id="chat"></div><div id="composer"><textarea id="prompt" placeholder="Ask Codex..." title="Continue resumes the latest session; active worktree runs are queued until they finish."></textarea><div id="dropHint" class="drop-hint">Paste or drop files here.</div><div id="attachments" class="attachments"></div><div class="row"><button onclick="send('send')" title="Resume the latest Codex session; queue behind an active run in this worktree">Continue</button><button onclick="send('fresh')" title="Start a new Codex session; queue behind an active run in this worktree">Fresh</button><button onclick="send('branch')" title="Start a child worktree from the selected commit; queue if that new worktree is active">Branch from selected</button><button onclick="clearBase()" title="Clear the selected branch base commit">Clear base</button></div></div></section>
-  <aside class="pane"><div class="pane-head"><div class="pane-title">Detail</div><div class="hint">Patch or transcript</div><div class="detail-tools"><span id="detailHash" class="detail-hash hint">Select a commit or run</span><button id="copyDetail" onclick="copyDetail()" disabled>Copy message</button></div></div><pre id="diff" class="empty">Select a commit or run to inspect it here.</pre></aside>
+  <section class="pane"><div class="pane-head"><div class="pane-title">Conversation</div><div id="base" class="hint">No base selected. Click a hash to copy it.</div></div><div id="chat"></div><div id="composer"><textarea id="prompt" placeholder="Ask Codex..." title="Continue resumes the latest session. Use Queue when a run is active."></textarea><div id="dropHint" class="drop-hint">Paste or drop files here.</div><div id="attachments" class="attachments"></div><div class="row"><button onclick="send('send')" title="Resume the latest Codex session now">Continue</button><button onclick="send('fresh')" title="Start a new Codex session now">Fresh</button><button onclick="send('branch')" title="Start a child worktree from the selected commit">Branch from selected</button><button onclick="send('queue')" title="Queue this prompt behind the active run">Queue</button><button onclick="pauseRun()" title="Stop the active Codex run in this worktree and clear queued messages">Pause run</button><button onclick="clearBase()" title="Clear the selected branch base commit">Clear base</button></div></div></section>
+  <aside class="pane"><div class="pane-head"><div class="pane-title">Detail</div><div class="hint">Select a commit for its patch, or a run for its transcript.</div><div class="detail-tools"><span id="detailHash" class="detail-hash hint">Select a commit or run</span><button id="copyDetail" onclick="copyDetail()" disabled>Copy detail</button></div></div><pre id="diff" class="empty">Select a commit or run to inspect it here.</pre></aside>
 </main>
 <script>
 window.CHATGIT_CONFIG=__CHATGIT_CONFIG__;
-let baseCommit='', selectedCommit='', repoTimer=null, attachments=[], refreshing=false, messagesByHash={};
+let baseCommit='', selectedCommit='', repoTimer=null, attachments=[], refreshing=false, messagesByHash={}, currentStatus={};
 const $=id=>document.getElementById(id);
 const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 async function api(path,opt={}){let r=await fetch(path,opt),j=await r.json(); if(!r.ok||j.error)throw new Error(j.error||r.statusText); return j}
@@ -454,8 +454,9 @@ function clearBase(){baseCommit=''; $('base').textContent='No base selected.'}
 function setRepo(path){$('repo').value=path; updateRepoLabel(); selectedCommit=''; clearBase(); refreshAll(true)}
 function repoPathChanged(){updateRepoLabel(); clearTimeout(repoTimer); repoTimer=setTimeout(()=>{selectedCommit=''; clearBase(); refreshAll(true)},350)}
 async function copyText(text,label='Copy text'){try{await navigator.clipboard.writeText(text)}catch(e){window.prompt(label,text)}}
-function copyDetail(){let text=$('diff').textContent||''; if(text&&!$('copyDetail').disabled)copyText(text,'Copy message')}
+function copyDetail(){let text=$('diff').textContent||''; if(text&&!$('copyDetail').disabled)copyText(text,'Copy detail')}
 function hasTextSelection(){let s=window.getSelection&&window.getSelection(); return !!(s&&!s.isCollapsed&&String(s).trim())}
+function hasActiveRun(){return !!(currentStatus&&currentStatus.active)}
 function renderAttachments(){$('attachments').innerHTML=attachments.map((a,i)=>`<span class="chip"><span class="chip-name">${esc(a.name||a.path)}</span><button class="chip-x" title="Remove attachment" onclick="removeAttachment(${i})">x</button></span>`).join('')}
 function removeAttachment(i){attachments.splice(i,1); renderAttachments()}
 async function uploadFileList(files){
@@ -522,6 +523,7 @@ function renderRun(parent, run, archived){
 }
 async function loadStatus(j=null){
   j = j || await api('/api/status?repo='+encodeURIComponent($('repo').value));
+  currentStatus=j||{};
   let lines=[];
   for(let q of (j.queue||[]))lines.push(`<div class="state-line queued">Queued: ${esc(q.mode||q.func)} ${esc((q.prompt||'').slice(0,90))}</div>`);
   if(j.active&&j.active.hash)lines.push(`<button class="state-line active-run" onclick="showTranscript('${esc(j.active.hash)}','')">Active: <span class="hash">${esc(j.active.short||j.active.hash.slice(0,7))}</span> ${esc(j.active.subject||'Codex run')} · Full transcript</button>`);
@@ -569,12 +571,19 @@ async function renameBranch(path, oldBranch){
 }
 async function send(mode){
   let p=$('prompt').value.trim(); if(!p)return; if(mode==='branch'&&!baseCommit){alert('choose a branch base first');return}
+  if(mode==='queue'){
+    if(!hasActiveRun()){alert('No active run to queue behind. Use Continue or Fresh.');return}
+    mode='send';
+  } else if(hasActiveRun()){
+    alert('A run is active. Use Queue to send this after it finishes, or Pause run first.');
+    return;
+  }
   let body={repo:$('repo').value,prompt:p,mode:mode,base_commit:mode==='branch'?baseCommit:'',attachments:attachments.map(a=>a.path)};
   let j=await api('/api/run',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
   if(j.worktree){$('repo').value=j.worktree.path; updateRepoLabel(); clearBase()}
   $('prompt').value=''; attachments=[]; renderAttachments(); await refreshAll(true);
 }
-async function abortRun(){await api('/api/abort',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({repo:$('repo').value})}); await refreshAll(true)}
+async function pauseRun(){await api('/api/abort',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({repo:$('repo').value})}); await refreshAll(true)}
 async function refreshAll(force=false){if(refreshing||(!force&&hasTextSelection()))return; refreshing=true; updateRepoLabel(); try{let j=await api('/api/overview?repo='+encodeURIComponent($('repo').value)); if(!force&&hasTextSelection())return; await loadWorktrees(j); await loadMessages({messages:j.messages||[]}); await loadStatus(j.status||{})}catch(e){$('diff').textContent=String(e)}finally{refreshing=false}}
 window.onload=async()=>{let c=window.CHATGIT_CONFIG; $('repo').value=c.repo; updateRepoLabel(); $('repo').addEventListener('input',repoPathChanged); $('repo').addEventListener('change',repoPathChanged); $('repo').addEventListener('keydown',e=>{if(e.key==='Enter')repoPathChanged()}); let comp=$('composer'); comp.addEventListener('paste',handlePaste); comp.addEventListener('dragover',e=>{e.preventDefault(); comp.classList.add('dragging')}); comp.addEventListener('dragleave',()=>comp.classList.remove('dragging')); comp.addEventListener('drop',handleDrop); setInterval(()=>{if(!document.hidden&&!hasTextSelection())refreshAll()},2000); await refreshAll(true)}
 </script>'''

@@ -57,6 +57,12 @@ on local branch `dev`.
 - None.
 
 ## Recent Results
+- Moved the active-run stop control out of the header and into the composer as
+  `Pause run`, beside Continue/Fresh/Branch/Queue; `Queue` is now the only
+  composer action that intentionally queues behind an active run, while
+  Continue/Fresh/Branch prompt the user to use Queue or pause first.
+- Reworded the Detail pane to describe the actual selection model: commits show
+  patches, runs show transcripts, and the detail action now says `Copy detail`.
 - In child branch `codex-web-interface-645442f-20260429-225724-691746016`,
   reduced the visible button factory by replacing per-run Transcript/Patch/Copy
   rows with a compact run action menu while keeping row-click transcripts,
@@ -87,7 +93,8 @@ on local branch `dev`.
   actions still force refreshes.
 - Verification passed: `python3 -m py_compile scripts/codex_web.py`,
   `bash scripts/test_codex_web/test_codex_web.sh scripts/codex_web.py`, and
-  headless Chrome screenshots against temporary servers on ports 6186 and 6187.
+  headless Chrome screenshots against temporary servers on ports 6186, 6187,
+  and 6188.
 - Earlier dev commits in this pass added the overview endpoint/config embed,
   compact active-worktree UI, closed-worktree run grouping, parent metadata,
   path auto-load, process transcripts, branch rename, queueing, and file

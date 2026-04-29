@@ -93,14 +93,19 @@ printf '%s' "$page" | grep -F 'repoLabel' >/dev/null
 printf '%s' "$page" | grep -F 'hasTextSelection' >/dev/null
 printf '%s' "$page" | grep -F 'setInterval(()=>{if(!document.hidden&&!hasTextSelection())refreshAll()},2000)' >/dev/null
 printf '%s' "$page" | grep -F 'Click a hash to copy it' >/dev/null
-printf '%s' "$page" | grep -F 'Copy message' >/dev/null
+printf '%s' "$page" | grep -F 'Copy detail' >/dev/null
 printf '%s' "$page" | grep -F "Click row to show this commit patch" >/dev/null
 printf '%s' "$page" | grep -F "Click row to show the full transcript" >/dev/null
 printf '%s' "$page" | grep -F "d.onclick=e=>{if(!e.target.closest('button')&&!hasTextSelection())diff(m.hash)}" >/dev/null
 printf '%s' "$page" | grep -F "r.onclick=e=>{if(!e.target.closest('button,summary,details')&&!hasTextSelection())showTranscript(run.hash,'')}" >/dev/null
 printf '%s' "$page" | grep -F 'Ask Codex...' >/dev/null
-printf '%s' "$page" | grep -F 'Continue resumes the latest session; active worktree runs are queued until they finish.' >/dev/null
-printf '%s' "$page" | grep -F 'Stop the active Codex run in this worktree and clear web-queued messages' >/dev/null
+printf '%s' "$page" | grep -F 'Continue resumes the latest session. Use Queue when a run is active.' >/dev/null
+printf '%s' "$page" | grep -F 'Queue this prompt behind the active run' >/dev/null
+printf '%s' "$page" | grep -F 'Pause run' >/dev/null
+printf '%s' "$page" | grep -F 'Copy detail' >/dev/null
+printf '%s' "$page" | grep -F 'Select a commit for its patch, or a run for its transcript.' >/dev/null
+printf '%s' "$page" | grep -F 'A run is active. Use Queue to send this after it finishes, or Pause run first.' >/dev/null
+! printf '%s' "$page" | grep -F 'Abort run' >/dev/null
 printf '%s' "$page" | grep -F 'Full transcript' >/dev/null
 printf '%s' "$page" | grep -F 'Rename' >/dev/null
 printf '%s' "$page" | grep -F 'Active worktrees' >/dev/null
@@ -329,7 +334,7 @@ if command -v google-chrome >/dev/null 2>&1; then
   printf '%s' "$dom" | grep -F 'Closed worktree runs' >/dev/null
   printf '%s' "$dom" | grep -F 'Transcript' >/dev/null
   printf '%s' "$dom" | grep -F 'Patch' >/dev/null
-  printf '%s' "$dom" | grep -F 'Copy message' >/dev/null
+  printf '%s' "$dom" | grep -F 'Copy detail' >/dev/null
   google-chrome --headless --disable-gpu --no-sandbox --window-size=1280,900 --screenshot="$TMP/chatgit-desktop.png" "http://127.0.0.1:$PORT/" >/dev/null 2>&1
   google-chrome --headless --disable-gpu --no-sandbox --window-size=390,900 --screenshot="$TMP/chatgit-narrow.png" "http://127.0.0.1:$PORT/" >/dev/null 2>&1
   [ -s "$TMP/chatgit-desktop.png" ]
