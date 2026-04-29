@@ -15,6 +15,10 @@ These tests describe the minimum behavior `scripts/codex_web.py` and
 - and the user chooses a commit as the branch base,
 - when they submit a prompt in `branch` mode,
 - then the server creates a new worktree branch at that exact base commit.
+- Given the selected repository is already a web-created child branch,
+- when they submit another prompt in `branch` mode,
+- then the server creates a grandchild worktree and records the selected child
+  branch as its parent.
 
 ## Parent Branch Metadata
 
@@ -35,6 +39,16 @@ not be inferred from worktree directory names.
 - Branch creation requests must receive distinct branch/worktree names.
 - Spawned wrapper processes must receive distinct web log files, even when they
   start within the same second.
+
+## Message Queueing
+
+- Given a web-started Codex process is still active for a repository,
+- when the user submits another message for that same repository,
+- then the server queues the new message instead of interrupting the active
+  process.
+- Queued messages run in submission order after the active process exits.
+- `/api/status` exposes the active process and queued messages so the UI can
+  render both states without relying on browser-local state.
 
 ## Browser Smoke
 

@@ -7,13 +7,16 @@ Run:
 No auth; binds to 127.0.0.1 by default. Do NOT run on 0.0.0.0. Use SSH port forwarding for remote use.
 """
 from __future__ import annotations
-import argparse, json, os, re, subprocess, sys, time
+import argparse, json, os, re, subprocess, sys, threading, time
+from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 ROOT = Path.cwd()
 WRAPPER = Path(__file__).with_name('codex_wrap.sh')
+RUN_LOCK = threading.RLock()
+RUNNERS = {}
 
 def sh(cmd, cwd, check=True):
     return subprocess.run(cmd, cwd=str(cwd), text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=check)
@@ -81,7 +84,7 @@ def create_worktree(repo, commit):
         time.sleep(.05)
     raise RuntimeError('could not allocate worktree name')
 
-def spawn(repo, func, args):
+def spawn_process(repo, func, args, meta=None):
     logdir = common_dir(repo) / 'codex-wrap' / 'web'
     logdir.mkdir(parents=True, exist_ok=True)
     stamp = f'{time.strftime("%Y%m%d-%H%M%S")}-{time.time_ns() % 1_000_000_000:09d}'
@@ -91,7 +94,108 @@ def spawn(repo, func, args):
     fh = open(log, 'ab')
     p = subprocess.Popen(['bash', '-lc', script, 'bash', str(WRAPPER), func, *args], cwd=str(repo), stdin=subprocess.DEVNULL, stdout=fh, stderr=subprocess.STDOUT, env=env, start_new_session=True)
     fh.close()
-    return {'pid': p.pid, 'log': str(log)}
+    info = {'pid': p.pid, 'log': str(log), 'func': func, 'started_at': int(time.time())}
+    if meta:
+        info.update({k: v for k, v in meta.items() if k in ('mode', 'prompt')})
+    return p, info
+
+def public_process(info):
+    return {k: v for k, v in (info or {}).items() if k != 'process'}
+
+def runner_key(repo):
+    return str(Path(repo).resolve())
+
+def runner_state(key):
+    state = RUNNERS.get(key)
+    if not state:
+        state = {'active': None, 'queue': deque(), 'external_waiter': False}
+        RUNNERS[key] = state
+    return state
+
+def process_alive(proc):
+    return proc is not None and proc.poll() is None
+
+def start_queued_locked(key, item, watch=True):
+    proc, info = spawn_process(Path(item['repo']), item['func'], item['args'], item)
+    runner_state(key)['active'] = {**info, 'process': proc}
+    if watch:
+        threading.Thread(target=wait_and_drain, args=(key, proc), daemon=True).start()
+    return info
+
+def wait_and_drain(key, proc):
+    proc.wait()
+    while True:
+        with RUN_LOCK:
+            state = runner_state(key)
+            active = state.get('active')
+            if active and active.get('process') is proc:
+                state['active'] = None
+            if not state['queue']:
+                return
+            item = state['queue'].popleft()
+            start_queued_locked(key, item, watch=False)
+            proc = runner_state(key)['active']['process']
+        proc.wait()
+
+def wait_external_and_drain(key, repo):
+    while active_run(repo):
+        time.sleep(0.5)
+    with RUN_LOCK:
+        state = runner_state(key)
+        state['external_waiter'] = False
+        if not state['queue']:
+            return
+        item = state['queue'].popleft()
+        start_queued_locked(key, item)
+
+def submit_or_queue(repo, func, args, mode, prompt):
+    key = runner_key(repo)
+    item = {'repo': key, 'func': func, 'args': args, 'mode': mode, 'prompt': prompt}
+    with RUN_LOCK:
+        state = runner_state(key)
+        active = state.get('active')
+        if active and process_alive(active.get('process')):
+            state['queue'].append(item)
+            return {'queued': True, 'queue_depth': len(state['queue']), 'process': None}
+        state['active'] = None
+    external_active = active_run(repo)
+    with RUN_LOCK:
+        state = runner_state(key)
+        active = state.get('active')
+        if active and process_alive(active.get('process')):
+            state['queue'].append(item)
+            return {'queued': True, 'queue_depth': len(state['queue']), 'process': None}
+        if external_active:
+            state['queue'].append(item)
+            if not state['external_waiter']:
+                state['external_waiter'] = True
+                threading.Thread(target=wait_external_and_drain, args=(key, Path(repo)), daemon=True).start()
+            return {'queued': True, 'queue_depth': len(state['queue']), 'process': None}
+        info = start_queued_locked(key, item)
+        return {'queued': False, 'queue_depth': len(state['queue']), 'process': public_process(info)}
+
+def clear_queue(repo):
+    key = runner_key(repo)
+    with RUN_LOCK:
+        runner_state(key)['queue'].clear()
+
+def run_status(repo):
+    key = runner_key(repo)
+    queued = []
+    web_active = None
+    with RUN_LOCK:
+        state = runner_state(key)
+        active = state.get('active')
+        if active and process_alive(active.get('process')):
+            web_active = public_process(active)
+        elif active:
+            state['active'] = None
+        queued = [public_process(item) for item in state['queue']]
+    git_active = active_run(repo)
+    active = git_active or web_active or {}
+    if active and web_active:
+        active = {**active, **web_active}
+    return {'active': active, 'queue': queued, 'queue_depth': len(queued)}
 
 def records(repo, limit=150):
     fmt = '%H%x1f%P%x1f%ct%x1f%s%x1f%B%x1e'
@@ -146,11 +250,11 @@ HTML = r'''<!doctype html><meta charset="utf-8"><title>Codex Git Chat</title>
 <header><strong>Codex Git Chat</strong><label class="repo-row"><input id="repo" aria-label="Repository path"></label><button onclick="refreshAll()">Refresh</button><button onclick="abortRun()">Abort active</button></header>
 <main>
   <section class="pane" id="left"><div class="pane-head"><div class="pane-title">Branches</div><div class="hint">Worktrees and parent metadata</div></div><div id="worktrees"></div><div id="state"></div></section>
-  <section class="pane"><div class="pane-head"><div class="pane-title">Conversation</div><div id="base" class="hint">No branch base selected.</div></div><div id="chat"></div><div id="composer"><textarea id="prompt" placeholder="Prompt. Send interrupts/resumes; Fresh starts a new session; Branch starts a sibling worktree from selected commit."></textarea><div class="row"><button onclick="send('send')">Send / interrupt</button><button onclick="send('fresh')">Fresh</button><button onclick="send('branch')">Branch from selected</button><button onclick="clearBase()">Clear base</button></div></div></section>
+  <section class="pane"><div class="pane-head"><div class="pane-title">Conversation</div><div id="base" class="hint">No branch base selected.</div></div><div id="chat"></div><div id="composer"><textarea id="prompt" placeholder="Prompt. Send queues behind an active run; Fresh starts a new session; Branch starts a child worktree from selected commit."></textarea><div class="row"><button onclick="send('send')">Send / queue</button><button onclick="send('fresh')">Fresh</button><button onclick="send('branch')">Branch from selected</button><button onclick="clearBase()">Clear base</button></div></div></section>
   <aside class="pane"><div class="pane-head"><div class="pane-title">Commit Detail</div><div class="detail-tools"><span id="detailHash" class="detail-hash hint">Select a commit</span><button id="copyDetail" onclick="copySelected()" disabled>Copy hash</button></div></div><pre id="diff" class="empty">Select a commit to view git show --format=fuller --patch output.</pre></aside>
 </main>
 <script>
-let baseCommit='', selectedCommit='', queued=null;
+let baseCommit='', selectedCommit='';
 const $=id=>document.getElementById(id);
 const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 async function api(path,opt={}){let r=await fetch(path,opt),j=await r.json(); if(!r.ok||j.error)throw new Error(j.error||r.statusText); return j}
@@ -172,9 +276,10 @@ async function loadWorktrees(){
 async function loadStatus(){
   let j=await api('/api/status?repo='+encodeURIComponent($('repo').value));
   let lines=[];
-  if(queued)lines.push(`<div class="state-line queued">Queued: ${esc(queued.mode)} PID ${esc(String(queued.pid||''))}</div>`);
+  for(let q of (j.queue||[]))lines.push(`<div class="state-line queued">Queued: ${esc(q.mode||q.func)} ${esc((q.prompt||'').slice(0,90))}</div>`);
   if(j.active&&j.active.hash)lines.push(`<div class="state-line active-run">Active: <span class="hash">${esc(j.active.short||j.active.hash.slice(0,7))}</span> ${esc(j.active.subject||'Codex run')}</div>`);
-  if(!lines.length)lines.push('<div class="state-line hint">No active run reported.</div>');
+  else if(j.active&&j.active.pid)lines.push(`<div class="state-line active-run">Starting: PID ${esc(String(j.active.pid))} ${esc(j.active.mode||j.active.func||'Codex run')}</div>`);
+  if(!lines.length)lines.push('<div class="state-line hint">No active run or queued message.</div>');
   $('state').innerHTML=lines.join('');
 }
 async function loadMessages(){
@@ -194,13 +299,12 @@ async function diff(h){
 }
 async function send(mode){
   let p=$('prompt').value.trim(); if(!p)return; if(mode==='branch'&&!baseCommit){alert('choose a branch base first');return}
-  queued={mode:mode,prompt:p,pid:''}; await loadStatus();
   let body={repo:$('repo').value,prompt:p,mode:mode,base_commit:mode==='branch'?baseCommit:''};
   let j=await api('/api/run',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
-  queued={mode:mode,prompt:p,pid:j.process&&j.process.pid}; if(j.worktree){$('repo').value=j.worktree.path; clearBase()}
+  if(j.worktree){$('repo').value=j.worktree.path; clearBase()}
   $('prompt').value=''; await refreshAll();
 }
-async function abortRun(){queued=null; await api('/api/abort',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({repo:$('repo').value})}); await refreshAll()}
+async function abortRun(){await api('/api/abort',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({repo:$('repo').value})}); await refreshAll()}
 async function refreshAll(){try{await loadWorktrees(); await loadMessages(); await loadStatus()}catch(e){$('diff').textContent=String(e)}}
 window.onload=async()=>{let c=await api('/api/config'); $('repo').value=c.repo; await refreshAll()}
 </script>'''
@@ -221,7 +325,7 @@ class H(BaseHTTPRequestHandler):
             r=self.repo(q.get('repo',[str(ROOT)])[0])
             if u.path=='/api/worktrees': self.j({'worktrees':worktrees(r)})
             elif u.path=='/api/messages': self.j({'messages':records(r,int(q.get('limit',['150'])[0]))})
-            elif u.path=='/api/status': self.j({'active':active_run(r)})
+            elif u.path=='/api/status': self.j(run_status(r))
             elif u.path=='/api/show': self.j({'patch':show(r,q.get('commit',[''])[0])})
             else: self.j({'error':'not found'},404)
         except Exception as e: self.j({'error':str(e)},500)
@@ -237,8 +341,13 @@ class H(BaseHTTPRequestHandler):
                 elif mode in ('send','new_message'): func='codex_new_message'
                 elif mode=='resume': func='codex_resume'
                 else: raise ValueError('bad mode')
-                self.j({'ok':True,'process':spawn(target,func,[prompt]),'worktree':wt})
-            elif u.path=='/api/abort': self.j({'ok':True,'process':spawn(r,'codex_abort',[])})
+                result = submit_or_queue(target, func, [prompt], mode, prompt)
+                result.update({'ok': True, 'worktree': wt})
+                self.j(result)
+            elif u.path=='/api/abort':
+                clear_queue(r)
+                proc, info = spawn_process(r,'codex_abort',[], {'mode': 'abort', 'prompt': ''})
+                self.j({'ok':True,'process':public_process(info)})
             else: self.j({'error':'not found'},404)
         except Exception as e: self.j({'error':str(e)},500)
 

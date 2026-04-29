@@ -38,6 +38,9 @@ larger UI redesign work.
 - [x] Add hash-copy controls and first-line commit-message expansion to full
   `git show --format=fuller --patch` output.
 - [x] Show queued/active message state without adding a scheduler to the web UI.
+- [x] Queue web-submitted messages behind active runs for the same worktree.
+- [x] Test recursive web branch creation from a child branch to a grandchild
+  branch.
 - [x] Verify the revised three-pane UI with browser automation at desktop and
   narrow widths.
 
@@ -60,6 +63,11 @@ larger UI redesign work.
   selected conversation, and selected commit detail.
 - Added hash-copy controls, `/api/status`, queued/active run display, and
   `git show --format=fuller --patch` commit detail output without a timer loop.
+- Added server-side per-worktree message queueing to `scripts/codex_web.py`;
+  queued messages now drain in order after the active web-started process exits,
+  and `/api/status` exposes active plus queued state.
+- Extended `scripts/test_codex_web/test_codex_web.sh` to prove recursive
+  child-to-grandchild branch creation and queued follow-up execution.
 - Extended the web behavior contract and shell/browser test to cover fuller
   commit detail output plus desktop and narrow Chrome screenshots.
 - Added initial `chatgit` launcher, documented PATH-based install, and gave
