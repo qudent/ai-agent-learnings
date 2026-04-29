@@ -65,8 +65,8 @@ not be inferred from worktree directory names.
 - Hash controls should include a visible hint that clicking a hash copies it.
 - Worktree rows with an active agent should have a distinct visual state, such
   as color, border, or an `agent active` marker on the row itself.
-- The composer should support screenshot upload and include uploaded file paths
-  in the prompt sent to Codex.
+- The composer should support pasted or dropped screenshot uploads and include
+  uploaded file paths in the prompt sent to Codex.
 
 ## Commit Detail
 
@@ -86,10 +86,12 @@ not be inferred from worktree directory names.
 - Given a branch/worktree has a currently running Codex process,
 - then `/api/worktrees` marks that worktree with active-run data,
 - and the row for that worktree has a visible active-agent indication.
+- Once that Codex process exits, `/api/worktrees` must stop marking the
+  worktree active.
 
 ## Screenshot Uploads
 
-- Given the user attaches a screenshot in the composer,
+- Given the user pastes or drops a screenshot in the composer,
 - then the server stores it under the repo's Git common directory,
 - returns a filesystem path for the uploaded screenshot,
 - and prompts sent with that attachment include the uploaded path.

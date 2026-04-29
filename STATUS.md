@@ -69,6 +69,9 @@ on local branch `dev`.
 - Merged the queue/recursive-branch child worktree back into `dev`, removed the
   child worktree/branch, reran py_compile plus the web behavior test, and
   restarted `chatgit-dev` on `127.0.0.1:6175`.
+- Replaced the visible screenshot upload button with paste/drop screenshot
+  handling in the composer and added a regression that active-agent branch
+  marking clears after the Codex process exits.
 - Created the `dev` worktree at `/home/name/learnings.worktrees/dev` and
   started a second `chatgit` web UI from that tree in tmux session
   `chatgit-dev` on `127.0.0.1:6175`.

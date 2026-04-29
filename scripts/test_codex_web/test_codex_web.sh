@@ -92,7 +92,8 @@ printf '%s' "$page" | grep -F 'Path changes auto-load' >/dev/null
 printf '%s' "$page" | grep -F 'Click a hash to copy it' >/dev/null
 printf '%s' "$page" | grep -F 'Full transcript' >/dev/null
 printf '%s' "$page" | grep -F 'Rename branch' >/dev/null
-printf '%s' "$page" | grep -F 'Attach screenshot' >/dev/null
+printf '%s' "$page" | grep -F 'Paste or drop screenshots' >/dev/null
+! printf '%s' "$page" | grep -F 'Attach screenshot' >/dev/null
 printf '%s' "$page" | grep -F 'agent-active' >/dev/null
 printf '%s' "$page" | grep -F 'chatgit launcher' >/dev/null
 printf '%s' "$page" | grep -F 'codex_wrap runner' >/dev/null
@@ -201,6 +202,17 @@ done
 kill "$active_pid" 2>/dev/null || true
 wait_pid "$active_pid"
 printf 'ok - worktree API marks branches with active agents\n'
+active_cleared=0
+for _ in $(seq 1 30); do
+  active_worktrees=$(curl -fsS "http://127.0.0.1:$PORT/api/worktrees?repo=$REPO")
+  if ! printf '%s' "$active_worktrees" | grep -F '"active": {' >/dev/null; then
+    active_cleared=1
+    break
+  fi
+  sleep 0.1
+done
+[ "$active_cleared" = 1 ]
+printf 'ok - worktree API clears active marker after process exit\n'
 
 worktrees=$(curl -fsS "http://127.0.0.1:$PORT/api/worktrees?repo=$REPO")
 printf '%s' "$worktrees" | grep -F "\"branch\": \"$branch\"" >/dev/null
