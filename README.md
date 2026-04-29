@@ -23,6 +23,17 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
 - When workflow changes materially, update this README in the same session.
 - Commit and push changes in the same session they're made.
 
+## Local helper scripts
+
+- `scripts/codex_wrap.sh` / `scripts/codex_wrap.py`: Codex session wrapper only.
+  It records start/resume/agent/stop marker commits and manages the live Codex
+  process. It should not own branch or worktree placement.
+- `scripts/parallel-worktrees/worktrees.sh`: shared worktree primitives for
+  creating, finding, merging, and cleaning branch worktrees.
+- `scripts/branch_commands.sh`: generic command placement helpers such as
+  `do_at_branch`, `do_at_commit`, and thin tool-specific wrappers like
+  `codex_in_branch`.
+
 ## Related: coordination files
 
 `AGENTS.md` defines the repo coordination scheme. Every non-trivial project gets a `STATUS.md` at its root as the single coordination source of truth: compact project state, active prompts, questions, agent handoffs, latest agent-to-human notes, and reviewable TODO plans. Agents read it before starting work and rewrite it when state changes. Durable human prompts live in commit messages, human-authored diffs, `STATUS.md`, and `USER_IO.md` when present. Stable repo instructions stay in each repo's `AGENTS.md`.

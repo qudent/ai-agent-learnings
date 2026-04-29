@@ -34,6 +34,33 @@ worktree_create() {
   fi
 }
 
+worktree_find_for_branch() {
+  if [ -z "$1" ]; then
+    echo "Usage: worktree_find_for_branch <branch>"
+    return 1
+  fi
+  git worktree list --porcelain | awk -v branch="refs/heads/$1" '
+    $1 == "worktree" { path=$2 }
+    $1 == "branch" && $2 == branch { print path; found=1; exit }
+    END { exit found ? 0 : 1 }
+  '
+}
+
+worktree_create_from_commit() {
+  if [ -z "$1" ] || [ -z "$2" ]; then
+    echo "Usage: worktree_create_from_commit <new_branch_name> <commit>"
+    return 1
+  fi
+  local NEWBRANCH="$1"
+  local COMMIT="$2"
+  local NEWWORKTREE="$(git rev-parse --show-toplevel).worktrees/$NEWBRANCH"
+  git worktree add -b "$NEWBRANCH" "$NEWWORKTREE" "$COMMIT"
+  cd "$NEWWORKTREE"
+  if [[ -f package.json ]]; then
+    pnpm install
+  fi
+}
+
 # worktree_cd_to_parent cds to the "parent worktree" of the current worktree, returns path of the child worktree
 worktree_cd_to_parent() {
   CHILD_PATH="$PWD"

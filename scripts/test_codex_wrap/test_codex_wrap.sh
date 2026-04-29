@@ -103,6 +103,9 @@ export CODEX_WRAP_POLL_SECONDS=0.01
 
 # shellcheck source=/mnt/data/codex_wrap.sh
 . "$WRAP"
+WRAP_DIR=$(cd "$(dirname "$WRAP")" && pwd)
+# shellcheck source=/mnt/data/branch_commands.sh
+. "$WRAP_DIR/branch_commands.sh"
 
 ok() { printf 'ok - %s\n' "$*"; }
 fail() { printf 'not ok - %s\n' "$*" >&2; exit 1; }
@@ -257,18 +260,46 @@ test_interactive_job_control_tracks_setsid_child() {
   ok 'interactive job-control setsid child'
 }
 
-test_worktree_branch_at_commit() {
+test_codex_commit_at_is_plain_prompt() {
   setup_repo
   base=$(git rev-parse HEAD)
   echo next >>file.txt && git add file.txt && git commit -q -m next
   codex_commit @ "$base" branch-task
   branch=$(git rev-parse --abbrev-ref HEAD)
-  [[ $branch == codex-* ]] || fail "not on codex branch: $branch"
-  pwd | grep -F '.worktrees/codex-' >/dev/null || fail 'not inside codex worktree'
-  git merge-base --is-ancestor "$base" HEAD || fail 'worktree branch not rooted at requested commit'
+  [[ $branch == main ]] || fail "codex_commit @ changed branch: $branch"
+  [ ! -d "$PWD.worktrees" ] || fail 'codex_commit @ should not create a worktree'
   s=$(subjects)
+  contains '[codex_start_user] @ '"$base"' branch-task' "$s"
+  contains '[codex] done: @ '"$base"' branch-task' "$s"
+  ok 'codex @ is plain prompt'
+}
+
+test_codex_in_branch_at_commit_uses_worktree_wrapper() {
+  setup_repo
+  root=$PWD
+  base=$(git rev-parse HEAD)
+  echo next >>file.txt && git add file.txt && git commit -q -m next
+  codex_in_branch @ "$base" branch-task
+  [ "$PWD" = "$root" ] || fail 'codex_in_branch should not cd parent shell'
+  branch=$(git branch --format='%(refname:short)' --list 'work-*' | head -n1)
+  [ -n "$branch" ] || fail 'codex_in_branch did not create work branch'
+  wt=$(worktree_find_for_branch "$branch") || fail 'created worktree not found'
+  git -C "$wt" merge-base --is-ancestor "$base" HEAD || fail 'worktree branch not rooted at requested commit'
+  s=$(git -C "$wt" log --reverse --pretty=%s)
   contains '[codex_start_user] branch-task' "$s"
-  ok 'worktree @ branch'
+  contains '[codex] done: branch-task' "$s"
+  ok 'codex_in_branch @ commit'
+}
+
+test_do_at_branch_uses_existing_branch_worktree() {
+  setup_repo
+  root=$PWD
+  git worktree add -q -b existing "$root.worktrees/existing" HEAD
+  do_at_branch existing sh -c 'printf "%s\n" "$PWD" > ../branch-pwd.txt'
+  [ "$PWD" = "$root" ] || fail 'do_at_branch should not cd parent shell'
+  actual=$(cat "$root.worktrees/branch-pwd.txt")
+  [ "$actual" = "$root.worktrees/existing" ] || fail "do_at_branch ran in $actual"
+  ok 'do_at_branch existing worktree'
 }
 
 
@@ -333,7 +364,9 @@ test_resume
 test_new_message_interrupts_running_process
 test_abort_from_other_shell_context
 test_interactive_job_control_tracks_setsid_child
-test_worktree_branch_at_commit
+test_codex_commit_at_is_plain_prompt
+test_codex_in_branch_at_commit_uses_worktree_wrapper
+test_do_at_branch_uses_existing_branch_worktree
 test_parallel_sibling_worktrees_are_branch_local
 test_text_transcript_fixture
 

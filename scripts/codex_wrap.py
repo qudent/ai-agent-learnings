@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Git-backed Codex wrapper engine.
 
-The sourced shell file keeps parent-shell affordances such as `cd` into a
-created worktree. This process owns the parts shell is bad at: child process
-supervision, process-group termination, JSONL parsing, and Git marker updates.
+The sourced shell file exposes small interactive functions. This process owns
+child supervision, process-group termination, JSONL parsing, and Git markers.
 """
 
 from __future__ import annotations
@@ -416,39 +415,6 @@ def new_message(args: list[str]) -> int:
     return run_agent("resume", args, sid)
 
 
-def create_worktree(commit: str) -> int:
-    short = git(["rev-parse", "--short", commit]).strip()
-    root = Path(git(["rev-parse", "--show-toplevel"]).strip())
-    prefix = env("CODEX_WRAP_BRANCH_PREFIX", "codex")
-    i = 0
-    while True:
-        suffix = f"-{i}" if i else ""
-        branch = f"{prefix}-{short}-{time.strftime('%Y%m%d-%H%M%S')}{suffix}"
-        wt = Path(f"{root}.worktrees") / branch
-        if not git_ok(["show-ref", "--verify", "--quiet", f"refs/heads/{branch}"]) and not wt.exists():
-            break
-        i += 1
-        time.sleep(1)
-    proc = subprocess.run(
-        ["git", "worktree", "add", "-b", branch, str(wt), commit],
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    if proc.stdout:
-        sys.stderr.write(proc.stdout)
-    if proc.stderr:
-        sys.stderr.write(proc.stderr)
-    if proc.returncode != 0:
-        return proc.returncode
-    sys.stderr.write(f"codex_wrap: branched {branch} at {wt}\n")
-    if env("CODEX_WRAP_PNPM_INSTALL", "1") == "1" and (wt / "package.json").exists():
-        if subprocess.run(["sh", "-c", "command -v pnpm >/dev/null 2>&1"]).returncode == 0:
-            subprocess.run(["pnpm", "install"], cwd=wt, check=True)
-    print(wt)
-    return 0
-
-
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser()
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -462,8 +428,6 @@ def main(argv: list[str]) -> int:
     abort_p.add_argument("run", nargs="?", default="")
     msg_p = sub.add_parser("new-message")
     msg_p.add_argument("rest", nargs=argparse.REMAINDER)
-    wt_p = sub.add_parser("worktree")
-    wt_p.add_argument("commit")
     ns = parser.parse_args(argv)
 
     if ns.cmd == "run":
@@ -489,8 +453,6 @@ def main(argv: list[str]) -> int:
         return abort_run(ns.run)
     if ns.cmd == "new-message":
         return new_message(ns.rest)
-    if ns.cmd == "worktree":
-        return create_worktree(ns.commit)
     return 2
 
 

@@ -24,6 +24,9 @@ plans. The separate human-agent whiteboard pattern is retired.
   embedded commit messages.
 - Tighten the folding tests to specify the exact `[codex]` commit body and
   preserve the original metadata block on amend instead of rewriting it.
+- Keep branch/worktree placement out of the Codex wrapper; use the shared
+  parallel-worktrees primitives through generic `do_at_branch`/`do_at_commit`
+  helpers, with `codex_in_branch` as thin sugar.
 
 ## Active Goals
 - [x] Keep global agent instructions centralized in `~/learnings/AGENTS.md`.
@@ -41,6 +44,9 @@ plans. The separate human-agent whiteboard pattern is retired.
   when the active context has been preserved in `STATUS.md`.
 - [ ] After the Python wrapper lands, run one live `codex_commit` smoke from an
   interactive shell before treating the migration as fully proven.
+- [ ] Review whether the legacy `parallel-worktrees` skill should keep
+  destructive `worktree_abort`/`worktree_finish` semantics before building more
+  automation on top of it.
 
 ## Blockers
 - None.
@@ -56,6 +62,10 @@ plans. The separate human-agent whiteboard pattern is retired.
   [codex]` and embedded old `[codex]` subjects.
 - Tightened `[codex]` folding again: exact-shape tests now compare the whole
   commit body, and amend paths keep existing `session-id`/`run-start` metadata.
+- Split branch/worktree execution back out of Codex: `codex_wrap` no longer
+  handles `@`, `scripts/branch_commands.sh` provides `do_at_branch`,
+  `do_at_commit`, and `codex_in_branch`, and it delegates worktree primitives to
+  `scripts/parallel-worktrees/worktrees.sh`.
 - Replaced ordinary `agent/<tool>/<branch>` dispatch semantics with
   branch-owned worktree dispatch.
 - Removed `HUMAN_AGENTS_WHITEBOARD.md`; active coordination now belongs in
