@@ -88,7 +88,8 @@ printf 'ok - chatgit serves the caller repository\n'
 
 page=$(curl -fsS "http://127.0.0.1:$PORT/")
 printf '%s' "$page" | grep -F 'codex-web-interface' >/dev/null
-printf '%s' "$page" | grep -F 'Path changes auto-load' >/dev/null
+printf '%s' "$page" | grep -F 'Local Codex sessions' >/dev/null
+printf '%s' "$page" | grep -F 'repoLabel' >/dev/null
 printf '%s' "$page" | grep -F 'hasTextSelection' >/dev/null
 printf '%s' "$page" | grep -F 'setInterval(()=>{if(!document.hidden&&!hasTextSelection())refreshAll()},2000)' >/dev/null
 printf '%s' "$page" | grep -F 'Click a hash to copy it' >/dev/null
@@ -96,8 +97,9 @@ printf '%s' "$page" | grep -F 'Copy message' >/dev/null
 printf '%s' "$page" | grep -F "Click row to show this commit patch" >/dev/null
 printf '%s' "$page" | grep -F "Click row to show the full transcript" >/dev/null
 printf '%s' "$page" | grep -F "d.onclick=e=>{if(!e.target.closest('button')&&!hasTextSelection())diff(m.hash)}" >/dev/null
-printf '%s' "$page" | grep -F "r.onclick=e=>{if(!e.target.closest('button')&&!hasTextSelection())showTranscript(run.hash,'')}" >/dev/null
-printf '%s' "$page" | grep -F 'Continue resumes the latest session; active worktree runs are queued server-side until they finish.' >/dev/null
+printf '%s' "$page" | grep -F "r.onclick=e=>{if(!e.target.closest('button,summary,details')&&!hasTextSelection())showTranscript(run.hash,'')}" >/dev/null
+printf '%s' "$page" | grep -F 'Ask Codex...' >/dev/null
+printf '%s' "$page" | grep -F 'Continue resumes the latest session; active worktree runs are queued until they finish.' >/dev/null
 printf '%s' "$page" | grep -F 'Stop the active Codex run in this worktree and clear web-queued messages' >/dev/null
 printf '%s' "$page" | grep -F 'Full transcript' >/dev/null
 printf '%s' "$page" | grep -F 'Rename' >/dev/null
@@ -113,8 +115,7 @@ printf '%s' "$page" | grep -F 'Remove attachment' >/dev/null
 printf '%s' "$page" | grep -F '.state-line{display:block;width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' >/dev/null
 ! printf '%s' "$page" | grep -F 'Attach screenshot' >/dev/null
 printf '%s' "$page" | grep -F 'agent-active' >/dev/null
-printf '%s' "$page" | grep -F 'chatgit launcher' >/dev/null
-printf '%s' "$page" | grep -F 'codex_wrap runner' >/dev/null
+printf '%s' "$page" | grep -F 'Full repository path' >/dev/null
 printf 'ok - page copy exposes interface name, auto-load, polling, copy-message, queue, transcript, and rename hints\n'
 
 overview=$(curl -fsS "http://127.0.0.1:$PORT/api/overview?repo=$(urlencode "$REPO")")
