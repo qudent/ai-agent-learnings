@@ -52,11 +52,12 @@ on local branch `dev`.
 - None.
 
 ## Recent Results
-- In child branch `codex-web-interface-0e98811-20260429-203652-614022239`,
-  constrained the left-pane queued/active status rows so long run text is
-  clipped with ellipsis instead of overflowing into adjacent panes; added a web
-  behavior contract/test assertion, merged parent branch `dev` into the child,
-  and reran py_compile plus the web behavior test successfully.
+- Merged child branch
+  `codex-web-interface-0e98811-20260429-203652-614022239` back into `dev` and
+  removed the child worktree/branch. The merged change constrains left-pane
+  queued/active status rows so long run text is clipped with ellipsis instead
+  of overflowing into adjacent panes, with a web behavior contract/test
+  assertion.
 - Pushed `parallel-working-made-simple` commit `acba804`, adding generic
   `parent-branch` / `parent-commit` metadata to `worktree_create` and
   `worktree_create_from_commit`; synced the installed Codex, Claude, and Gemini
@@ -138,10 +139,8 @@ on local branch `dev`.
   keep future docs at the policy level unless a replacement implementation is
   added.
 - `git branch -r` currently shows only `origin/main`.
-- `git worktree list` currently shows `/home/name/learnings` on `main`,
-  `/home/name/learnings.worktrees/dev` on `dev`, and
-  `/home/name/learnings.worktrees/dev.worktrees/codex-web-interface-0e98811-20260429-203652-614022239`
-  on the child branch of `dev`.
+- `git worktree list` currently shows `/home/name/learnings` on `main` and
+  `/home/name/learnings.worktrees/dev` on `dev`.
 - Active web UI instances: existing main copy on `127.0.0.1:6174`, dev copy in
   tmux session `chatgit-dev` on `127.0.0.1:6175`; dev log path is
   `/tmp/chatgit-dev-6175.log`.
