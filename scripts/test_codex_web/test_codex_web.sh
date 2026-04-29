@@ -57,6 +57,7 @@ prompt="$*"
   echo 'user'
   echo "$prompt"
 } >&2
+if [[ "$prompt" == *slow* ]]; then sleep 1; fi
 printf '{"type":"thread.started","thread_id":"%s"}\n' "$SID"
 printf '{"type":"item.completed","item":{"id":"agent-1","type":"agent_message","text":"done: %s"}}\n' "$prompt"
 if [[ "$prompt" == *"hold active"* ]]; then sleep 4; fi
@@ -114,6 +115,21 @@ parent_commit=$(git -C "$REPO" config --get "branch.$branch.parent-commit")
 [ "$parent_commit" = "$base" ]
 printf 'ok - branch mode creates a child branch with explicit parent metadata\n'
 
+child_base=$(git -C "$worktree" rev-parse HEAD)
+response_child=$(curl -fsS -X POST -H 'content-type: application/json' \
+  -d "{\"repo\":\"$worktree\",\"prompt\":\"grandchild branch test\",\"mode\":\"branch\",\"base_commit\":\"$child_base\"}" \
+  "http://127.0.0.1:$PORT/api/run")
+branch_child=$(printf '%s' "$response_child" | python3 -c 'import json,sys; print(json.load(sys.stdin)["worktree"]["branch"])')
+worktree_child=$(printf '%s' "$response_child" | python3 -c 'import json,sys; print(json.load(sys.stdin)["worktree"]["path"])')
+pid_child=$(printf '%s' "$response_child" | python3 -c 'import json,sys; print(json.load(sys.stdin)["process"]["pid"])')
+wait_pid "$pid_child"
+parent_child=$(git -C "$REPO" config --get "branch.$branch_child.parent-branch")
+parent_commit_child=$(git -C "$REPO" config --get "branch.$branch_child.parent-commit")
+[ "$parent_child" = "$branch" ]
+[ "$parent_commit_child" = "$child_base" ]
+git -C "$worktree_child" merge-base --is-ancestor "$child_base" HEAD
+printf 'ok - branch mode supports recursive child branches\n'
+
 transcript=$(curl -fsS "http://127.0.0.1:$PORT/api/transcript?repo=$(urlencode "$worktree")&log=$(urlencode "$log")" | python3 -c 'import json,sys; print(json.load(sys.stdin)["transcript"])')
 printf '%s' "$transcript" | grep -F 'OpenAI Codex fake' >/dev/null
 printf '%s' "$transcript" | grep -F 'branch test' >/dev/null
@@ -150,6 +166,24 @@ upload_transcript=$(curl -fsS "http://127.0.0.1:$PORT/api/transcript?repo=$(urle
 printf '%s' "$upload_transcript" | grep -F "$upload_path" >/dev/null
 printf 'ok - screenshot upload stores a file and includes its path in prompts\n'
 
+curl -fsS -X POST -H 'content-type: application/json' \
+  -d "{\"repo\":\"$REPO\",\"prompt\":\"slow queue first\",\"mode\":\"fresh\",\"base_commit\":\"\"}" \
+  "http://127.0.0.1:$PORT/api/run" >/dev/null
+queued_response=$(curl -fsS -X POST -H 'content-type: application/json' \
+  -d "{\"repo\":\"$REPO\",\"prompt\":\"queued followup\",\"mode\":\"send\",\"base_commit\":\"\"}" \
+  "http://127.0.0.1:$PORT/api/run")
+printf '%s' "$queued_response" | grep -F '"queued": true' >/dev/null
+status=$(curl -fsS "http://127.0.0.1:$PORT/api/status?repo=$REPO")
+printf '%s' "$status" | grep -F '"queue_depth": 1' >/dev/null
+for _ in $(seq 1 80); do
+  git -C "$REPO" log --format=%B -n 40 | grep -F 'queued followup' >/dev/null && break
+  sleep 0.1
+done
+git -C "$REPO" log --format=%B -n 40 | grep -F 'queued followup' >/dev/null
+status=$(curl -fsS "http://127.0.0.1:$PORT/api/status?repo=$REPO")
+printf '%s' "$status" | grep -F '"queue_depth": 0' >/dev/null
+printf 'ok - web server queues messages behind active runs\n'
+
 active_response=$(curl -fsS -X POST -H 'content-type: application/json' \
   -d "{\"repo\":\"$REPO\",\"prompt\":\"hold active\",\"mode\":\"fresh\"}" \
   "http://127.0.0.1:$PORT/api/run")
@@ -165,12 +199,15 @@ for _ in $(seq 1 30); do
 done
 [ "$active_seen" = 1 ]
 kill "$active_pid" 2>/dev/null || true
+wait_pid "$active_pid"
 printf 'ok - worktree API marks branches with active agents\n'
 
 worktrees=$(curl -fsS "http://127.0.0.1:$PORT/api/worktrees?repo=$REPO")
 printf '%s' "$worktrees" | grep -F "\"branch\": \"$branch\"" >/dev/null
 printf '%s' "$worktrees" | grep -F '"parent_branch": "main"' >/dev/null
 printf '%s' "$worktrees" | grep -F "\"parent_commit\": \"$base\"" >/dev/null
+printf '%s' "$worktrees" | grep -F "\"branch\": \"$branch_child\"" >/dev/null
+printf '%s' "$worktrees" | grep -F "\"parent_branch\": \"$branch\"" >/dev/null
 printf 'ok - worktree API exposes parent branch metadata\n'
 
 response2=$(curl -fsS -X POST -H 'content-type: application/json' \
@@ -202,6 +239,7 @@ printf 'ok - commit detail API returns fuller git show patch output\n'
 if command -v google-chrome >/dev/null 2>&1; then
   dom=$(google-chrome --headless --disable-gpu --no-sandbox --dump-dom --virtual-time-budget=3000 "http://127.0.0.1:$PORT/" 2>/dev/null)
   printf '%s' "$dom" | grep -F "$branch ← main" >/dev/null
+  printf '%s' "$dom" | grep -F "$branch_child ← $branch" >/dev/null
   printf '%s' "$dom" | grep -F 'Copy hash' >/dev/null
   google-chrome --headless --disable-gpu --no-sandbox --window-size=1280,900 --screenshot="$TMP/chatgit-desktop.png" "http://127.0.0.1:$PORT/" >/dev/null 2>&1
   google-chrome --headless --disable-gpu --no-sandbox --window-size=390,900 --screenshot="$TMP/chatgit-narrow.png" "http://127.0.0.1:$PORT/" >/dev/null 2>&1

@@ -42,6 +42,9 @@ on local branch `dev`.
   paths along with prompts.
 - [x] Add discoverability hints, including that clicking/copying hashes copies
   them.
+- [x] Queue web-submitted messages behind active runs for the same worktree.
+- [x] Test recursive web branch creation from a child branch to a grandchild
+  branch.
 - [x] Drive the work TDD-style through `scripts/test_codex_web/` and then smoke
   the running dev server.
 
@@ -58,6 +61,11 @@ on local branch `dev`.
   `codex-web-interface` wording, repo-path auto-load, clickable process
   transcripts, active-agent branch row markers, branch rename, and screenshot
   upload paths in prompts.
+- Added server-side per-worktree message queueing to `scripts/codex_web.py`;
+  queued messages now drain in order after the active web-started process exits,
+  and `/api/status` exposes active plus queued state.
+- Extended `scripts/test_codex_web/test_codex_web.sh` to prove recursive
+  child-to-grandchild branch creation and queued follow-up execution.
 - Created the `dev` worktree at `/home/name/learnings.worktrees/dev` and
   started a second `chatgit` web UI from that tree in tmux session
   `chatgit-dev` on `127.0.0.1:6175`.
