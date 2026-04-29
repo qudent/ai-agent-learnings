@@ -68,6 +68,9 @@ on local branch `dev`.
   ambiguous `Send / queue` wording to `Continue`, clarified `Abort run`, and
   documented that web queues are in server memory. The child branch was merged
   into `dev`, removed, and `chatgit-dev` was restarted on `127.0.0.1:6175`.
+- Added the pending row-click affordance from the live dev worktree: clicking a
+  conversation row opens its patch, clicking a run row opens its transcript, and
+  text selection/buttons do not trigger row clicks.
 - Commit `0aec54d` changes the detail action to `Copy message`, copying the
   displayed detail pane text instead of the selected hash.
 - Passive 2-second refresh now skips while text is selected, including the
