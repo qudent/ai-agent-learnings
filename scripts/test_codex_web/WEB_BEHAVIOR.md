@@ -49,6 +49,10 @@ not be inferred from worktree directory names.
 - Queued messages run in submission order after the active process exits.
 - `/api/status` exposes the active process and queued messages so the UI can
   render both states without relying on browser-local state.
+- Queued messages live in the web server process memory; restarting the server
+  loses them.
+- The web UI labels the ordinary follow-up action as continuing the latest
+  session and makes clear that active worktree runs are queued server-side.
 
 ## Browser Smoke
 
@@ -68,6 +72,8 @@ not be inferred from worktree directory names.
   status data after initial configuration so SSH-tunneled sessions are not
   penalized by serial roundtrips.
 - Hash controls should include a visible hint that clicking a hash copies it.
+- Commit rows and run rows should expose a copy-message action for the full Git
+  commit message when one is available.
 - Worktree rows with an active agent should have a distinct visual state, such
   as color, border, or an `agent active` marker on the row itself.
 - The composer should support pasted or dropped arbitrary file uploads, allow

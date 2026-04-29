@@ -91,6 +91,9 @@ printf '%s' "$page" | grep -F 'codex-web-interface' >/dev/null
 printf '%s' "$page" | grep -F 'Path changes auto-load' >/dev/null
 printf '%s' "$page" | grep -F 'setInterval(()=>{if(!document.hidden)refreshAll()},2000)' >/dev/null
 printf '%s' "$page" | grep -F 'Click a hash to copy it' >/dev/null
+printf '%s' "$page" | grep -F 'Copy message' >/dev/null
+printf '%s' "$page" | grep -F 'Continue resumes the latest session; active worktree runs are queued server-side until they finish.' >/dev/null
+printf '%s' "$page" | grep -F 'Stop the active Codex run in this worktree and clear web-queued messages' >/dev/null
 printf '%s' "$page" | grep -F 'Full transcript' >/dev/null
 printf '%s' "$page" | grep -F 'Rename' >/dev/null
 printf '%s' "$page" | grep -F 'Active worktrees' >/dev/null
@@ -107,7 +110,7 @@ printf '%s' "$page" | grep -F '.state-line{display:block;width:100%;min-width:0;
 printf '%s' "$page" | grep -F 'agent-active' >/dev/null
 printf '%s' "$page" | grep -F 'chatgit launcher' >/dev/null
 printf '%s' "$page" | grep -F 'codex_wrap runner' >/dev/null
-printf 'ok - page copy exposes interface name, auto-load, polling, hash, transcript, and rename hints\n'
+printf 'ok - page copy exposes interface name, auto-load, polling, copy-message, queue, transcript, and rename hints\n'
 
 overview=$(curl -fsS "http://127.0.0.1:$PORT/api/overview?repo=$(urlencode "$REPO")")
 printf '%s' "$overview" | grep -F '"worktrees": [' >/dev/null
@@ -221,6 +224,7 @@ queued_response=$(curl -fsS -X POST -H 'content-type: application/json' \
 printf '%s' "$queued_response" | grep -F '"queued": true' >/dev/null
 status=$(curl -fsS "http://127.0.0.1:$PORT/api/status?repo=$REPO")
 printf '%s' "$status" | grep -F '"queue_depth": 1' >/dev/null
+printf '%s' "$status" | grep -F '"queue": [' >/dev/null
 for _ in $(seq 1 80); do
   git -C "$REPO" log --format=%B -n 40 | grep -F 'queued followup' >/dev/null && break
   sleep 0.1
@@ -286,6 +290,7 @@ git -C "$REPO" branch -D "$branch2" >/dev/null
 archived=$(curl -fsS "http://127.0.0.1:$PORT/api/worktrees?repo=$(urlencode "$REPO")")
 printf '%s' "$archived" | grep -F '"archived_runs": [' >/dev/null
 printf '%s' "$archived" | grep -F "\"branch\": \"$branch2\"" >/dev/null
+printf '%s' "$archived" | grep -F '"raw": "[codex_start_user]' >/dev/null
 archive_hash=$(printf '%s' "$archived" | python3 -c 'import json,sys; j=json.load(sys.stdin); print(j["archived_runs"][0]["hash"])')
 archive_transcript=$(curl -fsS "http://127.0.0.1:$PORT/api/transcript?repo=$(urlencode "$REPO")&commit=$archive_hash" | python3 -c 'import json,sys; print(json.load(sys.stdin)["transcript"])')
 printf '%s' "$archive_transcript" | grep -F 'second branch test' >/dev/null
