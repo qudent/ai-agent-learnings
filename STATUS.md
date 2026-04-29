@@ -6,13 +6,24 @@ This repo stores project-agnostic operating guidance for local AI coding agents.
 files symlink to it, and branch-ref dispatch remains a policy pattern rather
 than a tracked helper-script implementation in this repo.
 
-`STATUS.md` is now the single coordination source of truth for project state,
-active human prompts, agent replies, handoff notes, open questions, and TODO
-plans. The separate human-agent whiteboard pattern is retired.
+## Active Human Prompts - codex_web.py script
+desired state now: i just type chatgit somewhere and it spins up the webserver for the repository we are currently in. including sourc in .zshrc or .bashrc or so, lightweight install method (make choice). also write this in README.md
 
-## Active Human Prompts
-- Remove human-agent whiteboards and integrate active coordination into
-  `STATUS.md` as the source of truth.
+further UI goals (render yourself and fix with mocks. first step is to turn my writing here into a todo list and deliverable checklist):
+1. [ ] revise UI. in any case fix the overflow problems.
+UI should look similar to chatbot window (left conversation history (conversations = branches - as we have a parent relationship between branches, this should be reflected subtly in the suborganization), middle conversation), right shows selected conversation (history of the selected branch, we can select other branches for messages, only show first line of each commit message, if we click on it it expands to output of git show --format=fuller or so). one click on button in message copies git commit hash to clipboard (symbol with hint).
+2. [ ] it shouldn't become crap bloat, i am very pleased with current single page plain js approach. What would you think is the complexity  plain js approach we have is fine for now.
+possible design:
+|Conversation list (branch descriptions)|chat with short commit m    | 
+|<project name>                          
+||-fix auth timeout
+||-investigate and discuss refactoring tradeoffs
+||-                     
+
+ regarding the right side patch view, I think that the following is reasonable: left side is the log with first line commit messages, right side is the entire commit message+patch, clicking on one patch expands it to show the entire file (ie patch with patch context lines that are actually 100 % of the file). but this is not necessary. when a commit has sibling descendants, they should be selectable in a drop down menu. the branches should be prioritized by ordering:
+
+2. [ ] queuing messages is possible
+3. [ ] make sure that UI shows the entire conversation
 - Keep coordination plain and simple: the human writes what they want, the agent
   replies with what they need to reply, and the current coordination file is
   committed and pushed whenever there is meaningful new information.
