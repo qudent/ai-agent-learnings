@@ -94,6 +94,7 @@ printf '%s' "$page" | grep -F 'Full transcript' >/dev/null
 printf '%s' "$page" | grep -F 'Rename branch' >/dev/null
 printf '%s' "$page" | grep -F 'Paste or drop files' >/dev/null
 printf '%s' "$page" | grep -F 'Remove attachment' >/dev/null
+printf '%s' "$page" | grep -F '.state-line{display:block;width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' >/dev/null
 ! printf '%s' "$page" | grep -F 'Attach screenshot' >/dev/null
 printf '%s' "$page" | grep -F 'agent-active' >/dev/null
 printf '%s' "$page" | grep -F 'chatgit launcher' >/dev/null

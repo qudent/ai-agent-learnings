@@ -81,6 +81,8 @@ not be inferred from worktree directory names.
 - then `/api/transcript` can return the full web/wrapper log for that process,
 - and process/status rows in the UI are clickable to show that transcript in the
   detail pane.
+- Long active or queued status text must stay inside the branch pane instead of
+  painting across adjacent panes.
 
 ## Active Branches
 
