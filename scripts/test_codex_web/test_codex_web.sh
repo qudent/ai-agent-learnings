@@ -89,7 +89,8 @@ printf 'ok - chatgit serves the caller repository\n'
 page=$(curl -fsS "http://127.0.0.1:$PORT/")
 printf '%s' "$page" | grep -F 'codex-web-interface' >/dev/null
 printf '%s' "$page" | grep -F 'Path changes auto-load' >/dev/null
-printf '%s' "$page" | grep -F 'setInterval(()=>{if(!document.hidden)refreshAll()},2000)' >/dev/null
+printf '%s' "$page" | grep -F 'hasTextSelection' >/dev/null
+printf '%s' "$page" | grep -F 'setInterval(()=>{if(!document.hidden&&!hasTextSelection())refreshAll()},2000)' >/dev/null
 printf '%s' "$page" | grep -F 'Click a hash to copy it' >/dev/null
 printf '%s' "$page" | grep -F 'Full transcript' >/dev/null
 printf '%s' "$page" | grep -F 'Rename' >/dev/null
@@ -318,7 +319,7 @@ if command -v google-chrome >/dev/null 2>&1; then
   printf '%s' "$dom" | grep -F 'Closed worktree runs' >/dev/null
   printf '%s' "$dom" | grep -F 'Transcript' >/dev/null
   printf '%s' "$dom" | grep -F 'Patch' >/dev/null
-  printf '%s' "$dom" | grep -F 'Copy hash' >/dev/null
+  printf '%s' "$dom" | grep -F 'Copy message' >/dev/null
   google-chrome --headless --disable-gpu --no-sandbox --window-size=1280,900 --screenshot="$TMP/chatgit-desktop.png" "http://127.0.0.1:$PORT/" >/dev/null 2>&1
   google-chrome --headless --disable-gpu --no-sandbox --window-size=390,900 --screenshot="$TMP/chatgit-narrow.png" "http://127.0.0.1:$PORT/" >/dev/null 2>&1
   [ -s "$TMP/chatgit-desktop.png" ]

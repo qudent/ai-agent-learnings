@@ -432,7 +432,7 @@ HTML = r'''<!doctype html><meta charset="utf-8"><title>codex-web-interface</titl
 <main>
   <section class="pane" id="left"><div class="pane-head"><div class="pane-title">Branches</div><div class="hint">Active worktrees and runs from closed worktrees</div></div><div id="worktrees"></div><div id="state"></div></section>
   <section class="pane"><div class="pane-head"><div class="pane-title">Conversation</div><div id="base" class="hint">No branch base selected. Click a hash to copy it.</div></div><div id="chat"></div><div id="composer"><textarea id="prompt" placeholder="Prompt. Send queues behind an active run; Fresh starts a new session; Branch starts a child worktree from selected commit."></textarea><div id="dropHint" class="drop-hint">Paste or drop files into this composer.</div><div id="attachments" class="attachments"></div><div class="row"><button onclick="send('send')">Send / queue</button><button onclick="send('fresh')">Fresh</button><button onclick="send('branch')">Branch from selected</button><button onclick="clearBase()">Clear base</button></div></div></section>
-  <aside class="pane"><div class="pane-head"><div class="pane-title">Detail</div><div class="hint">Commit patch or Full transcript. Click a hash to copy it.</div><div class="detail-tools"><span id="detailHash" class="detail-hash hint">Select a commit or process</span><button id="copyDetail" onclick="copySelected()" disabled>Copy hash</button></div></div><pre id="diff" class="empty">Select a commit to view git show --format=fuller --patch output, or click a process row for its Full transcript.</pre></aside>
+  <aside class="pane"><div class="pane-head"><div class="pane-title">Detail</div><div class="hint">Commit patch or Full transcript. Click a hash to copy it.</div><div class="detail-tools"><span id="detailHash" class="detail-hash hint">Select a commit or process</span><button id="copyDetail" onclick="copyDetail()" disabled>Copy message</button></div></div><pre id="diff" class="empty">Select a commit to view git show --format=fuller --patch output, or click a process row for its Full transcript.</pre></aside>
 </main>
 <script>
 window.CHATGIT_CONFIG=__CHATGIT_CONFIG__;
@@ -444,10 +444,11 @@ function ce(tag, cls='', text=''){let e=document.createElement(tag); if(cls)e.cl
 function action(label, fn){let b=ce('button','',label); b.type='button'; b.onclick=e=>{e.stopPropagation(); fn(e)}; return b}
 function setBase(h,t=''){baseCommit=h; $('base').textContent='Branch base: '+h.slice(0,12); if(t)$('prompt').value=t}
 function clearBase(){baseCommit=''; $('base').textContent='No branch base selected.'}
-function setRepo(path){$('repo').value=path; selectedCommit=''; clearBase(); refreshAll()}
-function repoPathChanged(){clearTimeout(repoTimer); repoTimer=setTimeout(()=>{selectedCommit=''; clearBase(); refreshAll()},350)}
-async function copyText(text){try{await navigator.clipboard.writeText(text)}catch(e){window.prompt('Copy hash',text)}}
-function copySelected(){if(selectedCommit)copyText(selectedCommit)}
+function setRepo(path){$('repo').value=path; selectedCommit=''; clearBase(); refreshAll(true)}
+function repoPathChanged(){clearTimeout(repoTimer); repoTimer=setTimeout(()=>{selectedCommit=''; clearBase(); refreshAll(true)},350)}
+async function copyText(text,label='Copy text'){try{await navigator.clipboard.writeText(text)}catch(e){window.prompt(label,text)}}
+function copyDetail(){let text=$('diff').textContent||''; if(text&&!$('copyDetail').disabled)copyText(text,'Copy message')}
+function hasTextSelection(){let s=window.getSelection&&window.getSelection(); return !!(s&&!s.isCollapsed&&String(s).trim())}
 function renderAttachments(){$('attachments').innerHTML=attachments.map((a,i)=>`<span class="chip"><span class="chip-name">${esc(a.name||a.path)}</span><button class="chip-x" title="Remove attachment" onclick="removeAttachment(${i})">x</button></span>`).join('')}
 function removeAttachment(i){attachments.splice(i,1); renderAttachments()}
 async function uploadFileList(files){
@@ -526,7 +527,7 @@ async function loadMessages(j=null){
     let cls=m.role==='assistant'?'assistant':(m.role==='user'?'user':'system'); let d=ce('div','msg '+cls+(m.hash===selectedCommit?' selected':''));
     let t=m.timestamp?new Date(m.timestamp*1000).toLocaleString():'';
     let meta=ce('div','meta');
-    let hb=action(m.short,()=>copyText(m.hash)); hb.className='hash'; hb.title='Click a hash to copy it'; meta.appendChild(hb);
+    let hb=action(m.short,()=>copyText(m.hash,'Copy hash')); hb.className='hash'; hb.title='Click a hash to copy it'; meta.appendChild(hb);
     meta.appendChild(ce('span','',t)); meta.appendChild(ce('span','subject',m.subject));
     let acts=ce('span','actions'); acts.appendChild(action('Patch',()=>diff(m.hash))); acts.appendChild(action('Branch here',()=>setBase(m.hash)));
     if(m.role==='user')acts.appendChild(action('Edit branch',()=>setBase(m.parent||m.hash, (messagesByHash[m.hash]||m).text||'')));
@@ -538,12 +539,12 @@ async function loadMessages(j=null){
 async function diff(h){
   selectedCommit=h; $('detailHash').textContent=h; $('copyDetail').disabled=false;
   let j=await api('/api/show?repo='+encodeURIComponent($('repo').value)+'&commit='+encodeURIComponent(h));
-  $('diff').className=''; $('diff').textContent=j.patch; await loadMessages();
+  $('diff').className=''; $('diff').textContent=j.patch; $('copyDetail').disabled=!$('diff').textContent; await loadMessages();
 }
 async function showTranscript(commit='', log=''){
-  selectedCommit=commit||''; $('detailHash').textContent=commit||log||'Full transcript'; $('copyDetail').disabled=!commit;
+  selectedCommit=commit||''; $('detailHash').textContent=commit||log||'Full transcript';
   let j=await api('/api/transcript?repo='+encodeURIComponent($('repo').value)+'&commit='+encodeURIComponent(commit)+'&log='+encodeURIComponent(log));
-  $('diff').className=''; $('diff').textContent=j.transcript||'No transcript log available yet.';
+  $('diff').className=''; $('diff').textContent=j.transcript||'No transcript log available yet.'; $('copyDetail').disabled=!$('diff').textContent;
 }
 async function renameBranch(path, oldBranch){
   if(!oldBranch||oldBranch==='(detached)')return;
@@ -551,18 +552,18 @@ async function renameBranch(path, oldBranch){
   if(!next||next===oldBranch)return;
   await api('/api/branch/rename',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({repo:path,old_branch:oldBranch,new_branch:next})});
   if($('repo').value===path)clearBase();
-  await refreshAll();
+  await refreshAll(true);
 }
 async function send(mode){
   let p=$('prompt').value.trim(); if(!p)return; if(mode==='branch'&&!baseCommit){alert('choose a branch base first');return}
   let body={repo:$('repo').value,prompt:p,mode:mode,base_commit:mode==='branch'?baseCommit:'',attachments:attachments.map(a=>a.path)};
   let j=await api('/api/run',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
   if(j.worktree){$('repo').value=j.worktree.path; clearBase()}
-  $('prompt').value=''; attachments=[]; renderAttachments(); await refreshAll();
+  $('prompt').value=''; attachments=[]; renderAttachments(); await refreshAll(true);
 }
-async function abortRun(){await api('/api/abort',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({repo:$('repo').value})}); await refreshAll()}
-async function refreshAll(){if(refreshing)return; refreshing=true; try{let j=await api('/api/overview?repo='+encodeURIComponent($('repo').value)); await loadWorktrees(j); await loadMessages({messages:j.messages||[]}); await loadStatus(j.status||{})}catch(e){$('diff').textContent=String(e)}finally{refreshing=false}}
-window.onload=async()=>{let c=window.CHATGIT_CONFIG; $('repo').value=c.repo; $('repo').addEventListener('input',repoPathChanged); $('repo').addEventListener('change',repoPathChanged); $('repo').addEventListener('keydown',e=>{if(e.key==='Enter')repoPathChanged()}); let comp=$('composer'); comp.addEventListener('paste',handlePaste); comp.addEventListener('dragover',e=>{e.preventDefault(); comp.classList.add('dragging')}); comp.addEventListener('dragleave',()=>comp.classList.remove('dragging')); comp.addEventListener('drop',handleDrop); setInterval(()=>{if(!document.hidden)refreshAll()},2000); await refreshAll()}
+async function abortRun(){await api('/api/abort',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({repo:$('repo').value})}); await refreshAll(true)}
+async function refreshAll(force=false){if(refreshing||(!force&&hasTextSelection()))return; refreshing=true; try{let j=await api('/api/overview?repo='+encodeURIComponent($('repo').value)); if(!force&&hasTextSelection())return; await loadWorktrees(j); await loadMessages({messages:j.messages||[]}); await loadStatus(j.status||{})}catch(e){$('diff').textContent=String(e)}finally{refreshing=false}}
+window.onload=async()=>{let c=window.CHATGIT_CONFIG; $('repo').value=c.repo; $('repo').addEventListener('input',repoPathChanged); $('repo').addEventListener('change',repoPathChanged); $('repo').addEventListener('keydown',e=>{if(e.key==='Enter')repoPathChanged()}); let comp=$('composer'); comp.addEventListener('paste',handlePaste); comp.addEventListener('dragover',e=>{e.preventDefault(); comp.classList.add('dragging')}); comp.addEventListener('dragleave',()=>comp.classList.remove('dragging')); comp.addEventListener('drop',handleDrop); setInterval(()=>{if(!document.hidden&&!hasTextSelection())refreshAll()},2000); await refreshAll(true)}
 </script>'''
 
 class H(BaseHTTPRequestHandler):

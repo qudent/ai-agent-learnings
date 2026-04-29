@@ -64,6 +64,8 @@ not be inferred from worktree directory names.
   requiring the Refresh button.
 - The page should periodically refresh branch/message/status data so marker
   commits created outside the browser action appear without manual Sync.
+- Periodic refresh must not run while the user has selected text, because
+  re-rendering clears browser text selection.
 - Browser refresh should use one overview API request for branch, message, and
   status data after initial configuration so SSH-tunneled sessions are not
   penalized by serial roundtrips.
@@ -78,7 +80,8 @@ not be inferred from worktree directory names.
 
 - Given a user selects a commit,
 - then the detail pane shows `git show --format=fuller --patch` output,
-- and visible hash-copy controls are available for the selected commit.
+- hash buttons in message rows copy hashes,
+- and the detail copy button copies the displayed message/detail text.
 
 ## Process Transcripts
 
