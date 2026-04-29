@@ -89,6 +89,7 @@ printf 'ok - chatgit serves the caller repository\n'
 page=$(curl -fsS "http://127.0.0.1:$PORT/")
 printf '%s' "$page" | grep -F 'codex-web-interface' >/dev/null
 printf '%s' "$page" | grep -F 'Path changes auto-load' >/dev/null
+printf '%s' "$page" | grep -F 'setInterval(()=>{if(!document.hidden)refreshAll()},2000)' >/dev/null
 printf '%s' "$page" | grep -F 'Click a hash to copy it' >/dev/null
 printf '%s' "$page" | grep -F 'Full transcript' >/dev/null
 printf '%s' "$page" | grep -F 'Rename branch' >/dev/null
@@ -99,7 +100,7 @@ printf '%s' "$page" | grep -F '.state-line{display:block;width:100%;min-width:0;
 printf '%s' "$page" | grep -F 'agent-active' >/dev/null
 printf '%s' "$page" | grep -F 'chatgit launcher' >/dev/null
 printf '%s' "$page" | grep -F 'codex_wrap runner' >/dev/null
-printf 'ok - page copy exposes interface name, auto-load, hash, transcript, and rename hints\n'
+printf 'ok - page copy exposes interface name, auto-load, polling, hash, transcript, and rename hints\n'
 
 base=$(git -C "$REPO" rev-parse HEAD)
 response=$(curl -fsS -X POST -H 'content-type: application/json' \

@@ -75,6 +75,9 @@ on local branch `dev`.
 - Generalized composer uploads from screenshots to arbitrary pasted/dropped
   files, added per-attachment `x` removal, and verified `text/plain` uploads
   are stored under `codex-wrap/chatgit-uploads` and passed by path in prompts.
+- Added guarded periodic UI refresh so marker commits created outside the
+  current browser action appear without manual Sync; regression checks that the
+  root page includes the refresh loop.
 - Created the `dev` worktree at `/home/name/learnings.worktrees/dev` and
   started a second `chatgit` web UI from that tree in tmux session
   `chatgit-dev` on `127.0.0.1:6175`.
