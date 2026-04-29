@@ -80,6 +80,8 @@ _cw_banner() { local err=$1 sid=$2 b; b=$(awk '/^user$/ { exit } { print }' "$er
 _cw_base() { printf '%s\0' codex exec --json $CODEX_WRAP_CODEX_FLAGS; }
 _cw_proc_alive() { local pid=$1; [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null && ! ps -o stat= -p "$pid" 2>/dev/null | grep -q Z; }
 _cw_kill() { local pid=$1 pgid=${2:-}; if [ -n "$pgid" ] && [ "$pgid" != 0 ]; then kill -TERM -- -"$pgid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true; else kill -TERM "$pid" 2>/dev/null || true; fi; sleep "$CODEX_WRAP_KILL_GRACE" 2>/dev/null || true; }
+_cw_setsid_wait() { command -v setsid >/dev/null 2>&1 && setsid --help 2>&1 | grep -q -- ' --wait'; }
+_cw_wait_pidfile() { local f=$1 i; for i in 1 2 3 4 5 6 7 8 9 10; do [ -s "$f" ] && return 0; sleep 0.01; done; return 1; }
 
 _cw_start_msg() {
   local kind=$1 prompt=$2 sid=$3 pid=$4 pgid=$5 err=${6:-}
@@ -107,17 +109,26 @@ _cw_rename_logs() { local pending=$1 final=$2 d; d=$(_cw_dir) || return; [ -n "$
 _cw_run() {
   command -v jq >/dev/null 2>&1 || { echo 'codex_wrap: jq required' >&2; return 127; }
   local mode=$1; shift
-  local d tmp fifo json err pid pgid='' sid='' prompt='' run_start='' started=0 line typ itype text itemid seen='' rc=0 restart='' dead_polls=0
+  local d tmp fifo json err pid pidfile launcher_pid='' pgid='' sid='' prompt='' run_start='' started=0 line typ itype text itemid seen='' rc=0 restart='' dead_polls=0
   local -a base cmd
   d=$(_cw_dir) || return
-  tmp="pending-$(date +%Y%m%d-%H%M%S)-$BASHPID-$RANDOM"; fifo="$d/$tmp.fifo"; json="$d/logs/$tmp.jsonl"; err="$d/logs/$tmp.stderr"
+  tmp="pending-$(date +%Y%m%d-%H%M%S)-$BASHPID-$RANDOM"; fifo="$d/$tmp.fifo"; pidfile="$d/$tmp.pid"; json="$d/logs/$tmp.jsonl"; err="$d/logs/$tmp.stderr"
   mkfifo "$fifo" || return
   mapfile -d '' -t base < <(_cw_base)
   case "$mode" in start) prompt="$*"; cmd=("${base[@]}" "$@") ;; resume) sid=$1; shift; prompt="$*"; cmd=("${base[@]}" resume "$sid" "$@") ;; *) echo "codex_wrap: bad mode $mode" >&2; rm -f "$fifo"; return 2 ;; esac
-  if command -v setsid >/dev/null 2>&1; then setsid "${cmd[@]}" >"$fifo" 2> >(tee -a "$err" >&2) & pid=$!; pgid=$pid; else "${cmd[@]}" >"$fifo" 2> >(tee -a "$err" >&2) & pid=$!; pgid=$pid; fi
+  if _cw_setsid_wait; then
+    setsid --wait sh -c 'printf "%s\n" "$$" >"$1"; shift; exec "$@"' sh "$pidfile" "${cmd[@]}" >"$fifo" 2> >(tee -a "$err" >&2) & launcher_pid=$!
+    pid=$launcher_pid; pgid=$pid
+  elif command -v setsid >/dev/null 2>&1; then
+    setsid sh -c 'printf "%s\n" "$$" >"$1"; shift; exec "$@"' sh "$pidfile" "${cmd[@]}" >"$fifo" 2> >(tee -a "$err" >&2) & launcher_pid=$!
+    pid=$launcher_pid; pgid=$pid
+  else
+    "${cmd[@]}" >"$fifo" 2> >(tee -a "$err" >&2) & pid=$!; launcher_pid=$pid; pgid=$pid
+  fi
   trap '_cw_kill "$pid" "$pgid"' INT TERM
-  if [ "$mode" = resume ]; then run_start=$(_cw_marker "$(_cw_start_msg resume "$prompt" "$sid" "$pid" "$pgid" "")") || { _cw_kill "$pid" "$pgid"; rm -f "$fifo"; return 1; }; _cw_rename_logs "$tmp" "$run_start"; json="$d/logs/$run_start.jsonl"; err="$d/logs/$run_start.stderr"; fi
+  if [ "$mode" = resume ]; then run_start=$(_cw_marker "$(_cw_start_msg resume "$prompt" "$sid" "$pid" "$pgid" "")") || { _cw_kill "$pid" "$pgid"; rm -f "$fifo" "$pidfile"; return 1; }; _cw_rename_logs "$tmp" "$run_start"; json="$d/logs/$run_start.jsonl"; err="$d/logs/$run_start.stderr"; fi
   exec 3<"$fifo"
+  if [ -f "$pidfile" ]; then _cw_wait_pidfile "$pidfile" || true; pid=$(cat "$pidfile" 2>/dev/null || printf '%s\n' "$launcher_pid"); pgid=$pid; fi
   while :; do
     if IFS= read -r -t "$CODEX_WRAP_POLL_SECONDS" line <&3; then
       dead_polls=0
@@ -144,7 +155,7 @@ _cw_run() {
       _cw_kill "$pid" "$pgid"; break
     fi
   done
-  exec 3<&-; wait "$pid"; rc=$?; trap - INT TERM; rm -f "$fifo"
+  exec 3<&-; wait "$launcher_pid"; rc=$?; trap - INT TERM; rm -f "$fifo" "$pidfile"
   if [ -n "$run_start" ] && _cw_run_closed "$run_start"; then :; elif [ -n "$run_start" ]; then [ -n "$sid" ] || sid=$(_cw_last_sid); _cw_marker "$(_cw_stop_msg '[codex_stop]' "$sid" "$run_start" "exit-status: $rc")" >/dev/null || true; fi
   [ -n "$restart" ] && _cw_run resume "$sid" "$restart" || return "$rc"
 }

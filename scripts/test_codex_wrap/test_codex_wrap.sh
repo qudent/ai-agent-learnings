@@ -80,6 +80,10 @@ case "$prompt" in
     trap 'exit 143' TERM INT
     while :; do sleep 0.2; done
     ;;
+  delayed*)
+    sleep 0.3
+    emit_agent agent-1 "delayed done: $prompt"
+    ;;
   from-text-transcript*)
     emit_agent t1 'I’ll inspect the repo state first: current branch, local changes, upstream relation, and the project status notes so I can fix the divergence without trampling unrelated work.'
     emit_tool
@@ -227,6 +231,18 @@ test_abort_from_other_shell_context() {
   ok abort
 }
 
+test_interactive_job_control_tracks_setsid_child() {
+  setup_repo
+  set -m
+  codex_commit delayed >/tmp/cw-delayed.out 2>/tmp/cw-delayed.err
+  set +m
+  s=$(subjects)
+  contains '[codex_start_user] delayed' "$s"
+  contains '[codex] delayed done: delayed' "$s"
+  contains '[codex_stop] 11111111-1111-1111-1111-111111111111' "$s"
+  ok 'interactive job-control setsid child'
+}
+
 test_worktree_branch_at_commit() {
   setup_repo
   base=$(git rev-parse HEAD)
@@ -290,6 +306,7 @@ test_index_lock_does_not_block_markers
 test_resume
 test_new_message_interrupts_running_process
 test_abort_from_other_shell_context
+test_interactive_job_control_tracks_setsid_child
 test_worktree_branch_at_commit
 test_parallel_sibling_worktrees_are_branch_local
 test_text_transcript_fixture
