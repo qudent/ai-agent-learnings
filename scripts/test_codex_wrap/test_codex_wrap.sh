@@ -108,6 +108,11 @@ ok() { printf 'ok - %s\n' "$*"; }
 fail() { printf 'not ok - %s\n' "$*" >&2; exit 1; }
 contains() { grep -Fq "$1" <<<"$2" || fail "missing: $1"; }
 not_contains() { ! grep -Fq "$1" <<<"$2" || fail "unexpected: $1"; }
+equals() {
+  [ "$1" = "$2" ] && return 0
+  printf 'not ok - exact mismatch\nexpected:\n%s\nactual:\n%s\n' "$1" "$2" >&2
+  exit 1
+}
 
 setup_repo() {
   local d
@@ -161,12 +166,20 @@ test_fold_codex_messages_and_ignore_tools() {
   codex_commit multi
   count=$(git log --pretty=%s | grep -c '^\[codex\]')
   [ "$count" -eq 1 ] || fail "expected one folded [codex] commit, got $count"
+  sh=$(git log --format=%H --grep='^\[codex_start_user\]' -1)
   b=$(git log --format=%B --grep='^\[codex\]' -1)
-  contains 'second output' "$b"
-  contains 'first output' "$b"
-  not_contains 'previous [codex]' "$b"
-  not_contains '[codex] first output' "$b"
-  not_contains 'command_execution' "$b"
+  expected=$(cat <<EOF
+[codex] second output
+
+second output
+
+first output
+
+session-id: 11111111-1111-1111-1111-111111111111
+run-start-commit-hash: $sh
+EOF
+)
+  equals "$expected" "$b"
   ok 'fold codex messages'
 }
 
@@ -293,12 +306,22 @@ test_parallel_sibling_worktrees_are_branch_local() {
 test_text_transcript_fixture() {
   setup_repo
   codex_commit from-text-transcript
+  sh=$(git log --format=%H --grep='^\[codex_start_user\]' -1)
   b=$(git log --format=%B --grep='^\[codex\]' -1)
-  contains 'Fixed. main and origin/main are synchronized at 1cea926.' "$b"
-  contains 'Both tips have exactly the same tree' "$b"
-  contains 'I’ll inspect the repo state first' "$b"
-  not_contains 'previous [codex]' "$b"
-  not_contains '[codex] Both tips have exactly the same tree' "$b"
+  expected=$(cat <<EOF
+[codex] Fixed. main and origin/main are synchronized at 1cea926.
+
+Fixed. main and origin/main are synchronized at 1cea926.
+
+Both tips have exactly the same tree: the only divergence is commit history for the same STATUS.md rewrite.
+
+I’ll inspect the repo state first: current branch, local changes, upstream relation, and the project status notes so I can fix the divergence without trampling unrelated work.
+
+session-id: 11111111-1111-1111-1111-111111111111
+run-start-commit-hash: $sh
+EOF
+)
+  equals "$expected" "$b"
   ok 'text transcript mock json'
 }
 

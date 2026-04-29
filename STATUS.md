@@ -22,6 +22,8 @@ plans. The separate human-agent whiteboard pattern is retired.
 - Fix `[codex]` marker folding so repeated agent messages amend into one clean
   commit body without recursive `previous [codex]` sections or duplicated
   embedded commit messages.
+- Tighten the folding tests to specify the exact `[codex]` commit body and
+  preserve the original metadata block on amend instead of rewriting it.
 
 ## Active Goals
 - [x] Keep global agent instructions centralized in `~/learnings/AGENTS.md`.
@@ -52,6 +54,8 @@ plans. The separate human-agent whiteboard pattern is retired.
 - Corrected Python marker folding to keep newest agent text first and prior
   text as plain body content only; regression tests now reject `previous
   [codex]` and embedded old `[codex]` subjects.
+- Tightened `[codex]` folding again: exact-shape tests now compare the whole
+  commit body, and amend paths keep existing `session-id`/`run-start` metadata.
 - Replaced ordinary `agent/<tool>/<branch>` dispatch semantics with
   branch-owned worktree dispatch.
 - Removed `HUMAN_AGENTS_WHITEBOARD.md`; active coordination now belongs in

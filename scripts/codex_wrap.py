@@ -128,19 +128,20 @@ def marker(message: str) -> str:
     raise SystemExit(1)
 
 
-def agent_text_from_commit(commit: str) -> str:
+def agent_parts_from_commit(commit: str) -> tuple[str, str]:
     lines = commit_body(commit).strip("\n").splitlines()
     if lines and lines[0].startswith("[codex]"):
         lines = lines[1:]
     while lines and not lines[0].strip():
         lines = lines[1:]
+    metadata: list[str] = []
     while lines and (
         lines[-1].startswith("session-id:")
         or lines[-1].startswith("run-start-commit-hash:")
         or not lines[-1].strip()
     ):
-        lines = lines[:-1]
-    return "\n".join(lines).strip()
+        metadata.append(lines.pop())
+    return "\n".join(lines).strip(), "\n".join(reversed([line for line in metadata if line.strip()]))
 
 
 def agent_marker(text: str, sid: str, run_start: str) -> str | None:
@@ -153,9 +154,12 @@ def agent_marker(text: str, sid: str, run_start: str) -> str | None:
         mode = "normal"
         parent = old
         if subj.startswith("[codex]"):
-            previous = agent_text_from_commit(old)
+            previous, metadata = agent_parts_from_commit(old)
+            message = f"[codex] {oneline(text)}\n\n{text}"
             if previous:
-                message = f"[codex] {oneline(text)}\n\n{text}\n\n{previous}\n\nsession-id: {sid or 'unknown'}\nrun-start-commit-hash: {run_start}"
+                message += f"\n\n{previous}"
+            if metadata:
+                message += f"\n\n{metadata}"
             mode = "amend"
             parent = old
         elif subj.startswith("[autosave]"):
@@ -164,9 +168,12 @@ def agent_marker(text: str, sid: str, run_start: str) -> str | None:
             if git_ok(["rev-parse", "-q", "--verify", f"{old}^"]):
                 prev = subject(f"{old}^")
                 if prev.startswith("[codex]"):
-                    previous = agent_text_from_commit(f"{old}^")
+                    previous, metadata = agent_parts_from_commit(f"{old}^")
+                    message = f"[codex] {oneline(text)}\n\n{text}"
                     if previous:
-                        message = f"[codex] {oneline(text)}\n\n{text}\n\n{previous}\n\nsession-id: {sid or 'unknown'}\nrun-start-commit-hash: {run_start}"
+                        message += f"\n\n{previous}"
+                    if metadata:
+                        message += f"\n\n{metadata}"
                     parent = f"{old}^"
         new = update_ref(message, old, mode, parent, old)
         if new:
