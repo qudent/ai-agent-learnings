@@ -52,6 +52,14 @@ on local branch `dev`.
 - None.
 
 ## Recent Results
+- Closed stale `open` run markers with explicit `[codex_stop]` commits on
+  `main` and `dev`; only the current live prompt remains active.
+- Added commit `a460109` on `dev`: refresh now uses `/api/overview` for one
+  branch/message/status request after `/api/config`, active-run detection no
+  longer shells out to `codex_active` per worktree, branch cards are more
+  compact, and ambiguous `Archived runs` wording is now `Closed worktree runs`
+  with an explanation that the recorded cwd no longer maps to an attached
+  worktree.
 - Implemented the next codex-web-interface dev pass on `dev`: `/api/worktrees`
   now returns active worktrees with grouped runs plus archived runs from marker
   commits/log files, the left pane renders Active worktrees and Archived runs,
