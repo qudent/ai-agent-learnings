@@ -66,6 +66,9 @@ on local branch `dev`.
   and `/api/status` exposes active plus queued state.
 - Extended `scripts/test_codex_web/test_codex_web.sh` to prove recursive
   child-to-grandchild branch creation and queued follow-up execution.
+- Merged the queue/recursive-branch child worktree back into `dev`, removed the
+  child worktree/branch, reran py_compile plus the web behavior test, and
+  restarted `chatgit-dev` on `127.0.0.1:6175`.
 - Created the `dev` worktree at `/home/name/learnings.worktrees/dev` and
   started a second `chatgit` web UI from that tree in tmux session
   `chatgit-dev` on `127.0.0.1:6175`.
