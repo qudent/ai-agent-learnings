@@ -21,34 +21,43 @@ on local branch `dev`.
   and communication across a whiteboard.
 
 ## TODO Plan
-- [ ] Rename visible UI wording away from ambiguous `codex-web` toward
+- [x] Rename visible UI wording away from ambiguous `codex-web` toward
   `codex-web-interface` / Git-backed Codex interface language.
-- [ ] Review command/API/UI names for context drift: distinguish `chatgit`
+- [x] Review command/API/UI names for context drift: distinguish `chatgit`
   launcher, `codex-web-interface` UI, `codex_wrap` runner functions, and
   worktree helper commands.
-- [ ] Replace UI branch ancestry metadata keys with generic
+- [x] Replace UI branch ancestry metadata keys with generic
   `branch.<name>.parent-branch` and `branch.<name>.parent-commit`, matching the
   parallel-worktrees skill.
-- [ ] Auto-refresh repo data when the repository path input changes, without
+- [x] Auto-refresh repo data when the repository path input changes, without
   requiring the Refresh button.
-- [ ] Make process/status rows clickable so the full run transcript/log can be
+- [x] Make process/status rows clickable so the full run transcript/log can be
   shown in the detail pane.
-- [ ] Color or otherwise mark branch/worktree rows that currently have an
+- [x] Color or otherwise mark branch/worktree rows that currently have an
   active agent run, instead of only showing active state below the branch list.
-- [ ] Check how easy branch-name editing is; implement a low-risk rename flow if
+- [x] Check how easy branch-name editing is; implement a low-risk rename flow if
   the Git/worktree mechanics are straightforward, otherwise document the
   blocker in the UI/status.
-- [ ] Add screenshot upload to the chat composer and pass uploaded screenshot
+- [x] Add screenshot upload to the chat composer and pass uploaded screenshot
   paths along with prompts.
-- [ ] Add discoverability hints, including that clicking/copying hashes copies
+- [x] Add discoverability hints, including that clicking/copying hashes copies
   them.
-- [ ] Drive the work TDD-style through `scripts/test_codex_web/` and then smoke
+- [x] Drive the work TDD-style through `scripts/test_codex_web/` and then smoke
   the running dev server.
 
 ## Blockers
 - None.
 
 ## Recent Results
+- Pushed `parallel-working-made-simple` commit `acba804`, adding generic
+  `parent-branch` / `parent-commit` metadata to `worktree_create` and
+  `worktree_create_from_commit`; synced the installed Codex, Claude, and Gemini
+  skill copies.
+- Added failing web-interface tests first in commit `6af2fff`, then implemented
+  the dev UI/API pass in commit `f34a3a6`: generic parent metadata,
+  `codex-web-interface` wording, repo-path auto-load, clickable process
+  transcripts, active-agent branch row markers, branch rename, and screenshot
+  upload paths in prompts.
 - Created the `dev` worktree at `/home/name/learnings.worktrees/dev` and
   started a second `chatgit` web UI from that tree in tmux session
   `chatgit-dev` on `127.0.0.1:6175`.
@@ -109,7 +118,7 @@ on local branch `dev`.
 - Active web UI instances: existing main copy on `127.0.0.1:6174`, dev copy in
   tmux session `chatgit-dev` on `127.0.0.1:6175`; dev log path is
   `/tmp/chatgit-dev-6175.log`.
-- Current verification for the chatgit UI is `python3 -m py_compile
+- Current verification for the codex-web-interface is `python3 -m py_compile
   scripts/codex_web.py` and `bash scripts/test_codex_web/test_codex_web.sh
   scripts/codex_web.py`; the web test uses headless Chrome when available.
 - Stable repo instructions still belong in each repo's `AGENTS.md`; concrete run
