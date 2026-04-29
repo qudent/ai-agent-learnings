@@ -36,6 +36,10 @@ not be inferred from worktree directory names.
 - Given two browser tabs are pointed at different branches or worktrees,
 - when both tabs submit commands,
 - then each command runs in the repo path sent by that tab.
+- Given the current worktree has an active run,
+- when the user branches from a selected message,
+- then the branch request creates a new child worktree and starts there
+  immediately instead of being blocked or queued behind the current worktree.
 - Branch creation requests must receive distinct branch/worktree names.
 - Spawned wrapper processes must receive distinct web log files, even when they
   start within the same second.

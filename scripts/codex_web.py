@@ -574,7 +574,7 @@ async function send(mode){
   if(mode==='queue'){
     if(!hasActiveRun()){alert('No active run to queue behind. Use Continue or Fresh.');return}
     mode='send';
-  } else if(hasActiveRun()){
+  } else if(mode!=='branch'&&hasActiveRun()){
     alert('A run is active. Use Queue to send this after it finishes, or Pause run first.');
     return;
   }

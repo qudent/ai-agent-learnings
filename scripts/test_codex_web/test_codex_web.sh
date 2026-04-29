@@ -106,6 +106,7 @@ printf '%s' "$page" | grep -F 'Copy detail' >/dev/null
 printf '%s' "$page" | grep -F 'Select a commit for its patch, or a run for its transcript.' >/dev/null
 printf '%s' "$page" | grep -F 'A run is active. Use Queue to send this after it finishes, or Pause run first.' >/dev/null
 printf '%s' "$page" | grep -F 'function hasActiveRun(){let a=currentStatus&&currentStatus.active; return !!(a&&(a.hash||a.pid))}' >/dev/null
+printf '%s' "$page" | grep -F "} else if(mode!=='branch'&&hasActiveRun()){" >/dev/null
 ! printf '%s' "$page" | grep -F 'Abort run' >/dev/null
 printf '%s' "$page" | grep -F 'Full transcript' >/dev/null
 printf '%s' "$page" | grep -F 'Rename' >/dev/null
@@ -269,6 +270,15 @@ for _ in $(seq 1 30); do
   sleep 0.1
 done
 [ "$active_seen" = 1 ]
+branch_active_response=$(curl -fsS -X POST -H 'content-type: application/json' \
+  -d "{\"repo\":\"$REPO\",\"prompt\":\"parallel branch while active\",\"mode\":\"branch\",\"base_commit\":\"$base\"}" \
+  "http://127.0.0.1:$PORT/api/run")
+printf '%s' "$branch_active_response" | grep -F '"queued": false' >/dev/null
+branch_active_pid=$(printf '%s' "$branch_active_response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["process"]["pid"])')
+branch_active_worktree=$(printf '%s' "$branch_active_response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["worktree"]["path"])')
+wait_pid "$branch_active_pid"
+git -C "$branch_active_worktree" log --format=%B -n 20 | grep -F 'parallel branch while active' >/dev/null
+printf 'ok - branch mode starts a parallel worktree while parent is active\n'
 kill "$active_pid" 2>/dev/null || true
 wait_pid "$active_pid"
 printf 'ok - worktree API marks branches with active agents\n'

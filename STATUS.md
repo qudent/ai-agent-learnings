@@ -57,6 +57,10 @@ on local branch `dev`.
 - None.
 
 ## Recent Results
+- Fixed Branch-from-selected while a run is active: Branch now bypasses the
+  same-worktree active-run prompt, creates a child worktree immediately, and
+  starts the branch run there in parallel. The web suite now has a regression
+  for branching while the parent worktree is active.
 - Finished child worktree
   `codex-web-interface-645442f-20260429-225724-691746016`: its patch content
   was already present in `dev`, `worktree_finish` merged the branch history into
@@ -124,9 +128,9 @@ on local branch `dev`.
   scripts/codex_web.py` and `bash scripts/test_codex_web/test_codex_web.sh
   scripts/codex_web.py`; the web test uses headless Chrome when available.
 - Latest dev verification passed both commands above; the web behavior contract
-  now covers idle `active: null`, queue wording, copy-message controls, raw
-  run-start commit messages, and browser rendering. `chatgit-dev` was restarted
-  on `127.0.0.1:6175` after the fix.
+  now covers idle `active: null`, branching while a parent run is active, queue
+  wording, copy-message controls, raw run-start commit messages, and browser
+  rendering. `chatgit-dev` was restarted on `127.0.0.1:6175` after the fix.
 - Current wrapper/backend verification is
   `bash scripts/test_codex_wrap/test_codex_wrap.sh scripts/codex_wrap.sh`.
 - `codex_commit @ ...` remains plain prompt text. Branch/commit placement is
