@@ -45,6 +45,9 @@ on local branch `dev`.
 - [x] Queue web-submitted messages behind active runs for the same worktree.
 - [x] Test recursive web branch creation from a child branch to a grandchild
   branch.
+- [x] Preserve browser text selection during passive auto-refresh.
+- [x] Change the detail-pane copy action from hash-copying to copying the
+  displayed patch/transcript/message text.
 - [x] Drive the work TDD-style through `scripts/test_codex_web/` and then smoke
   the running dev server.
 
@@ -52,104 +55,17 @@ on local branch `dev`.
 - None.
 
 ## Recent Results
-- Closed stale `open` run markers with explicit `[codex_stop]` commits on
-  `main` and `dev`; only the current live prompt remains active.
-- Added commits `a460109` and `7d862e8` on `dev`: refresh now embeds initial
-  config in the HTML and uses `/api/overview` for one branch/message/status
-  request, active-run detection no longer shells out to `codex_active` per
-  worktree, branch cards are more compact, and ambiguous `Archived runs`
-  wording is now `Closed worktree runs` with an explanation that the recorded
-  cwd no longer maps to an attached worktree.
-- Implemented the next codex-web-interface dev pass on `dev`: `/api/worktrees`
-  now returns active worktrees with grouped runs plus archived runs from marker
-  commits/log files, the left pane renders Active worktrees and Archived runs,
-  finished/deleted branch runs can open transcripts, message action buttons no
-  longer embed prompt text in inline handlers, and web/wrapper tests cover shell
-  metacharacter prompts plus Git option-shaped commit rejection.
-- Updated the checked-in `parallel-worktrees` helper to match the installed
-  parent-metadata behavior, tightened commit-ish verification/quoting, and
-  synced the Codex, Claude, and Gemini installed skill copies.
-- Merged child branch
-  `codex-web-interface-0e98811-20260429-203652-614022239` back into `dev` and
-  removed the child worktree/branch. The merged change constrains left-pane
-  queued/active status rows so long run text is clipped with ellipsis instead
-  of overflowing into adjacent panes, with a web behavior contract/test
-  assertion.
-- Pushed `parallel-working-made-simple` commit `acba804`, adding generic
-  `parent-branch` / `parent-commit` metadata to `worktree_create` and
-  `worktree_create_from_commit`; synced the installed Codex, Claude, and Gemini
-  skill copies.
-- Added failing web-interface tests first in commit `6af2fff`, then implemented
-  the dev UI/API pass in commit `f34a3a6`: generic parent metadata,
-  `codex-web-interface` wording, repo-path auto-load, clickable process
-  transcripts, active-agent branch row markers, branch rename, and screenshot
-  upload paths in prompts.
-- Added server-side per-worktree message queueing to `scripts/codex_web.py`;
-  queued messages now drain in order after the active web-started process exits,
-  and `/api/status` exposes active plus queued state.
-- Extended `scripts/test_codex_web/test_codex_web.sh` to prove recursive
-  child-to-grandchild branch creation and queued follow-up execution.
-- Merged the queue/recursive-branch child worktree back into `dev`, removed the
-  child worktree/branch, reran py_compile plus the web behavior test, and
-  restarted `chatgit-dev` on `127.0.0.1:6175`.
-- Replaced the visible screenshot upload button with paste/drop screenshot
-  handling in the composer and added a regression that active-agent branch
-  marking clears after the Codex process exits.
-- Generalized composer uploads from screenshots to arbitrary pasted/dropped
-  files, added per-attachment `x` removal, and verified `text/plain` uploads
-  are stored under `codex-wrap/chatgit-uploads` and passed by path in prompts.
-- Added guarded periodic UI refresh so marker commits created outside the
-  current browser action appear without manual Sync; regression checks that the
-  root page includes the refresh loop.
-- Created the `dev` worktree at `/home/name/learnings.worktrees/dev` and
-  started a second `chatgit` web UI from that tree in tmux session
-  `chatgit-dev` on `127.0.0.1:6175`.
-- Deleted remote feature branches `origin/dev` and
-  `origin/codex-web-9246530-20260429-183606`; `origin/main` is now the only
-  remote branch after pruning.
-- Merged the `dev` and `codex-web-9246530-20260429-183606` worktrees into
-  `main`, preserving both the parallel-tab collision fix and the three-pane web
-  UI work.
-- Removed both local feature worktrees and their local branch refs after
-  verifying they were merged into `HEAD`.
-- Revised `scripts/codex_web.py` into a three-pane layout: branch/worktree list,
-  selected conversation, and selected commit detail.
-- Added hash-copy controls, `/api/status`, queued/active run display, and
-  `git show --format=fuller --patch` commit detail output without a timer loop.
-- Extended the web behavior contract and shell/browser test to cover fuller
-  commit detail output plus desktop and narrow Chrome screenshots.
-- Added initial `chatgit` launcher, documented PATH-based install, and gave
-  web-created branches explicit parent-branch Git config metadata.
-- Added a web behavior contract and shell/browser integration test scaffold for
-  `chatgit` branch creation.
-- Verified `chatgit` against a mock repo: it serves the caller repository,
-  creates branch worktrees at the selected base commit, exposes parent metadata
-  through `/api/worktrees`, and renders the parent marker in headless Chrome.
-- Added a parallel-tab behavior contract: repeated branch submissions get
-  distinct branch/worktree names and distinct web log files, avoiding
-  same-second collisions.
-- Fixed the shell wrapper's interactive job-control `setsid` PID tracking bug
-  with a regression test; committed as `11c5765`.
-- Replaced the shell implementation with a Python engine behind the same
-  `codex_commit`/`codex_resume`/`codex_abort`/`codex_new_message` functions;
-  the fake-Codex wrapper suite and `py_compile` pass.
-- Corrected Python marker folding to keep newest agent text first and prior
-  text as plain body content only; regression tests now reject `previous
-  [codex]` and embedded old `[codex]` subjects.
-- Tightened `[codex]` folding again: exact-shape tests now compare the whole
-  commit body, and amend paths keep existing `session-id`/`run-start` metadata.
-- Split branch/worktree execution back out of Codex: `codex_wrap` no longer
-  handles `@`, `scripts/branch_commands.sh` provides `do_at_branch`,
-  `do_at_commit`, and `codex_in_branch`, and it delegates worktree primitives to
-  `scripts/parallel-worktrees/worktrees.sh`.
-- Replaced ordinary `agent/<tool>/<branch>` dispatch semantics with
-  branch-owned worktree dispatch.
-- Removed `HUMAN_AGENTS_WHITEBOARD.md`; active coordination now belongs in
-  `STATUS.md`.
-- Removed tracked dispatcher/logging helper scripts from `scripts/` and cleaned
-  stale documentation references to them.
-- Updated coordination policy back to one file: `STATUS.md` contains state,
-  active prompts, open questions, agent notes, and TODO plans.
+- Commit `0aec54d` changes the detail action to `Copy message`, copying the
+  displayed detail pane text instead of the selected hash.
+- Passive 2-second refresh now skips while text is selected, including the
+  case where selection starts while an overview request is in flight; explicit
+  actions still force refreshes.
+- Verification passed: `python3 -m py_compile scripts/codex_web.py` and
+  `bash scripts/test_codex_web/test_codex_web.sh scripts/codex_web.py`.
+- Earlier dev commits in this pass added the overview endpoint/config embed,
+  compact active-worktree UI, closed-worktree run grouping, parent metadata,
+  path auto-load, process transcripts, branch rename, queueing, and file
+  uploads.
 
 ## Agent Notes
 - Tracked dispatcher/logging helper scripts are no longer present in this repo;
