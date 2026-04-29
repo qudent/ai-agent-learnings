@@ -27,31 +27,52 @@ def repo_root(repo):
 def common_dir(repo):
     return Path(git(repo, 'rev-parse', '--path-format=absolute', '--git-common-dir').strip()).resolve()
 
+def current_branch(repo):
+    branch = git(repo, 'rev-parse', '--abbrev-ref', 'HEAD', check=False).strip()
+    return '' if branch == 'HEAD' else branch
+
+def branch_config(repo, branch, key):
+    if not branch or branch == '(detached)':
+        return ''
+    return git(repo, 'config', '--get', f'branch.{branch}.{key}', check=False).strip()
+
 def worktrees(repo):
     out = git(repo, 'worktree', 'list', '--porcelain', check=False)
     ans, cur = [], {}
     for line in out.splitlines():
         if not line:
-            if cur: ans.append(cur); cur = {}
+            if cur:
+                cur['parent_branch'] = branch_config(repo, cur.get('branch', ''), 'chatgit-parent')
+                cur['parent_commit'] = branch_config(repo, cur.get('branch', ''), 'chatgit-parent-commit')
+                ans.append(cur)
+                cur = {}
         elif line.startswith('worktree '): cur['path'] = line[9:]
         elif line.startswith('HEAD '): cur['head'] = line[5:]
         elif line.startswith('branch '):
             b = line[7:]
             cur['branch'] = b.removeprefix('refs/heads/')
         elif line.startswith('detached'): cur['branch'] = '(detached)'
-    if cur: ans.append(cur)
+    if cur:
+        cur['parent_branch'] = branch_config(repo, cur.get('branch', ''), 'chatgit-parent')
+        cur['parent_commit'] = branch_config(repo, cur.get('branch', ''), 'chatgit-parent-commit')
+        ans.append(cur)
     return ans
 
 def create_worktree(repo, commit):
     root = repo_root(repo)
-    short = git(repo, 'rev-parse', '--short', commit).strip()
+    parent = current_branch(repo)
+    base = git(repo, 'rev-parse', commit).strip()
+    short = git(repo, 'rev-parse', '--short', base).strip()
     for i in range(100):
         suf = f'-{i}' if i else ''
         branch = f'codex-web-{short}-{time.strftime("%Y%m%d-%H%M%S")}{suf}'
         wt = Path(f'{root}.worktrees') / branch
         if not wt.exists():
-            sh(['git', 'worktree', 'add', '-b', branch, str(wt), commit], repo)
-            return {'branch': branch, 'path': str(wt.resolve())}
+            sh(['git', 'worktree', 'add', '-b', branch, str(wt), base], repo)
+            if parent:
+                git(repo, 'config', f'branch.{branch}.chatgit-parent', parent)
+            git(repo, 'config', f'branch.{branch}.chatgit-parent-commit', base)
+            return {'branch': branch, 'path': str(wt.resolve()), 'parent_branch': parent, 'parent_commit': base}
         time.sleep(.05)
     raise RuntimeError('could not allocate worktree name')
 
@@ -104,7 +125,7 @@ body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;margin:0;color:Canv
 let baseCommit=''; const $=id=>document.getElementById(id); const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 async function api(path,opt={}){let r=await fetch(path,opt),j=await r.json(); if(!r.ok||j.error)throw new Error(j.error||r.statusText); return j}
 function setBase(h,t=''){baseCommit=h; $('base').textContent='Branch base: '+h.slice(0,12); if(t)$('prompt').value=t} function clearBase(){baseCommit=''; $('base').textContent='No branch base selected.'}
-async function loadWorktrees(){let j=await api('/api/worktrees?repo='+encodeURIComponent($('repo').value)); let s=$('wts'), cur=$('repo').value; s.innerHTML=''; for(let wt of j.worktrees){let o=document.createElement('option'); o.value=wt.path; o.textContent=(wt.branch||'(detached)')+' — '+wt.path; if(wt.path===cur)o.selected=true; s.appendChild(o)} s.onchange=()=>{$('repo').value=s.value; clearBase(); refreshAll()}}
+async function loadWorktrees(){let j=await api('/api/worktrees?repo='+encodeURIComponent($('repo').value)); let s=$('wts'), cur=$('repo').value; s.innerHTML=''; for(let wt of j.worktrees){let o=document.createElement('option'); o.value=wt.path; let p=wt.parent_branch?' ← '+wt.parent_branch:''; o.textContent=(wt.branch||'(detached)')+p+' — '+wt.path; if(wt.path===cur)o.selected=true; s.appendChild(o)} s.onchange=()=>{$('repo').value=s.value; clearBase(); refreshAll()}}
 async function loadMessages(){let j=await api('/api/messages?repo='+encodeURIComponent($('repo').value)); let c=$('chat'); c.innerHTML=''; for(let m of j.messages){let cls=m.role==='assistant'?'assistant':(m.role==='user'?'user':'system'); let d=document.createElement('div'); d.className='msg '+cls; let t=m.timestamp?new Date(m.timestamp*1000).toLocaleString():''; let edit=m.role==='user'?`<button onclick='setBase("${m.parent||m.hash}", ${JSON.stringify(m.text)})'>Edit→branch</button>`:''; d.innerHTML=`<div class="meta"><code>${m.short}</code><span>${esc(t)}</span><span>${esc(m.subject)}</span><span class="actions"><button onclick="diff('${m.hash}')">Diff</button><button onclick="setBase('${m.hash}')">Branch here</button>${edit}</span></div><div>${esc(m.text)}</div>`; c.appendChild(d)} c.scrollTop=c.scrollHeight}
 async function diff(h){let j=await api('/api/show?repo='+encodeURIComponent($('repo').value)+'&commit='+encodeURIComponent(h)); $('diff').textContent=j.patch}
 async function send(mode){let p=$('prompt').value.trim(); if(!p)return; if(mode==='branch'&&!baseCommit){alert('choose a branch base first');return} let body={repo:$('repo').value,prompt:p,mode:mode,base_commit:mode==='branch'?baseCommit:''}; let j=await api('/api/run',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}); if(j.worktree){$('repo').value=j.worktree.path; clearBase()} $('prompt').value=''; refreshAll()}

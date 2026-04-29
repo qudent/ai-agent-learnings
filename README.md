@@ -25,6 +25,14 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
 
 ## Local helper scripts
 
+- `scripts/chatgit`: starts the Codex Git Chat web UI for the current
+  repository. Add `export PATH="$HOME/learnings/scripts:$PATH"` to `.zshrc` or
+  `.bashrc`, then run `chatgit` from any Git repo. Set `CHATGIT_PORT` to choose
+  a non-default port.
+- `scripts/codex_web.py`: loopback web UI for Git-backed Codex conversations.
+  When it creates a branch, it records `branch.<name>.chatgit-parent` and
+  `branch.<name>.chatgit-parent-commit` in Git config so the UI has an explicit
+  parent-branch convention instead of inferring ancestry from worktree paths.
 - `scripts/codex_wrap.sh` / `scripts/codex_wrap.py`: Codex session wrapper only.
   It records start/resume/agent/stop marker commits and manages the live Codex
   process. It should not own branch or worktree placement.
@@ -33,6 +41,11 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
 - `scripts/branch_commands.sh`: generic command placement helpers such as
   `do_at_branch`, `do_at_commit`, and thin tool-specific wrappers like
   `codex_in_branch`.
+
+## Tests
+
+- `bash scripts/test_codex_wrap/test_codex_wrap.sh scripts/codex_wrap.sh`
+- `bash scripts/test_codex_web/test_codex_web.sh scripts/codex_web.py`
 
 ## Related: coordination files
 

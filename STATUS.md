@@ -6,38 +6,11 @@ This repo stores project-agnostic operating guidance for local AI coding agents.
 files symlink to it, and branch-ref dispatch remains a policy pattern rather
 than a tracked helper-script implementation in this repo.
 
-## Active Human Prompts - codex_web.py script
-desired state now: i just type chatgit somewhere and it spins up the webserver for the repository we are currently in. including sourc in .zshrc or .bashrc or so, lightweight install method (make choice). also write this in README.md
-
-further UI goals (render yourself and fix with mocks. first step is to turn my writing here into a todo list and deliverable checklist):
-1. [ ] revise UI. in any case fix the overflow problems.
-UI should look similar to chatbot window (left conversation history (conversations = branches - as we have a parent relationship between branches, this should be reflected subtly in the suborganization), middle conversation), right shows selected conversation (history of the selected branch, we can select other branches for messages, only show first line of each commit message, if we click on it it expands to output of git show --format=fuller or so). one click on button in message copies git commit hash to clipboard (symbol with hint).
-2. [ ] it shouldn't become crap bloat, i am very pleased with current single page plain js approach. What would you think is the complexity  plain js approach we have is fine for now.
-possible design:
-|Conversation list (branch descriptions)|chat with short commit m    | 
-|<project name>                          
-||-fix auth timeout
-||-investigate and discuss refactoring tradeoffs
-||-                     
-
- regarding the right side patch view, I think that the following is reasonable: left side is the log with first line commit messages, right side is the entire commit message+patch, clicking on one patch expands it to show the entire file (ie patch with patch context lines that are actually 100 % of the file). but this is not necessary. when a commit has sibling descendants, they should be selectable in a drop down menu. the branches should be prioritized by ordering:
-
-2. [ ] queuing messages is possible
-3. [ ] make sure that UI shows the entire conversation
-- Keep coordination plain and simple: the human writes what they want, the agent
-  replies with what they need to reply, and the current coordination file is
-  committed and pushed whenever there is meaningful new information.
-- Fix the `codex_commit` interactive job-control `setsid` bug, commit that
-  regression fix, then move the wrapper engine from shell to Python while
-  keeping the sourced shell function interface.
-- Fix `[codex]` marker folding so repeated agent messages amend into one clean
-  commit body without recursive `previous [codex]` sections or duplicated
-  embedded commit messages.
-- Tighten the folding tests to specify the exact `[codex]` commit body and
-  preserve the original metadata block on amend instead of rewriting it.
-- Keep branch/worktree placement out of the Codex wrapper; use the shared
-  parallel-worktrees primitives through generic `do_at_branch`/`do_at_commit`
-  helpers, with `codex_in_branch` as thin sugar.
+## Active Human Prompts - chatgit web UI
+Desired state: typing `chatgit` in any Git repo starts the Codex Git Chat web UI
+for that repository. Keep the implementation small and plain: single-page JS is
+acceptable for now, but the web UI must have reliable branching behavior before
+larger UI redesign work.
 
 ## Active Goals
 - [x] Keep global agent instructions centralized in `~/learnings/AGENTS.md`.
@@ -48,21 +21,35 @@ possible design:
   and communication across a whiteboard.
 
 ## TODO Plan
-- [ ] Watch the next real branch-update dispatch log under
-  `/home/name/agent-dispatch-logs` and tighten hook behavior if Git reports an
-  unexpected ref-update edge case.
-- [ ] When touching existing project repos, remove stale whiteboard files only
-  when the active context has been preserved in `STATUS.md`.
-- [ ] After the Python wrapper lands, run one live `codex_commit` smoke from an
-  interactive shell before treating the migration as fully proven.
-- [ ] Review whether the legacy `parallel-worktrees` skill should keep
-  destructive `worktree_abort`/`worktree_finish` semantics before building more
-  automation on top of it.
+- [x] Add a `chatgit` launcher that starts `codex_web.py` for the current repo.
+- [x] Document the lightweight install path in `README.md`.
+- [x] Establish explicit parent-branch metadata for web-created branches:
+  `branch.<name>.chatgit-parent` and
+  `branch.<name>.chatgit-parent-commit`.
+- [x] Specify expected web branching behavior in `scripts/test_codex_web/`.
+- [x] Fix the web UI's branch creation behavior against a
+  mock repo.
+- [x] Display parent-branch metadata in the UI so conversations can become a
+  branch tree instead of relying on worktree directory layout.
+- [ ] Revise the three-pane UI after branching works: branch/conversation list,
+  selected conversation, and selected commit detail.
+- [ ] Add hash-copy controls and first-line commit-message expansion to full
+  `git show --format=fuller --patch` output.
+- [ ] Show queued/active message state without adding a scheduler to the web UI.
+- [ ] Verify the revised three-pane UI with browser automation at desktop and
+  narrow widths.
 
 ## Blockers
 - None.
 
 ## Recent Results
+- Added initial `chatgit` launcher, documented PATH-based install, and gave
+  web-created branches explicit parent-branch Git config metadata.
+- Added a web behavior contract and shell/browser integration test scaffold for
+  `chatgit` branch creation.
+- Verified `chatgit` against a mock repo: it serves the caller repository,
+  creates branch worktrees at the selected base commit, exposes parent metadata
+  through `/api/worktrees`, and renders the parent marker in headless Chrome.
 - Fixed the shell wrapper's interactive job-control `setsid` PID tracking bug
   with a regression test; committed as `11c5765`.
 - Replaced the shell implementation with a Python engine behind the same

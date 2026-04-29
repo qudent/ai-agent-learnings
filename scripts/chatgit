@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+repo=${1:-$PWD}
+port=${CHATGIT_PORT:-6174}
+
+exec python3 "$script_dir/codex_web.py" \
+  --repo "$repo" \
+  --wrapper "$script_dir/codex_wrap.sh" \
+  --port "$port"
