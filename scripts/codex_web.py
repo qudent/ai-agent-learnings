@@ -65,10 +65,15 @@ def create_worktree(repo, commit):
     short = git(repo, 'rev-parse', '--short', base).strip()
     for i in range(100):
         suf = f'-{i}' if i else ''
-        branch = f'codex-web-{short}-{time.strftime("%Y%m%d-%H%M%S")}{suf}'
+        stamp = f'{time.strftime("%Y%m%d-%H%M%S")}-{time.time_ns() % 1_000_000_000:09d}'
+        branch = f'codex-web-{short}-{stamp}{suf}'
         wt = Path(f'{root}.worktrees') / branch
         if not wt.exists():
-            sh(['git', 'worktree', 'add', '-b', branch, str(wt), base], repo)
+            try:
+                sh(['git', 'worktree', 'add', '-b', branch, str(wt), base], repo)
+            except subprocess.CalledProcessError:
+                time.sleep(.05)
+                continue
             if parent:
                 git(repo, 'config', f'branch.{branch}.chatgit-parent', parent)
             git(repo, 'config', f'branch.{branch}.chatgit-parent-commit', base)
@@ -79,7 +84,8 @@ def create_worktree(repo, commit):
 def spawn(repo, func, args):
     logdir = common_dir(repo) / 'codex-wrap' / 'web'
     logdir.mkdir(parents=True, exist_ok=True)
-    log = logdir / f'{time.strftime("%Y%m%d-%H%M%S")}-{func}.log'
+    stamp = f'{time.strftime("%Y%m%d-%H%M%S")}-{time.time_ns() % 1_000_000_000:09d}'
+    log = logdir / f'{stamp}-{os.getpid()}-{func}.log'
     env = os.environ.copy(); env['CODEX_WRAP_STDIN_NEW_MESSAGE'] = '0'
     script = 'source "$1"; shift; fn="$1"; shift; "$fn" "$@"'
     fh = open(log, 'ab')

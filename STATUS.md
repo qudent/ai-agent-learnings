@@ -31,6 +31,8 @@ larger UI redesign work.
   mock repo.
 - [x] Display parent-branch metadata in the UI so conversations can become a
   branch tree instead of relying on worktree directory layout.
+- [x] Make repeated tab branch requests allocate distinct branches and web log
+  files.
 - [ ] Revise the three-pane UI after branching works: branch/conversation list,
   selected conversation, and selected commit detail.
 - [ ] Add hash-copy controls and first-line commit-message expansion to full
@@ -50,6 +52,9 @@ larger UI redesign work.
 - Verified `chatgit` against a mock repo: it serves the caller repository,
   creates branch worktrees at the selected base commit, exposes parent metadata
   through `/api/worktrees`, and renders the parent marker in headless Chrome.
+- Added a parallel-tab behavior contract: repeated branch submissions get
+  distinct branch/worktree names and distinct web log files, avoiding
+  same-second collisions.
 - Fixed the shell wrapper's interactive job-control `setsid` PID tracking bug
   with a regression test; committed as `11c5765`.
 - Replaced the shell implementation with a Python engine behind the same

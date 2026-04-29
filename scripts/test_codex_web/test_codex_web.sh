@@ -77,6 +77,7 @@ response=$(curl -fsS -X POST -H 'content-type: application/json' \
   "http://127.0.0.1:$PORT/api/run")
 branch=$(printf '%s' "$response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["worktree"]["branch"])')
 worktree=$(printf '%s' "$response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["worktree"]["path"])')
+log=$(printf '%s' "$response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["process"]["log"])')
 
 git -C "$worktree" merge-base --is-ancestor "$base" HEAD
 parent=$(git -C "$REPO" config --get "branch.$branch.chatgit-parent")
@@ -90,6 +91,17 @@ printf '%s' "$worktrees" | grep -F "\"branch\": \"$branch\"" >/dev/null
 printf '%s' "$worktrees" | grep -F '"parent_branch": "main"' >/dev/null
 printf '%s' "$worktrees" | grep -F "\"parent_commit\": \"$base\"" >/dev/null
 printf 'ok - worktree API exposes parent branch metadata\n'
+
+response2=$(curl -fsS -X POST -H 'content-type: application/json' \
+  -d "{\"repo\":\"$REPO\",\"prompt\":\"second branch test\",\"mode\":\"branch\",\"base_commit\":\"$base\"}" \
+  "http://127.0.0.1:$PORT/api/run")
+branch2=$(printf '%s' "$response2" | python3 -c 'import json,sys; print(json.load(sys.stdin)["worktree"]["branch"])')
+worktree2=$(printf '%s' "$response2" | python3 -c 'import json,sys; print(json.load(sys.stdin)["worktree"]["path"])')
+log2=$(printf '%s' "$response2" | python3 -c 'import json,sys; print(json.load(sys.stdin)["process"]["log"])')
+[ "$branch2" != "$branch" ]
+[ "$worktree2" != "$worktree" ]
+[ "$log2" != "$log" ]
+printf 'ok - repeated tab branch requests get distinct branches and logs\n'
 
 if command -v google-chrome >/dev/null 2>&1; then
   dom=$(google-chrome --headless --disable-gpu --no-sandbox --dump-dom --virtual-time-budget=3000 "http://127.0.0.1:$PORT/" 2>/dev/null)
