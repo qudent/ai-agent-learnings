@@ -64,6 +64,9 @@ not be inferred from worktree directory names.
   requiring the Refresh button.
 - The page should periodically refresh branch/message/status data so marker
   commits created outside the browser action appear without manual Sync.
+- Browser refresh should use one overview API request for branch, message, and
+  status data after initial configuration so SSH-tunneled sessions are not
+  penalized by serial roundtrips.
 - Hash controls should include a visible hint that clicking a hash copies it.
 - Worktree rows with an active agent should have a distinct visual state, such
   as color, border, or an `agent active` marker on the row itself.
@@ -88,7 +91,9 @@ not be inferred from worktree directory names.
 - Finished runs are durable run objects in `/api/worktrees`, grouped under
   their owning active worktree when it still exists.
 - When a finished branch worktree has been merged and removed, its run remains
-  visible under an archived-runs section and can still open its transcript.
+  visible under a closed-worktree runs section and can still open its
+  transcript. The UI should make clear that these are runs whose recorded cwd no
+  longer maps to a currently attached worktree.
 
 ## Active Branches
 

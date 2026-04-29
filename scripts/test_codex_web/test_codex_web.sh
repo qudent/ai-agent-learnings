@@ -92,9 +92,12 @@ printf '%s' "$page" | grep -F 'Path changes auto-load' >/dev/null
 printf '%s' "$page" | grep -F 'setInterval(()=>{if(!document.hidden)refreshAll()},2000)' >/dev/null
 printf '%s' "$page" | grep -F 'Click a hash to copy it' >/dev/null
 printf '%s' "$page" | grep -F 'Full transcript' >/dev/null
-printf '%s' "$page" | grep -F 'Rename branch' >/dev/null
+printf '%s' "$page" | grep -F 'Rename' >/dev/null
 printf '%s' "$page" | grep -F 'Active worktrees' >/dev/null
-printf '%s' "$page" | grep -F 'Archived runs' >/dev/null
+printf '%s' "$page" | grep -F 'Closed worktree runs' >/dev/null
+printf '%s' "$page" | grep -F 'recorded cwd no longer maps' >/dev/null
+printf '%s' "$page" | grep -F '/api/overview' >/dev/null
+! printf '%s' "$page" | grep -F 'Archived runs' >/dev/null
 printf '%s' "$page" | grep -F 'Paste or drop files' >/dev/null
 printf '%s' "$page" | grep -F 'Remove attachment' >/dev/null
 printf '%s' "$page" | grep -F '.state-line{display:block;width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' >/dev/null
@@ -103,6 +106,12 @@ printf '%s' "$page" | grep -F 'agent-active' >/dev/null
 printf '%s' "$page" | grep -F 'chatgit launcher' >/dev/null
 printf '%s' "$page" | grep -F 'codex_wrap runner' >/dev/null
 printf 'ok - page copy exposes interface name, auto-load, polling, hash, transcript, and rename hints\n'
+
+overview=$(curl -fsS "http://127.0.0.1:$PORT/api/overview?repo=$(urlencode "$REPO")")
+printf '%s' "$overview" | grep -F '"worktrees": [' >/dev/null
+printf '%s' "$overview" | grep -F '"messages": [' >/dev/null
+printf '%s' "$overview" | grep -F '"status": {' >/dev/null
+printf 'ok - overview API combines branch, message, and status data\n'
 
 base=$(git -C "$REPO" rev-parse HEAD)
 response=$(curl -fsS -X POST -H 'content-type: application/json' \
@@ -304,7 +313,7 @@ if command -v google-chrome >/dev/null 2>&1; then
   dom=$(google-chrome --headless --disable-gpu --no-sandbox --dump-dom --virtual-time-budget=3000 "http://127.0.0.1:$PORT/" 2>/dev/null)
   printf '%s' "$dom" | grep -F "$branch ← main" >/dev/null
   printf '%s' "$dom" | grep -F "$branch_child ← $branch" >/dev/null
-  printf '%s' "$dom" | grep -F 'Archived runs' >/dev/null
+  printf '%s' "$dom" | grep -F 'Closed worktree runs' >/dev/null
   printf '%s' "$dom" | grep -F 'Transcript' >/dev/null
   printf '%s' "$dom" | grep -F 'Patch' >/dev/null
   printf '%s' "$dom" | grep -F 'Copy hash' >/dev/null
