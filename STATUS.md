@@ -45,6 +45,9 @@ larger UI redesign work.
 - None.
 
 ## Recent Results
+- Deleted remote feature branches `origin/dev` and
+  `origin/codex-web-9246530-20260429-183606`; `origin/main` is now the only
+  remote branch after pruning.
 - Merged the `dev` and `codex-web-9246530-20260429-183606` worktrees into
   `main`, preserving both the parallel-tab collision fix and the three-pane web
   UI work.
@@ -93,6 +96,8 @@ larger UI redesign work.
 - Tracked dispatcher/logging helper scripts are no longer present in this repo;
   keep future docs at the policy level unless a replacement implementation is
   added.
+- `git branch -r` currently shows only `origin/main`; local `main` is still
+  ahead 4 and behind 1 relative to `origin/main`.
 - Current verification for the chatgit UI is `python3 -m py_compile
   scripts/codex_web.py` and `bash scripts/test_codex_web/test_codex_web.sh
   scripts/codex_web.py`; the web test uses headless Chrome when available.
