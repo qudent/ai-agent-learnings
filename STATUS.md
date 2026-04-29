@@ -61,7 +61,8 @@ on local branch `dev`.
   underneath, state nodes, compact branch rename ellipsis, and copy-message
   controls for conversation commits and run-start commits. It also changed
   ambiguous `Send / queue` wording to `Continue`, clarified `Abort run`, and
-  documented that web queues are in server memory.
+  documented that web queues are in server memory. The child branch was merged
+  into `dev`, removed, and `chatgit-dev` was restarted on `127.0.0.1:6175`.
 - Commit `0aec54d` changes the detail action to `Copy message`, copying the
   displayed detail pane text instead of the selected hash.
 - Passive 2-second refresh now skips while text is selected, including the
@@ -87,9 +88,9 @@ on local branch `dev`.
 - Current verification for the codex-web-interface is `python3 -m py_compile
   scripts/codex_web.py` and `bash scripts/test_codex_web/test_codex_web.sh
   scripts/codex_web.py`; the web test uses headless Chrome when available.
-- Latest child-branch verification passed both commands above; the web behavior
-  contract covered queue wording, copy-message controls, raw run-start commit
-  messages, and browser rendering.
+- Latest dev verification passed both commands above; the web behavior contract
+  covered queue wording, copy-message controls, raw run-start commit messages,
+  and browser rendering.
 - Current wrapper/backend verification is
   `bash scripts/test_codex_wrap/test_codex_wrap.sh scripts/codex_wrap.sh`.
 - `codex_commit @ ...` remains plain prompt text. Branch/commit placement is
