@@ -327,7 +327,7 @@ HTML = r'''<!doctype html><meta charset="utf-8"><title>codex-web-interface</titl
   <aside class="pane"><div class="pane-head"><div class="pane-title">Detail</div><div class="hint">Commit patch or Full transcript. Click a hash to copy it.</div><div class="detail-tools"><span id="detailHash" class="detail-hash hint">Select a commit or process</span><button id="copyDetail" onclick="copySelected()" disabled>Copy hash</button></div></div><pre id="diff" class="empty">Select a commit to view git show --format=fuller --patch output, or click a process row for its Full transcript.</pre></aside>
 </main>
 <script>
-let baseCommit='', selectedCommit='', repoTimer=null, attachments=[];
+let baseCommit='', selectedCommit='', repoTimer=null, attachments=[], refreshing=false;
 const $=id=>document.getElementById(id);
 const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 async function api(path,opt={}){let r=await fetch(path,opt),j=await r.json(); if(!r.ok||j.error)throw new Error(j.error||r.statusText); return j}
@@ -375,14 +375,16 @@ async function loadStatus(){
   $('state').innerHTML=lines.join('');
 }
 async function loadMessages(){
-  let j=await api('/api/messages?repo='+encodeURIComponent($('repo').value)); let c=$('chat'); c.innerHTML='';
+  let j=await api('/api/messages?repo='+encodeURIComponent($('repo').value)); let c=$('chat');
+  let nearBottom=(c.scrollHeight-c.scrollTop-c.clientHeight)<80;
+  c.innerHTML='';
   for(let m of j.messages){
     let cls=m.role==='assistant'?'assistant':(m.role==='user'?'user':'system'); let d=document.createElement('div'); d.className='msg '+cls+(m.hash===selectedCommit?' selected':'');
     let t=m.timestamp?new Date(m.timestamp*1000).toLocaleString():''; let edit=m.role==='user'?`<button onclick='setBase("${m.parent||m.hash}", ${JSON.stringify(m.text)})'>Edit branch</button>`:'';
     d.innerHTML=`<div class="meta"><button class="hash" title="Click a hash to copy it" onclick="copyText('${m.hash}')">${m.short}</button><span>${esc(t)}</span><span class="subject">${esc(m.subject)}</span><span class="actions"><button onclick="diff('${m.hash}')">Show</button><button onclick="setBase('${m.hash}')">Branch here</button>${edit}</span></div><div>${esc(m.text)}</div>`;
     c.appendChild(d);
   }
-  c.scrollTop=c.scrollHeight;
+  if(nearBottom)c.scrollTop=c.scrollHeight;
 }
 async function diff(h){
   selectedCommit=h; $('detailHash').textContent=h; $('copyDetail').disabled=false;
@@ -410,8 +412,8 @@ async function send(mode){
   $('prompt').value=''; attachments=[]; renderAttachments(); await refreshAll();
 }
 async function abortRun(){await api('/api/abort',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({repo:$('repo').value})}); await refreshAll()}
-async function refreshAll(){try{await loadWorktrees(); await loadMessages(); await loadStatus()}catch(e){$('diff').textContent=String(e)}}
-window.onload=async()=>{let c=await api('/api/config'); $('repo').value=c.repo; $('repo').addEventListener('input',repoPathChanged); $('repo').addEventListener('change',repoPathChanged); $('repo').addEventListener('keydown',e=>{if(e.key==='Enter')repoPathChanged()}); let comp=$('composer'); comp.addEventListener('paste',handlePaste); comp.addEventListener('dragover',e=>{e.preventDefault(); comp.classList.add('dragging')}); comp.addEventListener('dragleave',()=>comp.classList.remove('dragging')); comp.addEventListener('drop',handleDrop); await refreshAll()}
+async function refreshAll(){if(refreshing)return; refreshing=true; try{await loadWorktrees(); await loadMessages(); await loadStatus()}catch(e){$('diff').textContent=String(e)}finally{refreshing=false}}
+window.onload=async()=>{let c=await api('/api/config'); $('repo').value=c.repo; $('repo').addEventListener('input',repoPathChanged); $('repo').addEventListener('change',repoPathChanged); $('repo').addEventListener('keydown',e=>{if(e.key==='Enter')repoPathChanged()}); let comp=$('composer'); comp.addEventListener('paste',handlePaste); comp.addEventListener('dragover',e=>{e.preventDefault(); comp.classList.add('dragging')}); comp.addEventListener('dragleave',()=>comp.classList.remove('dragging')); comp.addEventListener('drop',handleDrop); setInterval(()=>{if(!document.hidden)refreshAll()},2000); await refreshAll()}
 </script>'''
 
 class H(BaseHTTPRequestHandler):

@@ -62,6 +62,8 @@ not be inferred from worktree directory names.
   product.
 - Repository path edits should auto-load the new path after input/change without
   requiring the Refresh button.
+- The page should periodically refresh branch/message/status data so marker
+  commits created outside the browser action appear without manual Sync.
 - Hash controls should include a visible hint that clicking a hash copies it.
 - Worktree rows with an active agent should have a distinct visual state, such
   as color, border, or an `agent active` marker on the row itself.
