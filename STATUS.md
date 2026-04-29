@@ -33,18 +33,24 @@ larger UI redesign work.
   branch tree instead of relying on worktree directory layout.
 - [x] Make repeated tab branch requests allocate distinct branches and web log
   files.
-- [ ] Revise the three-pane UI after branching works: branch/conversation list,
+- [x] Revise the three-pane UI after branching works: branch/conversation list,
   selected conversation, and selected commit detail.
-- [ ] Add hash-copy controls and first-line commit-message expansion to full
+- [x] Add hash-copy controls and first-line commit-message expansion to full
   `git show --format=fuller --patch` output.
-- [ ] Show queued/active message state without adding a scheduler to the web UI.
-- [ ] Verify the revised three-pane UI with browser automation at desktop and
+- [x] Show queued/active message state without adding a scheduler to the web UI.
+- [x] Verify the revised three-pane UI with browser automation at desktop and
   narrow widths.
 
 ## Blockers
 - None.
 
 ## Recent Results
+- Revised `scripts/codex_web.py` into a three-pane layout: branch/worktree list,
+  selected conversation, and selected commit detail.
+- Added hash-copy controls, `/api/status`, queued/active run display, and
+  `git show --format=fuller --patch` commit detail output without a timer loop.
+- Extended the web behavior contract and shell/browser test to cover fuller
+  commit detail output plus desktop and narrow Chrome screenshots.
 - Added initial `chatgit` launcher, documented PATH-based install, and gave
   web-created branches explicit parent-branch Git config metadata.
 - Added a web behavior contract and shell/browser integration test scaffold for
@@ -82,5 +88,8 @@ larger UI redesign work.
 - Tracked dispatcher/logging helper scripts are no longer present in this repo;
   keep future docs at the policy level unless a replacement implementation is
   added.
+- Current verification for the chatgit UI is `python3 -m py_compile
+  scripts/codex_web.py` and `bash scripts/test_codex_web/test_codex_web.sh
+  scripts/codex_web.py`; the web test uses headless Chrome when available.
 - Stable repo instructions still belong in each repo's `AGENTS.md`; concrete run
   commands belong in repo docs or `STATUS.md`, not in project-agnostic learnings.
