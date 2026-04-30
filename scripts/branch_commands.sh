@@ -1,4 +1,4 @@
-# Source from bash: . ~/learnings/scripts/branch_commands.sh
+# Source from bash: . ~/repos/ai-agent-learnings/scripts/branch_commands.sh
 # Generic branch/worktree command helpers. Codex-specific wrappers belong at the edge.
 
 _BC_SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"

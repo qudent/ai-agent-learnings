@@ -1,4 +1,4 @@
-# Source from bash: . ~/learnings/scripts/codex_wrap.sh
+# Source from bash: . ~/repos/ai-agent-learnings/scripts/codex_wrap.sh
 # Thin shell interface for the Python Codex wrapper engine.
 
 : "${CODEX_WRAP_CODEX_FLAGS:=--dangerously-bypass-approvals-and-sandbox}"

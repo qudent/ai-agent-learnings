@@ -7,7 +7,8 @@ These tests describe the minimum behavior `scripts/codex_web.py` and
 
 - Given a user is inside any Git repository,
 - when they run `chatgit`,
-- then the web server starts for that repository, not for `~/learnings`.
+- then the web server starts for that repository, not for
+  `~/repos/ai-agent-learnings`.
 
 ## Branching
 

@@ -6,13 +6,13 @@ This file is the canonical global agent instruction file. Global `AGENTS.md`, Co
 
 ## Learnings -- READ THESE and remind proactively
 
-Hard-won lessons from past sessions live in `~/learnings/`. **Read them at the start of non-trivial tasks.** When you see the user or an agent falling into a known antipattern, flag it immediately -- don't wait.
+Hard-won lessons from past sessions live in `~/repos/ai-agent-learnings/`. **Read them at the start of non-trivial tasks.** When you see the user or an agent falling into a known antipattern, flag it immediately -- don't wait.
 
 Scope rule for learnings:
-- Keep files in `~/learnings/` project-agnostic.
+- Keep files in `~/repos/ai-agent-learnings/` project-agnostic.
 - Do not add one-off project paths/commands there; put concrete run commands in the relevant project's `STATUS.md` or project docs.
-- If you change files in `~/learnings/`, update `~/learnings/README.md` when structure or workflow expectations change.
-- Treat `~/learnings/` as a real repo: commit and push learnings updates in the same session.
+- If you change files in `~/repos/ai-agent-learnings/`, update `~/repos/ai-agent-learnings/README.md` when structure or workflow expectations change.
+- Treat `~/repos/ai-agent-learnings/` as a real repo: commit and push learnings updates in the same session.
 
 | File | When to reference |
 |------|-------------------|

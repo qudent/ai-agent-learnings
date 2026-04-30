@@ -12,7 +12,8 @@ Desired state: merge the local `dev` branch into `main`, restart the web UI with
 the merged code, and test the UI directly enough to identify remaining issues.
 
 ## Active Goals
-- [x] Keep global agent instructions centralized in `~/learnings/AGENTS.md`.
+- [x] Keep global agent instructions centralized in
+  `~/repos/ai-agent-learnings/AGENTS.md`.
 - [x] Maintain project-agnostic learnings and workflow guardrails.
 - [x] Support branch-ref dispatch where each branch is worked in its own
   worktree.
@@ -35,7 +36,7 @@ the merged code, and test the UI directly enough to identify remaining issues.
 - Merged local branch `dev` into `main` with a normal merge commit.
 - Restarted the main web UI in tmux session `chatgit-main` on
   `http://127.0.0.1:6174/`, serving `/home/name/repos/repoprover` with the
-  merged `~/learnings/scripts/chatgit` and `codex_wrap.sh`.
+  merged `~/repos/ai-agent-learnings/scripts/chatgit` and `codex_wrap.sh`.
 - Verification passed:
   `python3 -m py_compile scripts/codex_web.py scripts/codex_wrap.py`,
   `bash scripts/test_codex_wrap/test_codex_wrap.sh scripts/codex_wrap.sh`, and
@@ -53,8 +54,11 @@ the merged code, and test the UI directly enough to identify remaining issues.
 - Tracked dispatcher/logging helper scripts are no longer present in this repo;
   keep future docs at the policy level unless a replacement implementation is
   added.
-- `git worktree list` currently shows `/home/name/learnings` on `main` and
-  `/home/name/learnings.worktrees/dev` on `dev`.
+- `git worktree list` currently shows `/home/name/repos/ai-agent-learnings` on
+  `main` and `/home/name/repos/ai-agent-learnings.worktrees/dev` on `dev`.
+- Global `/home/name/AGENTS.md`, `/home/name/.codex/AGENTS.md`, and
+  `/home/name/.claude/CLAUDE.md` symlink to
+  `/home/name/repos/ai-agent-learnings/AGENTS.md`.
 - Active web UI instance: tmux session `chatgit-main` on `127.0.0.1:6174`, log
   path `/tmp/chatgit-6174.log`.
 - Current verification for the codex-web-interface is `python3 -m py_compile

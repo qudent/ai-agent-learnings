@@ -2,7 +2,7 @@
 """Small loopback codex-web-interface for codex_wrap.sh.
 
 Run:
-  python3 codex_web.py --repo ~/repos/repo --wrapper ~/learnings/scripts/codex_wrap.sh --port 6174
+  python3 codex_web.py --repo ~/repos/repo --wrapper ~/repos/ai-agent-learnings/scripts/codex_wrap.sh --port 6174
 
 No auth; binds to 127.0.0.1 by default. Do NOT run on 0.0.0.0. Use SSH port forwarding for remote use.
 """

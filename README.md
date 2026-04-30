@@ -1,6 +1,6 @@
 # AI Agent Learnings
 
-Project-agnostic operating guidance for local AI coding agents. This repo lives at `~/learnings`. The canonical global instruction file is `AGENTS.md`; global `AGENTS.md`, Codex `AGENTS.md`, and Claude `CLAUDE.md` should symlink to it.
+Project-agnostic operating guidance for local AI coding agents. This repo lives at `~/repos/ai-agent-learnings`. The canonical global instruction file is `AGENTS.md`; global `AGENTS.md`, Codex `AGENTS.md`, and Claude `CLAUDE.md` should symlink to it.
 
 ## What this is
 
@@ -26,7 +26,7 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
 ## Local helper scripts
 
 - `scripts/chatgit`: launcher for the Git-backed `codex-web-interface` for the current
-  repository. Add `export PATH="$HOME/learnings/scripts:$PATH"` to `.zshrc` or
+  repository. Add `export PATH="$HOME/repos/ai-agent-learnings/scripts:$PATH"` to `.zshrc` or
   `.bashrc`, then run `chatgit` from any Git repo. Set `CHATGIT_PORT` to choose
   a non-default port.
 - `scripts/codex_web.py`: loopback web UI for Git-backed Codex conversations.
