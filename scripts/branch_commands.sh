@@ -9,7 +9,7 @@ _BC_SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && p
 
 _do_at_unique_branch() {
   local commit=$1 short branch i=0
-  short=$(git rev-parse --short "$commit") || return
+  short=$(git rev-parse --short --verify --quiet --end-of-options "$commit^{commit}") || return
   while :; do
     branch="$DO_AT_BRANCH_PREFIX-$short-$(date +%Y%m%d-%H%M%S)${i:+-$i}"
     git show-ref --verify --quiet "refs/heads/$branch" || { printf '%s\n' "$branch"; return 0; }

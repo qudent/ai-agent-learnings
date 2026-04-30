@@ -19,6 +19,33 @@
 
 # the commands cds into the new worktree and we can start vibing immediately: `worktree_create <branch_name>; claude`` # or `code .`` for vscode, droid, codex, gemini...
 # For `code .` on Mac, you might need to install the 'code' command in PATH from the Command Palette: Shift + Command + P, type 'shell command' to find the option.
+
+_worktree_parent_branch() {
+  local branch
+  branch="$(git rev-parse --abbrev-ref HEAD)"
+  if [[ "$branch" == "HEAD" ]]; then
+    echo ""
+  else
+    echo "$branch"
+  fi
+}
+
+_worktree_record_parent_metadata() {
+  local new_branch="$1"
+  local parent_branch="$2"
+  local parent_commit="$3"
+  if [[ -n "$parent_branch" ]]; then
+    git config "branch.$new_branch.parent-branch" "$parent_branch"
+  fi
+  git config "branch.$new_branch.parent-commit" "$parent_commit"
+}
+
+_worktree_install_if_needed() {
+  if [[ -f package.json ]]; then
+    pnpm install
+  fi
+}
+
 worktree_create() {
     # check if argument is given
     if [ -z "$1" ]; then
@@ -26,12 +53,13 @@ worktree_create() {
       return 1
     fi
   local NEWBRANCH="$1"
+  local PARENT_BRANCH="$(_worktree_parent_branch)"
+  local PARENT_COMMIT="$(git rev-parse HEAD)"
   local NEWWORKTREE="$(git rev-parse --show-toplevel).worktrees/$NEWBRANCH"
   git worktree add "$NEWWORKTREE" # this automatically creates a branch if it doesn't exist, take note LLMs!
+  _worktree_record_parent_metadata "$NEWBRANCH" "$PARENT_BRANCH" "$PARENT_COMMIT"
   cd "$NEWWORKTREE"
-  if [[ -f package.json ]]; then
-    pnpm install
-  fi
+  _worktree_install_if_needed
 }
 
 worktree_find_for_branch() {
@@ -53,12 +81,13 @@ worktree_create_from_commit() {
   fi
   local NEWBRANCH="$1"
   local COMMIT="$2"
+  local PARENT_BRANCH="$(_worktree_parent_branch)"
+  local PARENT_COMMIT="$(git rev-parse --verify --quiet --end-of-options "$COMMIT^{commit}")" || return
   local NEWWORKTREE="$(git rev-parse --show-toplevel).worktrees/$NEWBRANCH"
-  git worktree add -b "$NEWBRANCH" "$NEWWORKTREE" "$COMMIT"
+  git worktree add -b "$NEWBRANCH" "$NEWWORKTREE" "$PARENT_COMMIT"
+  _worktree_record_parent_metadata "$NEWBRANCH" "$PARENT_BRANCH" "$PARENT_COMMIT"
   cd "$NEWWORKTREE"
-  if [[ -f package.json ]]; then
-    pnpm install
-  fi
+  _worktree_install_if_needed
 }
 
 # worktree_cd_to_parent cds to the "parent worktree" of the current worktree, returns path of the child worktree
@@ -73,7 +102,7 @@ worktree_merge_to_parent() {
 
   worktree_cd_to_parent # set CHILD_PATH as side effect
   git merge --no-edit "$BRANCHTOMERGE"
-  cd $CHILD_PATH
+  cd "$CHILD_PATH"
 }
 
 # worktree_merge_from_parent merges the parent worktree's current branch into the current worktree, if the parent has updated
@@ -81,7 +110,7 @@ worktree_merge_from_parent() {
   worktree_cd_to_parent # set CHILD_PATH as side effect
   local BRANCHTOMERGE="$(git rev-parse --abbrev-ref HEAD)" # now we get the parent's branch
   cd "$CHILD_PATH"
-  git merge --no-edit $BRANCHTOMERGE
+  git merge --no-edit "$BRANCHTOMERGE"
 }
 
 # worktree_abort "aborts" the worktree at the current path: deletes branch and worktree, and ends up in the "parent" worktree.

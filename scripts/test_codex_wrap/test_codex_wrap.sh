@@ -274,6 +274,18 @@ test_codex_commit_at_is_plain_prompt() {
   ok 'codex @ is plain prompt'
 }
 
+test_codex_prompt_metacharacters_are_literal() {
+  setup_repo
+  target="$ROOT/should-not-exist"
+  prompt="literal shell metacharacters \$(touch $target) ; echo nope 'quoted'"
+  codex_commit "$prompt"
+  [ ! -e "$target" ] || fail 'prompt shell metacharacters executed'
+  b=$(git log --format=%B --grep='^\[codex_start_user\]' -1)
+  contains '$(touch ' "$b"
+  contains "'quoted'" "$b"
+  ok 'codex prompt metacharacters are literal'
+}
+
 test_codex_in_branch_at_commit_uses_worktree_wrapper() {
   setup_repo
   root=$PWD
@@ -284,6 +296,8 @@ test_codex_in_branch_at_commit_uses_worktree_wrapper() {
   branch=$(git branch --format='%(refname:short)' --list 'work-*' | head -n1)
   [ -n "$branch" ] || fail 'codex_in_branch did not create work branch'
   wt=$(worktree_find_for_branch "$branch") || fail 'created worktree not found'
+  [ "$(git config --get "branch.$branch.parent-branch")" = main ] || fail 'created worktree missing parent branch metadata'
+  [ "$(git config --get "branch.$branch.parent-commit")" = "$base" ] || fail 'created worktree missing parent commit metadata'
   git -C "$wt" merge-base --is-ancestor "$base" HEAD || fail 'worktree branch not rooted at requested commit'
   s=$(git -C "$wt" log --reverse --pretty=%s)
   contains '[codex_start_user] branch-task' "$s"
@@ -365,6 +379,7 @@ test_new_message_interrupts_running_process
 test_abort_from_other_shell_context
 test_interactive_job_control_tracks_setsid_child
 test_codex_commit_at_is_plain_prompt
+test_codex_prompt_metacharacters_are_literal
 test_codex_in_branch_at_commit_uses_worktree_wrapper
 test_do_at_branch_uses_existing_branch_worktree
 test_parallel_sibling_worktrees_are_branch_local

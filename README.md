@@ -25,13 +25,13 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
 
 ## Local helper scripts
 
-- `scripts/chatgit`: starts the Codex Git Chat web UI for the current
+- `scripts/chatgit`: launcher for the Git-backed `codex-web-interface` for the current
   repository. Add `export PATH="$HOME/learnings/scripts:$PATH"` to `.zshrc` or
   `.bashrc`, then run `chatgit` from any Git repo. Set `CHATGIT_PORT` to choose
   a non-default port.
 - `scripts/codex_web.py`: loopback web UI for Git-backed Codex conversations.
-  When it creates a branch, it records `branch.<name>.chatgit-parent` and
-  `branch.<name>.chatgit-parent-commit` in Git config so the UI has an explicit
+  When it creates a branch, it records `branch.<name>.parent-branch` and
+  `branch.<name>.parent-commit` in Git config so the UI has an explicit
   parent-branch convention instead of inferring ancestry from worktree paths.
 - `scripts/codex_wrap.sh` / `scripts/codex_wrap.py`: Codex session wrapper only.
   It records start/resume/agent/stop marker commits and manages the live Codex
@@ -41,6 +41,21 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
 - `scripts/branch_commands.sh`: generic command placement helpers such as
   `do_at_branch`, `do_at_commit`, and thin tool-specific wrappers like
   `codex_in_branch`.
+
+### `do_at` direction
+
+Current branch-targeted execution is worktree-backed: `do_at_branch <branch>
+<command...>` reuses or creates the branch's worktree, `do_at_commit <commit>
+<command...>` creates a temporary branch/worktree rooted at that commit, and
+`codex_in_branch @ <branch-or-commit> <prompt...>` is only a Codex-specific edge
+around those generic helpers. Plain `codex_commit @ ...` remains prompt text; it
+does not create or select worktrees.
+
+An overlayfs or fuse-overlayfs backend may be useful later as an experimental
+provider for cheap, disposable `do_at --commit <cmd>` views. Keep Git worktrees
+as the stable provider for long-running agents until overlay sessions can prove
+mount cleanup, writable diff materialization, branch/index isolation, `.git`
+common-dir behavior, submodules/LFS, whiteouts/deletions, and crash recovery.
 
 ## Tests
 
