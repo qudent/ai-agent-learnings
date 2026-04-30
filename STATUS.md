@@ -7,9 +7,10 @@ files symlink to it, and branch-ref dispatch remains a policy pattern rather
 than a tracked helper-script implementation in this repo. The `chatgit`
 launcher now serves the Git-backed `codex-web-interface`.
 
-## Active Human Prompts - chatgit main UI verification
-Desired state: merge the local `dev` branch into `main`, restart the web UI with
-the merged code, and test the UI directly enough to identify remaining issues.
+## Active Human Prompts - repo relocation
+Desired state: the learnings repo lives at `~/repos/ai-agent-learnings`, legacy
+top-level path references are removed, relative helper paths still work, and
+global `AGENTS.md`/`CLAUDE.md` symlinks resolve to the moved repo.
 
 ## Active Goals
 - [x] Keep global agent instructions centralized in
@@ -33,6 +34,13 @@ the merged code, and test the UI directly enough to identify remaining issues.
 - None.
 
 ## Recent Results
+- Moved the main repo to `/home/name/repos/ai-agent-learnings` and the linked
+  `dev` worktree to `/home/name/repos/ai-agent-learnings.worktrees/dev`.
+- Retargeted `/home/name/AGENTS.md`, `/home/name/.codex/AGENTS.md`, and
+  `/home/name/.claude/CLAUDE.md` to the moved `AGENTS.md`; all three resolve.
+- Removed legacy top-level path references from repo Markdown and updated
+  script header/docstring examples; verification passed for py_compile,
+  codex_wrap tests, codex_web tests, and direct sourcing of helper scripts.
 - Merged local branch `dev` into `main` with a normal merge commit.
 - Restarted the main web UI in tmux session `chatgit-main` on
   `http://127.0.0.1:6174/`, serving `/home/name/repos/repoprover` with the
