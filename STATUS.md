@@ -30,7 +30,7 @@ keep a timestamped report of what the user asked for versus what happened.
   before any child agent is spawned.
 - [x] Write a timestamped history report that itemizes user prompt commits and
   follow-through evidence.
-- [ ] Push the just-merged local history to `origin/main`.
+- [x] Push the reconciled local history to `origin/main`.
 
 ## TODO Plan
 - [x] Add a failing active-agent artifact contract commit, then implement the
@@ -41,10 +41,10 @@ keep a timestamped report of what the user asked for versus what happened.
   `[active-agent]` commits.
 - [x] Reconcile the remote autosave/marker divergence with a normal merge,
   preserving the deliberately red contract commit hash.
-- [ ] Push `main` after the merge commit is completed.
+- [x] Push `main` after the merge commit is completed.
 
 ## Blockers
-- None. No live wrapper agents were reported before the merge.
+- None.
 
 ## Recent Results
 - Added a red test commit `51273ae` for the active-agent artifact contract,
@@ -60,4 +60,4 @@ keep a timestamped report of what the user asked for versus what happened.
 
 ## Agent Notes
 - Current handoff: `STATUS.md` conflict from merging `origin/main` was resolved
-  as current state. Finish the merge commit, then push.
+  as current state. The branch is ready for final push verification.
