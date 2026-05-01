@@ -23,12 +23,12 @@ this repo and the port-6174 API reports it.
 - [x] Guard that sync path against rebasing while a local Codex run is active.
 - [x] Clean up the stale delegated cleanup worktree/branch.
 - [x] Verify `chatgit` prints real path-style URLs with `/repos`.
-- [ ] Push the final synchronized `main` state to `origin/main`.
+- [x] Push the final synchronized `main` state to `origin/main`.
 
 ## TODO Plan
-- [ ] Commit this refreshed `STATUS.md`.
-- [ ] Run final branch/worktree/process checks.
-- [ ] Push `main` with `codex_sync_push` or equivalent fetch/rebase/push.
+- [x] Commit this refreshed `STATUS.md`.
+- [x] Run final branch/worktree/process checks.
+- [x] Push `main` with a fetch-verified fast-forward push.
 
 ## Blockers
 - None. Note that two Codex-related processes were visible during this handoff:
@@ -50,6 +50,8 @@ this repo and the port-6174 API reports it.
   from `ahead 1, behind 1` duplicate patches and ends aligned with `origin/main`.
 - Added an active-run guard to `codex_sync_push`; this addresses the observed
   "0 running" confusion from rebasing marker history while an agent was live.
+- Pushed `main` to `origin/main` after verifying the branch was only ahead, not
+  behind.
 - Verified `scripts/chatgit` now prints
   `http://127.0.0.1:6174/home/name/repos/ai-agent-learnings` when the existing
   port-6174 server is already running.
@@ -63,5 +65,5 @@ this repo and the port-6174 API reports it.
   `PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile scripts/codex_wrap.py scripts/codex_web.py`,
   `PYTHONDONTWRITEBYTECODE=1 bash scripts/test_codex_wrap/test_codex_wrap.sh scripts/codex_wrap.sh`,
   and `PYTHONDONTWRITEBYTECODE=1 bash scripts/test_codex_web/test_codex_web.sh scripts/codex_web.py`.
-- Before final handoff, push `main` and confirm `git status --short --branch`
-  no longer reports `ahead` or `behind`.
+- After the final push, confirm `git status --short --branch` no longer reports
+  `ahead` or `behind`.
