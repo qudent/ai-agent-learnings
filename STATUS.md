@@ -5,97 +5,58 @@ This repo stores project-agnostic operating guidance and helper scripts for
 local AI coding agents. `AGENTS.md` remains the canonical global instruction
 source. The active helper surface is `codex_wrap` for Git-backed Codex marker
 commits, `branch_commands.sh` for branch/worktree placement and dispatch,
-`chatgit`/`codex_web.py` for the local web UI, and optional `jj_project.sh`
-helpers now that `jj` is installed.
+`chatgit`/`codex_web.py` for the local web UI, `codex_sync_push` for explicit
+fetch/rebase/push cleanup, and optional `jj_project.sh` helpers.
 
+Active human context: the user asked to commit the edited `STATUS.md`, then
+finish/delegate the new work. The live follow-up concern was that the UI looked
+like it had zero running agents; direct checks now show an active Codex run on
+this repo and the port-6174 API reports it.
 
-ok, i tried both in this repo and in endepromotion to dispatch something. it opened a branch and said "i dispatched", but then nothing happened and i don't see anything. debug please?
-also i still see the "remote is 1 ahead, X behind" pattern. can you figure out how to rigorously prevent this? when are you pushing stuff?
-
-name@theserver:~/repos/ai-agent-learnings$ chatgit
-chatgit: http://127.0.0.1:6174/home/name/ai-agent-learnings
-codex-web-interface: http://127.0.0.1:6174/home/name/ai-agent-learnings
-repo: /home/name/repos/ai-agent-learnings
-wrapper: /home/name/repos/ai-agent-learnings/scripts/codex_wrap.sh
-it still gives wrong paths! did you read and process/dispatch my feedback?
-the dispatching state should be in STATUS.md i think. answer here
-
-Agent answer: yes, I read and acted on the feedback, including the later
-dispatch feedback. Current dispatch state: no dispatcher should remain active;
-the `ec614fa` dispatcher stalled in analysis and was aborted at `e3c7993`.
-The concrete fixes were made directly on `main`: Dispatch bypasses the browser
-active-run warning, run-history disclosure clicks no longer select/collapse the
-worktree row, and `codex_dispatch` now includes recent run-start markers plus a
-live Codex-related process table for PID/cwd cross-checking.
-
-Path state: corrected after the latest note. `chatgit` and the browser now use
-path-style URLs with the real filesystem path, including `/repos`, for example
-`http://127.0.0.1:6174/home/name/repos/repoprover`. Do not reintroduce browser
-`?repo=` links and do not elide `/repos`.
-
-perfect. can you 
 ## Active Goals
-- [x] Make `chatgit` graceful when port 6174 is already running.
-- [x] Replace browser `?repo=` links with path-style repo URLs that keep the
-  real filesystem path, such as
-  `http://127.0.0.1:6174/home/name/repos/repoprover`.
-- [x] Add tested web dispatch support and keep dispatch orchestration in
-  `branch_commands.sh`.
-- [x] Add `codex_agents`, a wrapper command that lists current live local
-  agents from recent run-start commits cross-checked with live PIDs and concise
-  task text.
-- [x] Fix dispatch/run UI follow-ups: no active-run warning for Dispatch,
-  run-history disclosure clicks stay expanded, and dispatch prompts list live
-  run-start/process evidence.
-- [x] Install `jj` and smoke-test `jj_project.sh`.
-- [x] Preserve useful `dev` content before branch cleanup.
-- [x] Push `main`, remove stale local/remote branches, and restart live
-  `chatgit-main` on port 6174.
+- [x] Commit the user-authored `STATUS.md` update.
+- [x] Reconcile the recurring `origin/main ahead 1, local ahead N` duplicate
+  patch state without losing local work.
+- [x] Add a rigorous sync/push path that prevents the duplicate-patch pattern
+  from lingering after agent work.
+- [x] Clean up the stale delegated cleanup worktree/branch.
+- [x] Verify `chatgit` prints real path-style URLs with `/repos`.
+- [ ] Push the final synchronized `main` state to `origin/main`.
 
 ## TODO Plan
-- [x] Push `main` to `origin/main`.
-- [x] Remove stale local worktrees/branches: `dev`,
-  `chat-ugly-my-point-should-selectable-visible-url-d6224ce`, and temporary
-  `dispatch-*` branches.
-- [x] Delete stale remote branches after `main` is safely pushed:
-  `origin/dev` and `origin/chat-ugly-my-point-should-selectable-visible-url-d6224ce`.
-- [x] Restart the live port-6174 server from updated `main`.
+- [ ] Commit this refreshed `STATUS.md`.
+- [ ] Run final branch/worktree/process checks.
+- [ ] Push `main` with `codex_sync_push` or equivalent fetch/rebase/push.
 
 ## Blockers
-- None.
+- None. Note that two Codex-related processes were visible during this handoff:
+  the primary active run for this task and a web-launched `codex_new_message`
+  follow-up asking whether work had stopped. Current `/api/status` reports the
+  primary active run, not zero.
 
 ## Recent Results
-- `scripts/chatgit` now prints real-path path-style URLs, exits cleanly if a chatgit
-  server already responds on the chosen port, and no longer crashes with
-  `OSError: [Errno 98] Address already in use`.
-- `scripts/codex_web.py` accepts path-style browser routes, ignores `?repo=`
-  browser selection, removes the old header/Sync controls, and updates the URL
-  when selecting worktrees.
-- Web dispatch now sources `branch_commands.sh`, exposes a Dispatch button,
-  bypasses the direct-action active-run warning, and starts immediately so the
-  dispatch prompt can decide whether to continue, block, abort, or create new
-  work.
-- Dispatch context now includes recent run-start marker summaries plus a live
-  Codex-related process table for PID/cwd cross-checking.
-- `codex_agents` / `python3 scripts/codex_wrap.py agents` now reports live
-  local wrapper agents as `commit pid pgid cwd task`.
-- Preserved useful `dev` artifacts on `main`: `frontend-design.md` and
-  `scripts/codex-wrap/SKILL.md`, with README links and current repo paths.
-- Installed `jj 0.40.0` to `~/.local/bin`; `jj_project.sh` works after
-  colocated repo init, but `jj git init --colocate` cannot be run inside a Git
-  linked worktree.
+- `STATUS.md` was already captured in a start marker commit after the user's
+  edit; the working tree was clean before follow-up implementation began.
+- `origin/main`'s single ahead commit had the same stable patch-id as local
+  `91ec203`; `git rebase origin/main` skipped that duplicate and removed the
+  behind side of the divergence.
+- Removed stale worktree/branch
+  `cleanup-inconsistencies-eea7985-20260501-143630`; it contained no useful
+  code delta relative to the current mainline.
+- Added `codex_sync_push`, rewired `codex_commit_push` to sync before and after
+  a run, documented the exact push behavior, and added a regression that starts
+  from `ahead 1, behind 1` duplicate patches and ends aligned with `origin/main`.
+- Verified `scripts/chatgit` now prints
+  `http://127.0.0.1:6174/home/name/repos/ai-agent-learnings` when the existing
+  port-6174 server is already running.
 
 ## Agent Notes
-- Verification passed:
-  `PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile scripts/codex_web.py`,
-  `PYTHONDONTWRITEBYTECODE=1 bash scripts/test_codex_web/test_codex_web.sh scripts/codex_web.py`,
-  and `bash scripts/test_codex_wrap/test_codex_wrap.sh scripts/codex_wrap.sh`.
-- Branch audit: `dev` and `origin/dev` are now stale after preserving
-  `frontend-design.md` and `scripts/codex-wrap/SKILL.md`; the
-  `chat-ugly...` branch/remote are stale after porting dispatch, no-query URL,
-  and header removal behavior to `main`.
-- The active dispatcher started by `ec614fa` stalled in analysis and was aborted
-  with `e3c7993`; the concrete fixes were implemented directly on `main`.
-- Stable repo instructions belong in each repo's `AGENTS.md`; concrete run
-  commands belong in repo docs or `STATUS.md`, not in project-agnostic
-  learnings.
+- Important behavior: `codex_commit` and the web UI still do not push
+  automatically. The explicit push path is `codex_sync_push`; `codex_commit_push`
+  now runs that sync both before and after the Codex session.
+- Validation passed:
+  `PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile scripts/codex_wrap.py scripts/codex_web.py`,
+  `PYTHONDONTWRITEBYTECODE=1 bash scripts/test_codex_wrap/test_codex_wrap.sh scripts/codex_wrap.sh`,
+  and `PYTHONDONTWRITEBYTECODE=1 bash scripts/test_codex_web/test_codex_web.sh scripts/codex_web.py`.
+- Before final handoff, push `main` and confirm `git status --short --branch`
+  no longer reports `ahead` or `behind`.
