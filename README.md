@@ -49,6 +49,9 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
   `codex_in_branch`. It also exposes `codex_dispatch`, which sends one
   orchestration prompt to Codex and requires a single round of delegated
   `codex_*` calls with citations and `called-by` propagation.
+- `scripts/jj_project.sh`: experimental Jujutsu project-management helpers for
+  representing TODO work as mutable `jj` changes. The helper is optional and
+  fails clearly when `jj` is not installed.
 
 ### `do_at` direction
 
@@ -92,3 +95,13 @@ dispatcher prompt must delegate implementation to child `codex_*` calls, pass
 `CODEX_WRAP_CALLED_BY=$(codex_active)` to those calls, cite the files/commits or
 `STATUS.md` evidence used, and use empty one-line checkpoint commits shaped
 like `checkpoint: last save state before <reason>` before disruptive work.
+
+## Experimental Jujutsu Project Management
+
+`scripts/jj_project.sh` is a small experiment for using Jujutsu's mutable change
+DAG as a TODO/project-management surface. Source it after installing `jj`, run
+`jj_project_init` once in a Git repo to colocate Jujutsu metadata, then use
+`jj_task_new`, `jj_task_note`, `jj_task_done`, and `jj_task_log` to create and
+review task-shaped changes. Keep this experimental layer optional; do not make
+normal Git/Codex workflows depend on `jj` until the machine has Jujutsu
+installed and the pattern has proved useful on a real task.
