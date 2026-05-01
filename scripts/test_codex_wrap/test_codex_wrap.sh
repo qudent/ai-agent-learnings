@@ -388,6 +388,35 @@ EOF
   ok 'codex agents lists live pid tasks'
 }
 
+test_codex_sync_push_skips_duplicate_upstream_patch() {
+  setup_repo
+  remote=$(mktemp -d "$ROOT/remote.XXXXXX")
+  other=$(mktemp -d "$ROOT/other.XXXXXX")
+  git init -q --bare "$remote"
+  git remote add origin "$remote"
+  git push -q -u origin main
+
+  printf 'same\n' >sync.txt
+  git add sync.txt
+  git commit -q -m local-same
+
+  git clone -q "$remote" "$other"
+  git -C "$other" config user.email test@example.com
+  git -C "$other" config user.name Tester
+  printf 'same\n' >"$other/sync.txt"
+  git -C "$other" add sync.txt
+  git -C "$other" commit -q -m remote-same
+  git -C "$other" push -q
+
+  git fetch -q origin
+  status=$(git status --short --branch)
+  contains 'ahead 1, behind 1' "$status"
+  codex_sync_push >/tmp/cw-sync-push.out 2>/tmp/cw-sync-push.err
+  [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || fail 'sync push did not align HEAD with origin/main'
+  [ "$(git log -1 --pretty=%s)" = remote-same ] || fail 'duplicate local patch was not skipped'
+  ok 'codex sync push skips duplicate upstream patch'
+}
+
 test_codex_dispatch_prompt_contract() {
   setup_repo
   target="$ROOT/dispatch-should-not-exist"
@@ -482,6 +511,7 @@ test_do_at_branch_uses_existing_branch_worktree
 test_codex_checkpoint_empty_commit
 test_codex_status_empty_commit
 test_codex_agents_lists_live_pid_tasks
+test_codex_sync_push_skips_duplicate_upstream_patch
 test_codex_dispatch_prompt_contract
 test_parallel_sibling_worktrees_are_branch_local
 test_text_transcript_fixture

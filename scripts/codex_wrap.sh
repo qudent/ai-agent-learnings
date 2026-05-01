@@ -37,4 +37,19 @@ codex_new_message() {
 codex_active() { _cw_py active; }
 codex_active_run() { _cw_py active; }
 codex_agents() { _cw_py agents; }
-codex_commit_push() { git pull --rebase && codex_commit "$@" && git push; }
+codex_sync_push() {
+  local upstream branch
+  git remote get-url origin >/dev/null
+  git fetch --prune origin
+  if upstream=$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null); then
+    git rebase "$upstream"
+    git push
+    return
+  fi
+  branch=$(git symbolic-ref --quiet --short HEAD) || {
+    echo 'codex_wrap: cannot push detached HEAD without an upstream branch' >&2
+    return 1
+  }
+  git push -u origin "$branch"
+}
+codex_commit_push() { codex_sync_push && codex_commit "$@" && codex_sync_push; }

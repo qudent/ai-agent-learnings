@@ -46,7 +46,8 @@ For branch-targeted Codex work, source the branch helper too:
 | `codex_active` / `codex_active_run` | Print the active run-start commit hash and exit 0 when the current branch has a live local wrapper run. |
 | `codex_agents` | List currently live local wrapper agents from recent run-start commits cross-checked against live PIDs, with concise task text. |
 | `codex_abort [run-start-commit]` | Abort the active run, or a specified run-start commit, and write a `[codex_abort]` marker. |
-| `codex_commit_push <prompt...>` | `git pull --rebase`, run `codex_commit`, then `git push`; use only when that combined workflow is intentional. |
+| `codex_sync_push` | `git fetch --prune origin`, rebase onto the configured upstream so duplicate patches are skipped, then push. |
+| `codex_commit_push <prompt...>` | Run `codex_sync_push`, then `codex_commit`, then `codex_sync_push` again; use only when that combined workflow is intentional. |
 | `codex_in_branch @ <branch-or-commit> <prompt...>` | Run Codex in the target branch/worktree via `do_at_branch` or create a commit-rooted worktree via `do_at_commit`. |
 
 Plain `codex_commit @ ...` is prompt text. It must not select branches or create
