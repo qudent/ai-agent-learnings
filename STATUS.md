@@ -22,17 +22,19 @@ web UI process/queue observations.
 - [x] Add TDD/docs coverage for dispatch, branch naming, branch-parent metadata,
   active-run display, queueing, and URL behavior.
 - [x] Add `codex_agents`, `codex_status`, `codex_sync_push`, and `codex_spawn`.
-- [ ] Resolve the current `main...origin/main` divergence without hiding it.
+- [x] Resolve the current `main...origin/main` divergence without hiding it.
 - [ ] Verify the latest web UI report: a Codex process disappeared from the
   active-process list and a child-branch action appeared as "queued".
 - [ ] Decide whether automatic periodic state commits are actually desired and,
   if so, implement them. Only manual `codex_status "<summary>"` exists now.
 
 ## TODO Plan
-- [ ] Commit this status audit.
-- [ ] Reconcile `main` with `origin/main`: current fetch-verified state is
-  `ahead 4, behind 1`; `origin/main` has `a8fd2da`, an empty marker sibling of
-  local `9865801`, while local keeps the later `STATUS.md` note.
+- [x] Commit this status audit.
+- [x] Reconcile `main` with `origin/main`: fetched state was `ahead 5, behind
+  1`; `origin/main` had `a8fd2da`, an empty marker sibling of local `9865801`,
+  while local kept the later `STATUS.md` note. Resolved with a normal merge
+  commit, not a live-run rebase.
+- [ ] Push the ahead-only branch when the final status update is ready.
 - [ ] Reproduce or dismiss the "queued branch" report against the live
   port-6174 UI/API. The current regression says child branch creation should
   start immediately while the parent worktree is active.
@@ -65,9 +67,9 @@ web UI process/queue observations.
 ## Agent Notes
 - Current live check: `/api/status?repo=/home/name/repos/ai-agent-learnings`
   reports this run active at `9ee3fcb` with queue depth `0`.
-- Current divergence is real and current: `main...origin/main` is `ahead 4,
-  behind 1` after fetch. The previous `STATUS.md` claim that main was only
-  ahead is stale.
+- Current divergence was real: `main...origin/main` was `ahead 5, behind 1`
+  after fetch. The behind side is now merged; the branch is ahead-only until
+  pushed.
 - The latest unprocessed human note was pasted into `STATUS.md` but not turned
   into checklist state. It asks why the Codex process vanished from active
   processes and why creating a child branch showed "queued" when the intended
