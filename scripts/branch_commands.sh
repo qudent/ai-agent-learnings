@@ -64,6 +64,14 @@ codex_checkpoint() {
   git commit --allow-empty -m "checkpoint: $msg"
 }
 
+codex_status() {
+  if [ $# -lt 1 ]; then
+    echo "Usage: codex_status <one-line-summary>" >&2
+    return 1
+  fi
+  git commit --allow-empty -m "[status] $*"
+}
+
 _codex_dispatch_context() {
   local branch
   branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || printf '(unknown)')
@@ -106,6 +114,7 @@ Dispatch contract:
 - Leave the actual work and followup to the called agents.
 - Prefix every codex_* call that starts or resumes an agent with CODEX_WRAP_CALLED_BY=\$(codex_active) so start commits cite this dispatcher as their caller.
 - Include concise citations in dispatched prompts and your final status: cite commit hashes, branch names, STATUS.md sections, and file paths that justify each task.
+- For long work, create periodic empty [status] commits that summarize the last interval and cite the commit hashes that matter for the next agent context.
 - Use one-line empty checkpoint commits before disruptive work, for example: git commit --allow-empty -m "checkpoint: last save state before <work>".
 - Finish with a quick status update saying what kind of work was dispatched and where.
 EOF

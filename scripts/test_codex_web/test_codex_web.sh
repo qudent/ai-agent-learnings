@@ -90,6 +90,7 @@ printf 'ok - chatgit serves the caller repository\n'
 
 page=$(curl -fsS "http://127.0.0.1:$PORT/")
 printf '%s' "$page" | grep -F 'codex-web-interface' >/dev/null
+printf '%s' "$page" | grep -F 'name="viewport"' >/dev/null
 printf '%s' "$page" | grep -F 'Local Codex sessions' >/dev/null
 printf '%s' "$page" | grep -F 'repoLabel' >/dev/null
 printf '%s' "$page" | grep -F 'hasTextSelection' >/dev/null

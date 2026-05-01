@@ -347,6 +347,17 @@ test_codex_checkpoint_empty_commit() {
   ok 'codex checkpoint empty commit'
 }
 
+test_codex_status_empty_commit() {
+  setup_repo
+  before=$(git rev-parse HEAD)
+  codex_status 'summarized work refs abc123 def456'
+  after=$(git rev-parse HEAD)
+  [ "$before" != "$after" ] || fail 'status did not create a commit'
+  [ "$(git log -1 --pretty=%s)" = '[status] summarized work refs abc123 def456' ] || fail 'status subject mismatch'
+  [ "$(git diff-tree --no-commit-id --name-only -r HEAD)" = "" ] || fail 'status should be empty'
+  ok 'codex status empty commit'
+}
+
 test_codex_dispatch_prompt_contract() {
   setup_repo
   target="$ROOT/dispatch-should-not-exist"
@@ -359,6 +370,7 @@ test_codex_dispatch_prompt_contract() {
   contains 'End with a single round of new codex_* calls' "$b"
   contains 'CODEX_WRAP_CALLED_BY=$(codex_active)' "$b"
   contains 'Include concise citations in dispatched prompts' "$b"
+  contains 'periodic empty [status] commits' "$b"
   contains 'checkpoint: last save state before <work>' "$b"
   contains 'Current STATUS.md:' "$b"
   contains 'dispatch sample' "$b"
@@ -435,6 +447,7 @@ test_codex_prompt_metacharacters_are_literal
 test_codex_in_branch_at_commit_uses_worktree_wrapper
 test_do_at_branch_uses_existing_branch_worktree
 test_codex_checkpoint_empty_commit
+test_codex_status_empty_commit
 test_codex_dispatch_prompt_contract
 test_parallel_sibling_worktrees_are_branch_local
 test_text_transcript_fixture

@@ -25,6 +25,10 @@ commits, `branch_commands.sh` for branch/worktree placement and dispatch, and
   deleting anything, and record findings in this status file.
 - [x] Treat verbose first-words run titles/history as low-value UI; collapse
   run history by default instead of spending branch-pane space on old titles.
+- [x] Delete the explicitly approved large cleanup targets:
+  `/home/name/.cache/huggingface` and `/home/name/repos/nanochat-d20-play`.
+- [x] Add `codex_status` and dispatcher guidance for periodic `[status]`
+  summary commits with relevant commit references.
 - [ ] Decide whether to merge, preserve, or delete the unmerged `dev` branch and
   `origin/dev`.
 - [ ] Install `jj` before trying the Jujutsu helper on a real task.
@@ -40,16 +44,16 @@ commits, `branch_commands.sh` for branch/worktree placement and dispatch, and
 - `jj` is not installed on this machine, no Rust toolchain is present, and the
   root filesystem has only about 4.8 GB free. The Jujutsu experiment is
   scaffolded but not live-tested with `jj`.
-- The latest note, "similar problem ... as with my ChatGPT convo history", is
-  incomplete and needs clarification before implementation.
+- Automatic 30-minute `[status]` commits are not implemented yet; only the
+  manual `codex_status` helper and dispatch prompt contract were added.
 
 ## Cleanup Candidates
 - `/home/name/.cache/huggingface` is about 21 GB. The largest files found are
   PG19 dataset `.arrow` shards and downloads, mostly 300-880 MB each, with
-  access/modify times around 2026-02-16.
+  access/modify times around 2026-02-16. yeah delete this one 
 - `/home/name/repos/nanochat-d20-play` is about 8.0 GB. Large candidates include
   `models/nanochat-d20/model.safetensors` at 1.1 GB and CUDA/PyTorch shared
-  libraries inside `.venv`, last accessed around 2026-02-16.
+  libraries inside `.venv`, last accessed around 2026-02-16. and this one too
 - `/home/name/.local/share` is about 4.8 GB and may need a second-level scan
   before deletion decisions.
 - Other notable directories: `.elan/toolchains` 2.6 GB, `.hermes` 1.5 GB,
@@ -66,7 +70,9 @@ commits, `branch_commands.sh` for branch/worktree placement and dispatch, and
   initial config, and collapsed branch run history; changes were developed
   against `scripts/test_codex_web/WEB_BEHAVIOR.md`.
 - Disk scan found the machine is at 67 GB used of 75 GB, with 4.8 GB free; no
-  files were deleted.
+  files were deleted during the scan. After explicit approval, deleting the
+  Hugging Face cache and `nanochat-d20-play` reduced usage to 39 GB used with
+  34 GB free.
 - Added `scripts/jj_project.sh` as an optional Jujutsu task-DAG experiment; it
   fails clearly when `jj` is missing.
 - Verification passed:
@@ -88,6 +94,9 @@ commits, `branch_commands.sh` for branch/worktree placement and dispatch, and
   usually not worth screen real estate; future dispatch/UI work should favor
   search and agent-facing surfacing of relevant prior evidence over human
   browsing of title lists.
+- Long-running dispatch should add compact `[status]` commits that cite the
+  relevant preceding commit hashes, so future agents can reconstruct decisions
+  without loading every marker commit.
 - `scripts/.chatgit.swp` was removed in the checkpoint commit.
 - Stable repo instructions belong in each repo's `AGENTS.md`; concrete run
   commands belong in repo docs or `STATUS.md`, not in project-agnostic

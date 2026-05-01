@@ -97,6 +97,10 @@ dispatcher prompt must delegate implementation to child `codex_*` calls, pass
 `CODEX_WRAP_CALLED_BY=$(codex_active)` to those calls, cite the files/commits or
 `STATUS.md` evidence used, and use empty one-line checkpoint commits shaped
 like `checkpoint: last save state before <reason>` before disruptive work.
+For long runs where marker commits become too noisy, `codex_status "<summary>"`
+creates an empty `[status]` commit; include the relevant commit hashes in that
+summary so future agents can recover the decision path without loading every
+intermediate transcript commit.
 
 ## Experimental Jujutsu Project Management
 
