@@ -11,7 +11,7 @@ commits, `branch_commands.sh` for branch/worktree placement and dispatch, and
 - [x] Replace timestamp-heavy `codex-web-interface-*` auto branch names with
   shorter prompt-derived chatgit branch names.
 - [x] Rebase local `main` onto `origin/main` so it is ahead-only before push.
-- [ ] Push `main` after the branch-name fix and report exact branch state.
+- [x] Push `main` after the branch-name fix and report exact branch state.
 - [ ] Decide whether to merge, preserve, or delete local `dev` and
   `origin/dev`; local `dev` is still checked out in its own worktree.
 - [ ] Install `jj` before trying the Jujutsu helper on a real task.
@@ -22,7 +22,7 @@ commits, `branch_commands.sh` for branch/worktree placement and dispatch, and
   suffixing.
 - [x] Run the chatgit behavior suite.
 - [x] Restart the live `chatgit-main` server on port 6174.
-- [ ] Push `main`.
+- [x] Push `main`.
 
 ## Blockers
 - Automatic 30-minute `[status]` commits are not implemented yet; only the
@@ -39,6 +39,7 @@ commits, `branch_commands.sh` for branch/worktree placement and dispatch, and
 - Verified with `python3 -m py_compile scripts/codex_web.py` and
   `bash scripts/test_codex_web/test_codex_web.sh scripts/codex_web.py`.
 - Local `main` was rebased onto `origin/main`; current divergence is ahead-only.
+- Pushed `main` to `origin/main` through commit `3c42d47`.
 
 ## Agent Notes
 - The previous divergence pattern came from local wrapper/status commits made
