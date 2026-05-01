@@ -34,9 +34,9 @@ commits, `branch_commands.sh` for branch/worktree placement and dispatch, and
 - [ ] Install `jj` before trying the Jujutsu helper on a real task.
 
 ## TODO Plan
-- [ ] Restart the `chatgit-main` tmux server again after the latest path-link
-  and `?repo=` changes.
-- [ ] Run final validation, commit/push `main`, and report exact branch state.
+- [x] Restart the `chatgit-main` tmux server again after the latest path-link,
+  `?repo=`, and mobile composer changes.
+- [ ] Push `main` and report exact branch state.
 - [ ] Defer deleting `dev`: it is checked out in a worktree and contains
   unmerged commits/files, so it is not safe to remove as unused.
 
@@ -79,6 +79,10 @@ commits, `branch_commands.sh` for branch/worktree placement and dispatch, and
   `python3 -m py_compile scripts/codex_web.py scripts/codex_wrap.py`,
   `bash scripts/test_codex_wrap/test_codex_wrap.sh scripts/codex_wrap.sh`, and
   `bash scripts/test_codex_web/test_codex_web.sh scripts/codex_web.py`.
+- Live `chatgit-main` is running on `127.0.0.1:6174` for
+  `/home/name/repos/repoprover`; latest narrow screenshot at
+  `/tmp/chatgit-narrow_view.png` shows the composer buttons in one column
+  without clipping.
 - `git fetch --prune origin` found no stale remote refs. Local `dev` is still
   checked out at `/home/name/repos/ai-agent-learnings.worktrees/dev`, is ahead
   of `origin/dev`, and is not merged into `main`.
