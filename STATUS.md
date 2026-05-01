@@ -17,6 +17,21 @@ wrapper: /home/name/repos/ai-agent-learnings/scripts/codex_wrap.sh
 it still gives wrong paths! did you read and process/dispatch my feedback?
 the dispatching state should be in STATUS.md i think. answer here
 
+Agent answer: yes, I read and acted on the feedback, including the later
+dispatch feedback. Current dispatch state: no dispatcher should remain active;
+the `ec614fa` dispatcher stalled in analysis and was aborted at `e3c7993`.
+The concrete fixes were made directly on `main`: Dispatch bypasses the browser
+active-run warning, run-history disclosure clicks no longer select/collapse the
+worktree row, and `codex_dispatch` now includes recent run-start markers plus a
+live Codex-related process table for PID/cwd cross-checking.
+
+Path state: `chatgit` currently prints the shortened route
+`/home/name/<repo>` and the server maps that to `~/repos/<repo>` when it is a
+Git repo. That was my interpretation of the requested
+`/home/name/repoprover` URL. If "wrong paths" means the URL must show the real
+filesystem path, change `repo_url_path`/`scripts/chatgit` to stop eliding
+`/repos`; do not reintroduce browser `?repo=` links.
+
 ## Active Goals
 - [x] Make `chatgit` graceful when port 6174 is already running.
 - [x] Replace browser `?repo=` links with path-style repo URLs such as
