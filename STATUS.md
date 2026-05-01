@@ -34,7 +34,7 @@ web UI process/queue observations.
   1`; `origin/main` had `a8fd2da`, an empty marker sibling of local `9865801`,
   while local kept the later `STATUS.md` note. Resolved with a normal merge
   commit, not a live-run rebase.
-- [ ] Push the ahead-only branch when the final status update is ready.
+- [x] Push the reconciled branch to `origin/main`.
 - [ ] Reproduce or dismiss the "queued branch" report against the live
   port-6174 UI/API. The current regression says child branch creation should
   start immediately while the parent worktree is active.
@@ -42,10 +42,9 @@ web UI process/queue observations.
   and implementation instead of relying on dispatch prompt wording.
 
 ## Blockers
-- `codex_sync_push` refuses to rebase while this Codex run is active. A normal
-  merge or fetch-verified direct push may still be appropriate, but do not claim
-  the branch is clean until `git status --short --branch` confirms no
-  ahead/behind after the run's own marker commits are accounted for.
+- None for the audit itself. `codex_sync_push` still refuses to rebase while a
+  Codex run is active; use a normal merge or wait for the run to stop before
+  using the guarded sync helper.
 
 ## Recent Results
 - Implemented `called-by: user|<commit>` marker metadata, `codex_dispatch`,
@@ -68,8 +67,8 @@ web UI process/queue observations.
 - Current live check: `/api/status?repo=/home/name/repos/ai-agent-learnings`
   reports this run active at `9ee3fcb` with queue depth `0`.
 - Current divergence was real: `main...origin/main` was `ahead 5, behind 1`
-  after fetch. The behind side is now merged; the branch is ahead-only until
-  pushed.
+  after fetch. The behind side was merged with a normal merge commit and pushed;
+  `HEAD` and `origin/main` matched at `0c7d333` after the push check.
 - The latest unprocessed human note was pasted into `STATUS.md` but not turned
   into checklist state. It asks why the Codex process vanished from active
   processes and why creating a child branch showed "queued" when the intended
