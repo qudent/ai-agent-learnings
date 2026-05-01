@@ -8,6 +8,15 @@ commits, `branch_commands.sh` for branch/worktree placement and dispatch,
 `chatgit`/`codex_web.py` for the local web UI, and optional `jj_project.sh`
 helpers now that `jj` is installed.
 
+
+name@theserver:~/repos/ai-agent-learnings$ chatgit
+chatgit: http://127.0.0.1:6174/home/name/ai-agent-learnings
+codex-web-interface: http://127.0.0.1:6174/home/name/ai-agent-learnings
+repo: /home/name/repos/ai-agent-learnings
+wrapper: /home/name/repos/ai-agent-learnings/scripts/codex_wrap.sh
+it still gives wrong paths! did you read and process/dispatch my feedback?
+the dispatching state should be in STATUS.md i think. answer here
+
 ## Active Goals
 - [x] Make `chatgit` graceful when port 6174 is already running.
 - [x] Replace browser `?repo=` links with path-style repo URLs such as
