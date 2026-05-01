@@ -205,13 +205,13 @@ def wait_external_and_drain(key, repo):
         item = state['queue'].popleft()
         start_queued_locked(key, item)
 
-def submit_or_queue(repo, func, args, mode, prompt):
+def submit_or_queue(repo, func, args, mode, prompt, allow_parallel=False):
     key = runner_key(repo)
     item = {'repo': key, 'func': func, 'args': args, 'mode': mode, 'prompt': prompt}
     with RUN_LOCK:
         state = runner_state(key)
         active = state.get('active')
-        if active and process_alive(active.get('process')):
+        if active and process_alive(active.get('process')) and not allow_parallel:
             state['queue'].append(item)
             return {'queued': True, 'queue_depth': len(state['queue']), 'process': None}
         state['active'] = None
@@ -219,10 +219,10 @@ def submit_or_queue(repo, func, args, mode, prompt):
     with RUN_LOCK:
         state = runner_state(key)
         active = state.get('active')
-        if active and process_alive(active.get('process')):
+        if active and process_alive(active.get('process')) and not allow_parallel:
             state['queue'].append(item)
             return {'queued': True, 'queue_depth': len(state['queue']), 'process': None}
-        if external_active:
+        if external_active and not allow_parallel:
             state['queue'].append(item)
             if not state['external_waiter']:
                 state['external_waiter'] = True
@@ -570,7 +570,7 @@ async function loadWorktrees(j=null){
   let box=$('worktrees'), cur=$('repo').value; box.innerHTML='';
   box.appendChild(ce('div','section-title','Active worktrees'));
   for(let wt of j.worktrees){
-    let b=ce('div','wt'+(wt.path===cur?' active':'')+(wt.active?' running':'')); b.onclick=e=>{if(!e.target.closest('button'))setRepo(wt.path)};
+    let b=ce('div','wt'+(wt.path===cur?' active':'')+(wt.active?' running':'')); b.onclick=e=>{if(!e.target.closest('button,summary,details,.run'))setRepo(wt.path)};
     let p=wt.parent_branch?' ← '+wt.parent_branch:''; let pc=wt.parent_commit?' @ '+wt.parent_commit.slice(0,12):'';
     let head=ce('div','wt-head');
     head.appendChild(ce('div','wt-main',(wt.branch||'(detached)')+p));
@@ -675,7 +675,7 @@ async function send(mode){
   if(mode==='queue'){
     if(!hasActiveRun()){alert('No active run to queue behind. Use Continue or Fresh.');return}
     mode='send';
-  } else if(mode!=='branch'&&hasActiveRun()){
+  } else if(mode!=='branch'&&mode!=='dispatch'&&hasActiveRun()){
     alert('A run is active. Use Queue to send this after it finishes, or Pause run first.');
     return;
   }
@@ -740,7 +740,7 @@ class H(BaseHTTPRequestHandler):
                 elif mode in ('send','new_message'): func='codex_new_message'
                 elif mode=='resume': func='codex_resume'
                 else: raise ValueError('bad mode')
-                result = submit_or_queue(target, func, [prompt], mode, prompt)
+                result = submit_or_queue(target, func, [prompt], mode, prompt, allow_parallel=(mode == 'dispatch'))
                 result.update({'ok': True, 'worktree': wt})
                 self.j(result)
             elif u.path=='/api/abort':

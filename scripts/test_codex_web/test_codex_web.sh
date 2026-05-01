@@ -127,6 +127,7 @@ printf '%s' "$page" | grep -F "Click row to show this commit patch" >/dev/null
 printf '%s' "$page" | grep -F "Click row to show the full transcript" >/dev/null
 printf '%s' "$page" | grep -F "d.onclick=e=>{if(!e.target.closest('button')&&!hasTextSelection())diff(m.hash)}" >/dev/null
 printf '%s' "$page" | grep -F "r.onclick=e=>{if(!e.target.closest('button,summary,details')&&!hasTextSelection())showTranscript(run.hash,'')}" >/dev/null
+printf '%s' "$page" | grep -F "e.target.closest('button,summary,details,.run')" >/dev/null
 printf '%s' "$page" | grep -F 'Ask Codex...' >/dev/null
 printf '%s' "$page" | grep -F 'Dispatch this task through codex_dispatch' >/dev/null
 printf '%s' "$page" | grep -F 'codex_dispatch' >/dev/null
@@ -140,7 +141,7 @@ printf '%s' "$page" | grep -F 'Copy detail' >/dev/null
 printf '%s' "$page" | grep -F 'Select a commit for its patch, or a run for its transcript.' >/dev/null
 printf '%s' "$page" | grep -F 'A run is active. Use Queue to send this after it finishes, or Pause run first.' >/dev/null
 printf '%s' "$page" | grep -F 'function hasActiveRun(){let a=currentStatus&&currentStatus.active; return !!(a&&(a.hash||a.pid))}' >/dev/null
-printf '%s' "$page" | grep -F "} else if(mode!=='branch'&&hasActiveRun()){" >/dev/null
+printf '%s' "$page" | grep -F "} else if(mode!=='branch'&&mode!=='dispatch'&&hasActiveRun()){" >/dev/null
 ! printf '%s' "$page" | grep -F 'Abort run' >/dev/null
 printf '%s' "$page" | grep -F 'Full transcript' >/dev/null
 printf '%s' "$page" | grep -F 'Rename' >/dev/null

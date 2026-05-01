@@ -367,6 +367,9 @@ test_codex_dispatch_prompt_contract() {
   [ ! -e "$target" ] || fail 'dispatch prompt shell metacharacters executed'
   b=$(git log --format=%B --grep='^\[codex_start_user\]' -1)
   contains 'You are a Codex dispatch/orchestration agent.' "$b"
+  contains 'Recent run-start markers with pid metadata:' "$b"
+  contains 'Live Codex-related processes for PID cross-check:' "$b"
+  contains 'compare recent run-start marker pid/cwd metadata with the live process table' "$b"
   contains 'End with a single round of new codex_* calls' "$b"
   contains 'CODEX_WRAP_CALLED_BY=$(codex_active)' "$b"
   contains 'Include concise citations in dispatched prompts' "$b"

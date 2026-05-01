@@ -78,6 +78,9 @@ not be inferred from worktree directory names.
   session and makes clear that active worktree runs are queued server-side.
 - The browser can submit a task through `codex_dispatch`; the API should invoke
   the shell helper rather than reimplementing dispatch orchestration in Python.
+- Dispatch should not be blocked by the same active-run warning used for direct
+  Continue/Fresh actions. The dispatch prompt is responsible for inspecting live
+  sessions and choosing continue, block, abort, or new work.
 
 ## Browser Smoke
 
@@ -129,6 +132,8 @@ not be inferred from worktree directory names.
   painting across adjacent panes.
 - Finished runs are durable run objects in `/api/worktrees`, grouped under
   their owning active worktree when it still exists.
+- Expanding a run-history disclosure such as `2 recent runs` must not also
+  trigger worktree selection and immediately collapse during refresh.
 - When a finished branch worktree has been merged and removed, its run remains
   visible under a closed-worktree runs section and can still open its
   transcript. The UI should make clear that these are runs whose recorded cwd no

@@ -8,6 +8,25 @@ commits, `branch_commands.sh` for branch/worktree placement and dispatch, and
 `chatgit`/`codex_web.py` for the small local web UI.
 
 ## Active Goals
+
+new feedback: oll_interval)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/selectors.py", line 415, in select
+    fd_event_list = self._selector.poll(timeout)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt
+
+name@theserver:~/repos/ai-agent-learnings$ chatgit
+chatgit: http://127.0.0.1:6174/home/name/ai-agent-learnings
+codex-web-interface: http://127.0.0.1:6174/home/name/ai-agent-learnings
+repo: /home/name/repos/ai-agent-learnings
+wrapper: /home/name/repos/ai-agent-learnings/scripts/codex_wrap.sh
+
+
+this is not so good, it somehow deletes the /repos/ from the path. same happens when i reload the page. it should be very simple, with absolute paths! please figure out the problem and SIMPLIFY the code there, wherever it comes from it's not good.
+
+also clean up status.md after fixing
+
 ok do the things. you should look at the diff of local dev and check if there is anything left there worth keeping
 name@theserver:~/repos/ai-agent-learnings$ chatgit
 chatgit: http://127.0.0.1:6174/?repo=%2Fhome%2Fname%2Frepos%2Fai-agent-learnings

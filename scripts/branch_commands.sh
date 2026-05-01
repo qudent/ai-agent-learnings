@@ -85,6 +85,15 @@ _codex_dispatch_context() {
   git worktree list --porcelain 2>/dev/null | sed -n '1,80p' || true
   printf '\nLocal branches:\n'
   git branch -vv 2>/dev/null | sed -n '1,40p' || true
+  printf '\nRecent run-start markers with pid metadata:\n'
+  git log --grep='^\[codex_start' --format='%h %s%n%b%x1e' --max-count=20 2>/dev/null \
+    | awk 'BEGIN{RS="\036"} /pid: /{split($0, lines, "\n"); pid=""; cwd=""; host=""; head=lines[1]; for (i in lines) { if (lines[i] ~ /^pid: /) pid=lines[i]; if (lines[i] ~ /^cwd: /) cwd=lines[i]; if (lines[i] ~ /^host: /) host=lines[i]; } print head " | " pid " | " host " | " cwd }' \
+    | sed -n '1,20p' || true
+  printf '\nLive Codex-related processes for PID cross-check:\n'
+  ps -eo pid,pgid,stat,cmd 2>/dev/null \
+    | grep -E 'codex(_wrap)?|codex_web.py|branch_commands.sh' \
+    | grep -v grep \
+    | sed -n '1,40p' || printf 'none\n'
   if [ -f STATUS.md ]; then
     printf '\nCurrent STATUS.md:\n'
     sed -n '1,120p' STATUS.md
@@ -110,6 +119,7 @@ $context
 
 Dispatch contract:
 - Split the instruction into independent, reviewable tasks.
+- Inspect currently running sessions before dispatching: compare recent run-start marker pid/cwd metadata with the live process table above, then decide whether to call codex_commit, codex_new_message/codex_continue-style followup, codex_abort, or explicitly report blocked-by.
 - End with a single round of new codex_* calls, such as codex_in_branch, codex_commit, codex_new_message, or codex_abort, then stop.
 - Leave the actual work and followup to the called agents.
 - Prefix every codex_* call that starts or resumes an agent with CODEX_WRAP_CALLED_BY=\$(codex_active) so start commits cite this dispatcher as their caller.
