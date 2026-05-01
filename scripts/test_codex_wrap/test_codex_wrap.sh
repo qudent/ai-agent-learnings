@@ -358,6 +358,36 @@ test_codex_status_empty_commit() {
   ok 'codex status empty commit'
 }
 
+test_codex_agents_lists_live_pid_tasks() {
+  setup_repo
+  h=$(python3 - <<'PY'
+import socket
+print(socket.getfqdn() or socket.gethostname())
+PY
+)
+  msg="$ROOT/agent-msg"
+  cat >"$msg" <<EOF
+[codex_start_user] inspect active agents
+
+user
+inspect active agents
+
+session-id: 11111111-1111-1111-1111-111111111111
+called-by: user
+pid: $$
+pgid: $$
+host: $h
+cwd: $PWD
+started-at: 2026-05-01T00:00:00+0000
+EOF
+  git commit --allow-empty -q -F "$msg"
+  out=$(codex_agents)
+  contains 'inspect active agents' "$out"
+  contains "pid=$$" "$out"
+  contains "cwd=$PWD" "$out"
+  ok 'codex agents lists live pid tasks'
+}
+
 test_codex_dispatch_prompt_contract() {
   setup_repo
   target="$ROOT/dispatch-should-not-exist"
@@ -451,6 +481,7 @@ test_codex_in_branch_at_commit_uses_worktree_wrapper
 test_do_at_branch_uses_existing_branch_worktree
 test_codex_checkpoint_empty_commit
 test_codex_status_empty_commit
+test_codex_agents_lists_live_pid_tasks
 test_codex_dispatch_prompt_contract
 test_parallel_sibling_worktrees_are_branch_local
 test_text_transcript_fixture

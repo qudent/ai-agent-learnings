@@ -47,7 +47,8 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
   It records start/resume/agent/stop marker commits and manages the live Codex
   process. It should not own branch or worktree placement. Start/resume marker
   commits include `called-by: user` unless `CODEX_WRAP_CALLED_BY=<commit>` is
-  set by a dispatcher or parent agent.
+  set by a dispatcher or parent agent. `codex_agents` lists live local wrapper
+  agents from recent run-start commits cross-checked with live PIDs.
 - `scripts/codex-wrap/SKILL.md`: skill-style command guide for the Codex
   wrapper backend, including when to use `codex_commit`, `codex_resume`,
   `codex_new_message`, `codex_abort`, `codex_active`, and `codex_in_branch`.

@@ -36,4 +36,5 @@ codex_new_message() {
 
 codex_active() { _cw_py active; }
 codex_active_run() { _cw_py active; }
+codex_agents() { _cw_py agents; }
 codex_commit_push() { git pull --rebase && codex_commit "$@" && git push; }

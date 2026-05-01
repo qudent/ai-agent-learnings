@@ -280,6 +280,60 @@ def latest_active_run() -> str:
     return ""
 
 
+def active_agents() -> list[dict[str, str]]:
+    scan = env("CODEX_WRAP_ACTIVE_SCAN", "120")
+    raw = git(
+        [
+            "log",
+            "--extended-regexp",
+            "--format=%H%x1f%s",
+            "--grep=^\\[codex_(start_user|resume_user)\\]",
+            "-n",
+            scan,
+        ],
+        check=False,
+    )
+    agents = []
+    for line in raw.splitlines():
+        if "\x1f" not in line:
+            continue
+        commit, subject = line.split("\x1f", 1)
+        if run_closed(commit):
+            continue
+        run_host = field(commit, "host")
+        if run_host and run_host != host():
+            continue
+        pid = field(commit, "pid")
+        if not proc_alive(pid):
+            continue
+        task = re.sub(r"^\[codex_(?:start|resume)_user\]\s*", "", subject).strip()
+        agents.append(
+            {
+                "commit": commit,
+                "short": git(["rev-parse", "--short", commit], check=False).strip() or commit[:7],
+                "pid": pid,
+                "pgid": field(commit, "pgid") or pid,
+                "cwd": field(commit, "cwd"),
+                "session": field(commit, "session-id"),
+                "task": task,
+            }
+        )
+    return agents
+
+
+def print_active_agents() -> int:
+    agents = active_agents()
+    if not agents:
+        print("none")
+        return 0
+    for agent in agents:
+        print(
+            f"{agent['short']} pid={agent['pid']} pgid={agent['pgid']} "
+            f"cwd={agent['cwd']} task={agent['task']}"
+        )
+    return 0
+
+
 def rename_logs(base: Path, pending: str, final: str) -> tuple[Path, Path]:
     json_path = base / "logs" / f"{pending}.jsonl"
     err_path = base / "logs" / f"{pending}.stderr"
@@ -439,6 +493,7 @@ def main(argv: list[str]) -> int:
     run_p.add_argument("mode", choices=["start", "resume"])
     run_p.add_argument("rest", nargs=argparse.REMAINDER)
     sub.add_parser("active")
+    sub.add_parser("agents")
     last_p = sub.add_parser("last-sid")
     last_p.add_argument("ref", nargs="?", default="HEAD")
     abort_p = sub.add_parser("abort")
@@ -460,6 +515,8 @@ def main(argv: list[str]) -> int:
             print(active)
             return 0
         return 1
+    if ns.cmd == "agents":
+        return print_active_agents()
     if ns.cmd == "last-sid":
         sid = last_sid(ns.ref)
         if sid:

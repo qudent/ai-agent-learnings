@@ -37,8 +37,9 @@ path-style URLs with the real filesystem path, including `/repos`, for example
   `http://127.0.0.1:6174/home/name/repos/repoprover`.
 - [x] Add tested web dispatch support and keep dispatch orchestration in
   `branch_commands.sh`.
-  are you actually dispatching stuff? can you go through the git history to check whether you missed some of my feedback?
-  can you implement a wrapper command to list the current active agents based on git history cross references with PIDs? and very concise task description
+- [x] Add `codex_agents`, a wrapper command that lists current live local
+  agents from recent run-start commits cross-checked with live PIDs and concise
+  task text.
 - [x] Fix dispatch/run UI follow-ups: no active-run warning for Dispatch,
   run-history disclosure clicks stay expanded, and dispatch prompts list live
   run-start/process evidence.
@@ -72,6 +73,8 @@ path-style URLs with the real filesystem path, including `/repos`, for example
   work.
 - Dispatch context now includes recent run-start marker summaries plus a live
   Codex-related process table for PID/cwd cross-checking.
+- `codex_agents` / `python3 scripts/codex_wrap.py agents` now reports live
+  local wrapper agents as `commit pid pgid cwd task`.
 - Preserved useful `dev` artifacts on `main`: `frontend-design.md` and
   `scripts/codex-wrap/SKILL.md`, with README links and current repo paths.
 - Installed `jj 0.40.0` to `~/.local/bin`; `jj_project.sh` works after

@@ -44,6 +44,7 @@ For branch-targeted Codex work, source the branch helper too:
 | `codex_resume [session-id] <prompt...>` | Resume an existing session; without an explicit session id, use the last session id found in current branch history. |
 | `codex_new_message <prompt...>` | Add instructions to the active/current session: if a run is active, stop/kill it and resume with the new prompt; otherwise resume the last session. |
 | `codex_active` / `codex_active_run` | Print the active run-start commit hash and exit 0 when the current branch has a live local wrapper run. |
+| `codex_agents` | List currently live local wrapper agents from recent run-start commits cross-checked against live PIDs, with concise task text. |
 | `codex_abort [run-start-commit]` | Abort the active run, or a specified run-start commit, and write a `[codex_abort]` marker. |
 | `codex_commit_push <prompt...>` | `git pull --rebase`, run `codex_commit`, then `git push`; use only when that combined workflow is intentional. |
 | `codex_in_branch @ <branch-or-commit> <prompt...>` | Run Codex in the target branch/worktree via `do_at_branch` or create a commit-rooted worktree via `do_at_commit`. |
@@ -60,6 +61,7 @@ python3 scripts/codex_wrap.py run start <prompt...>
 python3 scripts/codex_wrap.py run resume <session-id> <prompt...>
 python3 scripts/codex_wrap.py new-message <prompt...>
 python3 scripts/codex_wrap.py active
+python3 scripts/codex_wrap.py agents
 python3 scripts/codex_wrap.py last-sid [ref]
 python3 scripts/codex_wrap.py abort [run-start-commit]
 ```
