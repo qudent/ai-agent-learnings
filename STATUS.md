@@ -23,14 +23,11 @@ commits, `branch_commands.sh` for branch/worktree placement and dispatch, and
 - [x] Collapse branch-pane run history so the left panel is less verbose.
 - [x] Scan large files/directories that look like cleanup candidates, without
   deleting anything, and record findings in this status file.
+- [x] Treat verbose first-words run titles/history as low-value UI; collapse
+  run history by default instead of spending branch-pane space on old titles.
 - [ ] Decide whether to merge, preserve, or delete the unmerged `dev` branch and
   `origin/dev`.
 - [ ] Install `jj` before trying the Jujutsu helper on a real task.
-
-also i see a similar problem (or is it a problem?) as with my chatgpt convo history:
-- the titles here are jsut the first words of what was typed and completely useless (in chatgpt the topic is chosen after the conversation - still useless)
-- i basically never revisit stuff, it is mostly waste of screen real estate.
-maybe the ideal thing is something that does the searching for me and surfaces relevant information (i think the human won't be that interested, but the agent may). this is what i am getting at with dispatch. but for that i would need to get the result wait 
 
 ## TODO Plan
 - [ ] Restart the `chatgit-main` tmux server again after the latest path-link
@@ -87,6 +84,10 @@ maybe the ideal thing is something that does the searching for me and surfaces r
   when delegating substantial work.
 - `codex_dispatch` lives in `scripts/branch_commands.sh`, not `codex_wrap.py`,
   so branch/worktree orchestration stays outside the low-level wrapper.
+- Product direction from the latest human note: old conversation/run titles are
+  usually not worth screen real estate; future dispatch/UI work should favor
+  search and agent-facing surfacing of relevant prior evidence over human
+  browsing of title lists.
 - `scripts/.chatgit.swp` was removed in the checkpoint commit.
 - Stable repo instructions belong in each repo's `AGENTS.md`; concrete run
   commands belong in repo docs or `STATUS.md`, not in project-agnostic
