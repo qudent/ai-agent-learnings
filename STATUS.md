@@ -9,6 +9,9 @@ commits, `branch_commands.sh` for branch/worktree placement and dispatch,
 helpers now that `jj` is installed.
 
 
+ok, i tried both in this repo and in endepromotion to dispatch something. it opened a branch and said "i dispatched", but then nothing happened and i don't see anything. debug please?
+also i still see the "remote is 1 ahead, X behind" pattern. can you figure out how to rigorously prevent this? when are you pushing stuff?
+
 name@theserver:~/repos/ai-agent-learnings$ chatgit
 chatgit: http://127.0.0.1:6174/home/name/ai-agent-learnings
 codex-web-interface: http://127.0.0.1:6174/home/name/ai-agent-learnings
@@ -30,6 +33,7 @@ path-style URLs with the real filesystem path, including `/repos`, for example
 `http://127.0.0.1:6174/home/name/repos/repoprover`. Do not reintroduce browser
 `?repo=` links and do not elide `/repos`.
 
+perfect. can you 
 ## Active Goals
 - [x] Make `chatgit` graceful when port 6174 is already running.
 - [x] Replace browser `?repo=` links with path-style repo URLs that keep the
