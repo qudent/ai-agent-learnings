@@ -7,18 +7,6 @@ source. The active helper surface is `codex_wrap` for Git-backed Codex marker
 commits, `branch_commands.sh` for branch/worktree placement and dispatch, and
 `chatgit`/`codex_web.py` for the small local web UI.
 
-oh you are saying jj is too large, fine. can you tell me the largest files I could delete to make some space and didn't use recently? (do not delete anything yet) write your answers into STATUS.md
-
-
-also if codex outputs a path in markdown `/tmp/...` (or path otherwise) in the web ui this should be clickable and downloadable
-make sure you have test driven development
-are you going through the UI testing markdown file to check stuff?
-i want that the web server can open arbitrary folders by a path in the URL. So if chatgit is entered, it should (if nothing happened before) start the stuff, and return a link to opening the exact repository it was called from in the shell (that can be copied to browser). change chatgit script accordingly.
-
-please move the prompts you are processing into "active goals" or so, after refactoring. also put into the status.md how you are delegating the stuff to dispatchers.
-
-the current ui (as I remember it) is way too verbose on the left pannel, for each branch it shows lots of useless commits. it should be done similarly. 
-
 ## Active Goals
 - [x] Commit the human-updated `STATUS.md` before taking new work.
 - [x] Add `codex_dispatch` for one-round Codex delegation with concise context,
@@ -33,6 +21,8 @@ the current ui (as I remember it) is way too verbose on the left pannel, for eac
 - [x] Make `chatgit` print a copyable `?repo=<path>` URL and make the web root
   accept `?repo=` to open a specific local Git repository.
 - [x] Collapse branch-pane run history so the left panel is less verbose.
+- [x] Scan large files/directories that look like cleanup candidates, without
+  deleting anything, and record findings in this status file.
 - [ ] Decide whether to merge, preserve, or delete the unmerged `dev` branch and
   `origin/dev`.
 - [ ] Install `jj` before trying the Jujutsu helper on a real task.
@@ -48,6 +38,21 @@ the current ui (as I remember it) is way too verbose on the left pannel, for eac
 - `jj` is not installed on this machine, no Rust toolchain is present, and the
   root filesystem has only about 4.8 GB free. The Jujutsu experiment is
   scaffolded but not live-tested with `jj`.
+- The latest note, "similar problem ... as with my ChatGPT convo history", is
+  incomplete and needs clarification before implementation.
+
+## Cleanup Candidates
+- `/home/name/.cache/huggingface` is about 21 GB. The largest files found are
+  PG19 dataset `.arrow` shards and downloads, mostly 300-880 MB each, with
+  access/modify times around 2026-02-16.
+- `/home/name/repos/nanochat-d20-play` is about 8.0 GB. Large candidates include
+  `models/nanochat-d20/model.safetensors` at 1.1 GB and CUDA/PyTorch shared
+  libraries inside `.venv`, last accessed around 2026-02-16.
+- `/home/name/.local/share` is about 4.8 GB and may need a second-level scan
+  before deletion decisions.
+- Other notable directories: `.elan/toolchains` 2.6 GB, `.hermes` 1.5 GB,
+  `.npm` 1.4 GB, `repos/modality_alignment_data` 1.1 GB, and
+  `.cache/ms-playwright` 613 MB. Do not delete without confirming current use.
 
 ## Recent Results
 - Created `Record active coordination prompts` for the human `STATUS.md` edit
@@ -58,6 +63,8 @@ the current ui (as I remember it) is way too verbose on the left pannel, for eac
 - Added clickable local path downloads, `chatgit` copyable repo URLs, `?repo=`
   initial config, and collapsed branch run history; changes were developed
   against `scripts/test_codex_web/WEB_BEHAVIOR.md`.
+- Disk scan found the machine is at 67 GB used of 75 GB, with 4.8 GB free; no
+  files were deleted.
 - Added `scripts/jj_project.sh` as an optional Jujutsu task-DAG experiment; it
   fails clearly when `jj` is missing.
 - Verification passed:
