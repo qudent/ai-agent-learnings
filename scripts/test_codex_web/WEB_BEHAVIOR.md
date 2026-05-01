@@ -30,9 +30,9 @@ making broader visual rewrites.
 - when they submit another prompt in `branch` mode,
 - then the server creates a grandchild worktree and records the selected child
   branch as its parent.
-- The chosen branch base must be visible in the composer area, not only in a
-  distant pane header, and the submit action should be labeled as creating a
-  child branch rather than implying any selected detail row will be used.
+- The chosen branch base must be visible in the composer area, and the submit
+  action should be labeled as creating a child branch rather than implying any
+  selected detail row will be used.
 
 ## Parent Branch Metadata
 
@@ -89,8 +89,8 @@ not be inferred from worktree directory names.
 - The visible product wording should say `codex-web-interface` or otherwise make
   clear that this is the Git-backed Codex interface, not a different Codex
   product.
-- Repository path edits should auto-load the new path after input/change without
-  requiring the Refresh button.
+- Repository/worktree selection should be encoded in the URL instead of a
+  visible path editor.
 - The page should periodically refresh branch/message/status data so marker
   commits created outside the browser action appear without manual Sync.
 - Periodic refresh must not run while the user has selected text, because

@@ -114,8 +114,9 @@ query_page=$(curl -fsS "http://127.0.0.1:$PORT/?repo=$(urlencode "$OTHER_REPO")"
 printf '%s' "$query_page" | grep -F "\"repo\": \"$REPO\"" >/dev/null
 ! printf '%s' "$query_page" | grep -F "\"repo\": \"$OTHER_REPO\"" >/dev/null
 printf '%s' "$page" | grep -F 'name="viewport"' >/dev/null
-printf '%s' "$page" | grep -F 'Local Codex sessions' >/dev/null
-printf '%s' "$page" | grep -F 'repoLabel' >/dev/null
+! printf '%s' "$page" | grep -F '<header>' >/dev/null
+! printf '%s' "$page" | grep -F 'Sync' >/dev/null
+! printf '%s' "$page" | grep -F 'repoLabel' >/dev/null
 printf '%s' "$page" | grep -F 'repoUrlPath' >/dev/null
 printf '%s' "$page" | grep -F 'updateRepoUrl(path)' >/dev/null
 printf '%s' "$page" | grep -F 'hasTextSelection' >/dev/null
@@ -155,7 +156,7 @@ printf '%s' "$page" | grep -F 'Remove attachment' >/dev/null
 printf '%s' "$page" | grep -F '.state-line{display:block;width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap' >/dev/null
 ! printf '%s' "$page" | grep -F 'Attach screenshot' >/dev/null
 printf '%s' "$page" | grep -F 'agent-active' >/dev/null
-printf '%s' "$page" | grep -F 'Full repository path' >/dev/null
+! printf '%s' "$page" | grep -F 'Full repository path' >/dev/null
 printf '%s' "$page" | grep -F '#conversationPane{order:1' >/dev/null
 printf '%s' "$page" | grep -F '#composer{position:sticky' >/dev/null
 printf '%s' "$page" | grep -F 'textWithPathLinks' >/dev/null
