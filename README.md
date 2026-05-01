@@ -52,8 +52,10 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
   `codex_commit` and the web UI do not push by themselves. Use
   `codex_sync_push` to fetch, rebase onto the configured upstream, and push; it
   is intentionally the shared end-of-session path for avoiding duplicate
-  local/remote patch divergence. `codex_commit_push` runs that sync both before
-  and after the Codex session.
+  local/remote patch divergence. It refuses to run while a local Codex wrapper
+  run is active, because rebasing active marker history can make live-run
+  detection unstable. `codex_commit_push` runs that sync both before and after
+  the Codex session.
 - `scripts/codex-wrap/SKILL.md`: skill-style command guide for the Codex
   wrapper backend, including when to use `codex_commit`, `codex_resume`,
   `codex_new_message`, `codex_abort`, `codex_active`, and `codex_in_branch`.

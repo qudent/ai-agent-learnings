@@ -417,6 +417,36 @@ test_codex_sync_push_skips_duplicate_upstream_patch() {
   ok 'codex sync push skips duplicate upstream patch'
 }
 
+test_codex_sync_push_refuses_active_run() {
+  setup_repo
+  h=$(python3 - <<'PY'
+import socket
+print(socket.getfqdn() or socket.gethostname())
+PY
+)
+  msg="$ROOT/active-sync-msg"
+  cat >"$msg" <<EOF
+[codex_start_user] active sync guard
+
+user
+active sync guard
+
+session-id: 11111111-1111-1111-1111-111111111111
+called-by: user
+pid: $$
+pgid: $$
+host: $h
+cwd: $PWD
+started-at: 2026-05-01T00:00:00+0000
+EOF
+  git commit --allow-empty -q -F "$msg"
+  if codex_sync_push >/tmp/cw-active-sync.out 2>/tmp/cw-active-sync.err; then
+    fail 'codex_sync_push should refuse active runs'
+  fi
+  grep -F 'refusing to sync while a local Codex run is active' /tmp/cw-active-sync.err >/dev/null || fail 'active sync refusal message missing'
+  ok 'codex sync push refuses active run'
+}
+
 test_codex_dispatch_prompt_contract() {
   setup_repo
   target="$ROOT/dispatch-should-not-exist"
@@ -512,6 +542,7 @@ test_codex_checkpoint_empty_commit
 test_codex_status_empty_commit
 test_codex_agents_lists_live_pid_tasks
 test_codex_sync_push_skips_duplicate_upstream_patch
+test_codex_sync_push_refuses_active_run
 test_codex_dispatch_prompt_contract
 test_parallel_sibling_worktrees_are_branch_local
 test_text_transcript_fixture

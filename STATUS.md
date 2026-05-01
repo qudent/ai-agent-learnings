@@ -6,7 +6,8 @@ local AI coding agents. `AGENTS.md` remains the canonical global instruction
 source. The active helper surface is `codex_wrap` for Git-backed Codex marker
 commits, `branch_commands.sh` for branch/worktree placement and dispatch,
 `chatgit`/`codex_web.py` for the local web UI, `codex_sync_push` for explicit
-fetch/rebase/push cleanup, and optional `jj_project.sh` helpers.
+fetch/rebase/push cleanup that refuses active wrapper runs by default, and
+optional `jj_project.sh` helpers.
 
 Active human context: the user asked to commit the edited `STATUS.md`, then
 finish/delegate the new work. The live follow-up concern was that the UI looked
@@ -19,6 +20,7 @@ this repo and the port-6174 API reports it.
   patch state without losing local work.
 - [x] Add a rigorous sync/push path that prevents the duplicate-patch pattern
   from lingering after agent work.
+- [x] Guard that sync path against rebasing while a local Codex run is active.
 - [x] Clean up the stale delegated cleanup worktree/branch.
 - [x] Verify `chatgit` prints real path-style URLs with `/repos`.
 - [ ] Push the final synchronized `main` state to `origin/main`.
@@ -46,6 +48,8 @@ this repo and the port-6174 API reports it.
 - Added `codex_sync_push`, rewired `codex_commit_push` to sync before and after
   a run, documented the exact push behavior, and added a regression that starts
   from `ahead 1, behind 1` duplicate patches and ends aligned with `origin/main`.
+- Added an active-run guard to `codex_sync_push`; this addresses the observed
+  "0 running" confusion from rebasing marker history while an agent was live.
 - Verified `scripts/chatgit` now prints
   `http://127.0.0.1:6174/home/name/repos/ai-agent-learnings` when the existing
   port-6174 server is already running.
@@ -53,7 +57,8 @@ this repo and the port-6174 API reports it.
 ## Agent Notes
 - Important behavior: `codex_commit` and the web UI still do not push
   automatically. The explicit push path is `codex_sync_push`; `codex_commit_push`
-  now runs that sync both before and after the Codex session.
+  now runs that sync both before and after the Codex session. To override the
+  active-run guard deliberately, set `CODEX_SYNC_PUSH_ALLOW_ACTIVE=1`.
 - Validation passed:
   `PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile scripts/codex_wrap.py scripts/codex_web.py`,
   `PYTHONDONTWRITEBYTECODE=1 bash scripts/test_codex_wrap/test_codex_wrap.sh scripts/codex_wrap.sh`,

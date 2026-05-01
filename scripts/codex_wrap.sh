@@ -39,6 +39,10 @@ codex_active_run() { _cw_py active; }
 codex_agents() { _cw_py agents; }
 codex_sync_push() {
   local upstream branch
+  if [ "${CODEX_SYNC_PUSH_ALLOW_ACTIVE:-0}" != 1 ] && codex_active >/dev/null 2>&1; then
+    echo 'codex_wrap: refusing to sync while a local Codex run is active; wait for it or set CODEX_SYNC_PUSH_ALLOW_ACTIVE=1' >&2
+    return 1
+  fi
   git remote get-url origin >/dev/null
   git fetch --prune origin
   if upstream=$(git rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null); then
