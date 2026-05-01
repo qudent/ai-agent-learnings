@@ -6,6 +6,7 @@ SCRIPT_DIR=$(cd "$(dirname "$WEB")" && pwd)
 ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
 TMP=$(mktemp -d)
 REPO="$TMP/repo"
+OTHER_REPO="$TMP/other-repo"
 FAKEBIN="$TMP/bin"
 PORT=${CODEX_WEB_TEST_PORT:-6192}
 
@@ -34,7 +35,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-mkdir -p "$REPO" "$FAKEBIN"
+mkdir -p "$REPO" "$OTHER_REPO" "$FAKEBIN"
 cat >"$FAKEBIN/codex" <<'FAKE'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -74,6 +75,12 @@ git -C "$REPO" config user.name Tester
 printf 'base\n' >"$REPO/file.txt"
 git -C "$REPO" add file.txt
 git -C "$REPO" commit -q -m base
+git -C "$OTHER_REPO" init -q -b main
+git -C "$OTHER_REPO" config user.email test@example.com
+git -C "$OTHER_REPO" config user.name Tester
+printf 'other\n' >"$OTHER_REPO/file.txt"
+git -C "$OTHER_REPO" add file.txt
+git -C "$OTHER_REPO" commit -q -m base
 
 (
   cd "$REPO"
@@ -102,9 +109,15 @@ printf 'ok - chatgit exits cleanly when the server is already running\n'
 
 page=$(curl -fsS "http://127.0.0.1:$PORT/")
 printf '%s' "$page" | grep -F 'codex-web-interface' >/dev/null
+printf '%s' "$page" | grep -F "\"repo\": \"$REPO\"" >/dev/null
+query_page=$(curl -fsS "http://127.0.0.1:$PORT/?repo=$(urlencode "$OTHER_REPO")")
+printf '%s' "$query_page" | grep -F "\"repo\": \"$REPO\"" >/dev/null
+! printf '%s' "$query_page" | grep -F "\"repo\": \"$OTHER_REPO\"" >/dev/null
 printf '%s' "$page" | grep -F 'name="viewport"' >/dev/null
 printf '%s' "$page" | grep -F 'Local Codex sessions' >/dev/null
 printf '%s' "$page" | grep -F 'repoLabel' >/dev/null
+printf '%s' "$page" | grep -F 'repoUrlPath' >/dev/null
+printf '%s' "$page" | grep -F 'updateRepoUrl(path)' >/dev/null
 printf '%s' "$page" | grep -F 'hasTextSelection' >/dev/null
 printf '%s' "$page" | grep -F 'setInterval(()=>{if(!document.hidden&&!hasTextSelection())refreshAll()},2000)' >/dev/null
 printf '%s' "$page" | grep -F 'Click a hash to copy it' >/dev/null
@@ -187,8 +200,6 @@ parent=$(git -C "$REPO" config --get "branch.$branch.parent-branch")
 parent_commit=$(git -C "$REPO" config --get "branch.$branch.parent-commit")
 [ "$parent" = main ]
 [ "$parent_commit" = "$base" ]
-linked_page=$(curl -fsS "http://127.0.0.1:$PORT/?repo=$(urlencode "$worktree")")
-printf '%s' "$linked_page" | grep -F "\"repo\": \"$worktree\"" >/dev/null
 path_page=$(curl -fsS "http://127.0.0.1:$PORT$(urlpath "$worktree")")
 printf '%s' "$path_page" | grep -F "\"repo\": \"$worktree\"" >/dev/null
 printf 'ok - branch mode creates a child branch with explicit parent metadata\n'

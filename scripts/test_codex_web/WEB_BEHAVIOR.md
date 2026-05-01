@@ -16,9 +16,9 @@ making broader visual rewrites.
   where it was started, and it should exit cleanly when that port already has a
   running chatgit server.
 - Opening a path-style URL such as `/tmp/repo` should load that repository path
-  in the initial browser config. The older root page with `?repo=<path>` should
-  keep working so existing copied links can still point at a specific local
-  repository.
+  in the initial browser config.
+- Browser navigation should not use `?repo=` compatibility links. Worktree
+  selection updates the address bar to a path-style URL.
 
 ## Branching
 

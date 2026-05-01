@@ -535,9 +535,15 @@ function textWithPathLinks(text){
 }
 function shortPath(path){let parts=(path||'').split('/').filter(Boolean), label=parts.slice(-1)[0]||path||'Repository'; if(parts.length>1&&label.length<24)label=parts.slice(-2).join('/'); return label.length>42?label.slice(0,23)+'...'+label.slice(-12):label}
 function updateRepoLabel(){let path=$('repo').value||''; $('repoLabel').textContent=shortPath(path); $('repo').title=path}
+function repoUrlPath(path){
+  let c=window.CHATGIT_CONFIG||{}, p=path||'';
+  if(c.repos&&c.home&&p.startsWith(c.repos+'/'))p=c.home+'/'+p.slice(c.repos.length+1);
+  return p.split('/').map(encodeURIComponent).join('/').replace(/^([^/])/,'/$1');
+}
+function updateRepoUrl(path, replace=false){history[replace?'replaceState':'pushState']({repo:path},'',repoUrlPath(path))}
 function setBase(h,t=''){let m=messagesByHash[h]||{}; baseCommit=h; $('base').textContent='Branch base: '+h.slice(0,12)+(m.subject?' · '+m.subject:''); $('base').classList.add('active'); if(t)$('prompt').value=t; $('composer').scrollIntoView({block:'nearest'}); $('prompt').focus(); loadMessages({messages:Object.values(messagesByHash)})}
 function clearBase(){baseCommit=''; $('base').textContent='Branch base: none selected.'; $('base').classList.remove('active'); loadMessages({messages:Object.values(messagesByHash)})}
-function setRepo(path){$('repo').value=path; updateRepoLabel(); selectedCommit=''; clearBase(); refreshAll(true)}
+function setRepo(path){$('repo').value=path; updateRepoLabel(); updateRepoUrl(path); selectedCommit=''; clearBase(); refreshAll(true)}
 function repoPathChanged(){updateRepoLabel(); clearTimeout(repoTimer); repoTimer=setTimeout(()=>{selectedCommit=''; clearBase(); refreshAll(true)},350)}
 async function copyText(text,label='Copy text'){try{await navigator.clipboard.writeText(text)}catch(e){window.prompt(label,text)}}
 function copyDetail(){let text=$('diff').textContent||''; if(text&&!$('copyDetail').disabled)copyText(text,'Copy detail')}
@@ -680,7 +686,8 @@ async function send(mode){
 }
 async function pauseRun(){await api('/api/abort',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({repo:$('repo').value})}); await refreshAll(true)}
 async function refreshAll(force=false){if(refreshing||(!force&&hasTextSelection()))return; refreshing=true; updateRepoLabel(); try{let j=await api('/api/overview?repo='+encodeURIComponent($('repo').value)); if(!force&&hasTextSelection())return; await loadWorktrees(j); await loadMessages({messages:j.messages||[]}); await loadStatus(j.status||{})}catch(e){$('diff').textContent=String(e)}finally{refreshing=false}}
-window.onload=async()=>{let c=window.CHATGIT_CONFIG; $('repo').value=c.repo; updateRepoLabel(); $('repo').addEventListener('input',repoPathChanged); $('repo').addEventListener('change',repoPathChanged); $('repo').addEventListener('keydown',e=>{if(e.key==='Enter')repoPathChanged()}); let comp=$('composer'); comp.addEventListener('paste',handlePaste); comp.addEventListener('dragover',e=>{e.preventDefault(); comp.classList.add('dragging')}); comp.addEventListener('dragleave',()=>comp.classList.remove('dragging')); comp.addEventListener('drop',handleDrop); setInterval(()=>{if(!document.hidden&&!hasTextSelection())refreshAll()},2000); await refreshAll(true)}
+window.onpopstate=()=>window.location.reload();
+window.onload=async()=>{let c=window.CHATGIT_CONFIG; $('repo').value=c.repo; updateRepoLabel(); updateRepoUrl(c.repo,true); $('repo').addEventListener('input',repoPathChanged); $('repo').addEventListener('change',repoPathChanged); $('repo').addEventListener('keydown',e=>{if(e.key==='Enter')repoPathChanged()}); let comp=$('composer'); comp.addEventListener('paste',handlePaste); comp.addEventListener('dragover',e=>{e.preventDefault(); comp.classList.add('dragging')}); comp.addEventListener('dragleave',()=>comp.classList.remove('dragging')); comp.addEventListener('drop',handleDrop); setInterval(()=>{if(!document.hidden&&!hasTextSelection())refreshAll()},2000); await refreshAll(true)}
 </script>'''
 
 class H(BaseHTTPRequestHandler):
@@ -695,11 +702,9 @@ class H(BaseHTTPRequestHandler):
             u=urlparse(self.path); q=parse_qs(u.query)
             if u.path=='/' or (u.path and not u.path.startswith('/api/')):
                 root_repo = str(ROOT)
-                if q.get('repo'):
-                    root_repo = str(self.repo(q.get('repo',[''])[0]))
-                elif u.path != '/':
+                if u.path != '/':
                     root_repo = str(self.repo(unquote(u.path)))
-                html=HTML.replace('__CHATGIT_CONFIG__', json.dumps({'repo':root_repo,'wrapper':str(WRAPPER)}))
+                html=HTML.replace('__CHATGIT_CONFIG__', json.dumps({'repo':root_repo,'wrapper':str(WRAPPER),'home':str(Path.home()),'repos':str(Path.home() / 'repos')}))
                 b=html.encode(); self.send_response(200); self.send_header('content-type','text/html; charset=utf-8'); self.send_header('content-length',str(len(b))); self.end_headers(); self.wfile.write(b); return
             if u.path=='/api/config': self.j({'repo':str(ROOT),'wrapper':str(WRAPPER)}); return
             r=self.repo(q.get('repo',[str(ROOT)])[0])
