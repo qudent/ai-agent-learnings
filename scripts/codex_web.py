@@ -11,7 +11,8 @@ import argparse, base64, binascii, json, os, re, socket, subprocess, sys, thread
 from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote, urlparse
+from email.utils import formatdate
 
 ROOT = Path.cwd()
 WRAPPER = Path(__file__).with_name('codex_wrap.sh')
@@ -429,6 +430,15 @@ def show(repo, commit):
     commit = safe_commit(repo, commit)
     return git(repo, 'show', '--format=fuller', '--patch', '--stat', '--find-renames', '--find-copies', '--no-ext-diff', '--end-of-options', commit, check=False)
 
+def safe_download_path(repo, value):
+    path = Path(value).expanduser().resolve()
+    roots = [Path('/tmp').resolve(), repo_root(repo), common_dir(repo)]
+    if not any(path == root or root in path.parents for root in roots):
+        raise ValueError('path is outside downloadable roots')
+    if not path.is_file():
+        raise ValueError('download path is not a file')
+    return path
+
 HTML = r'''<!doctype html><meta charset="utf-8"><title>codex-web-interface</title>
 <style>
 *{box-sizing:border-box}body{font-family:system-ui,-apple-system,Segoe UI,sans-serif;margin:0;color:CanvasText;background:Canvas}header{position:sticky;top:0;z-index:2;display:flex;gap:.5rem;align-items:center;padding:.55rem .7rem;border-bottom:1px solid #8885;background:Canvas}input,textarea,button{font:inherit}input,textarea{border:1px solid #8888;border-radius:.35rem;padding:.38rem .45rem;background:Field;color:FieldText;min-width:0}button{border:1px solid #8888;border-radius:.35rem;padding:.28rem .46rem;cursor:pointer;background:ButtonFace;color:ButtonText;white-space:nowrap;font-size:.84rem;line-height:1.2}button:disabled{opacity:.5;cursor:default}main{display:grid;grid-template-columns:minmax(260px,30vw) minmax(320px,1fr) minmax(360px,38vw);height:calc(100vh - 50px);min-height:0}.brand{font-weight:750}.top-hint{max-width:24rem}.pane{min-width:0;min-height:0;border-right:1px solid #8885;display:flex;flex-direction:column}.pane:last-child{border-right:0}.pane-head{padding:.6rem .7rem;border-bottom:1px solid #8885;display:grid;gap:.25rem}.pane-title{font-weight:700}.hint{font-size:.78rem;opacity:.68}.row{display:flex;gap:.35rem;align-items:center;flex-wrap:wrap}.repo-row{flex:1;min-width:240px}.repo-row input{width:100%}#worktrees{overflow:auto;padding:.45rem}.section-title{font-size:.72rem;font-weight:750;text-transform:uppercase;letter-spacing:0;margin:.45rem .15rem .28rem;opacity:.62}.section-note{font-size:.74rem;opacity:.62;margin:-.15rem .15rem .35rem}.wt{width:100%;text-align:left;display:grid;gap:.18rem;border:1px solid #8884;background:color-mix(in srgb,CanvasText 2%,Canvas);color:CanvasText;border-radius:.35rem;margin-bottom:.42rem;padding:.48rem}.wt:hover,.wt.active{border-color:#8887;background:color-mix(in srgb,CanvasText 6%,Canvas)}.wt.running{border-color:#0b7d53;background:color-mix(in srgb,#0b7d53 10%,Canvas)}.wt-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.35rem;align-items:start}.wt-main{font-weight:720;font-size:1rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wt-path,.wt-parent,.wt-status{font-size:.76rem;opacity:.7;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.agent-active{color:#0b7d53;font-weight:700;opacity:1}.runs{position:relative;display:grid;gap:.2rem;margin-top:.26rem;padding-left:1.15rem}.runs:before{content:"";position:absolute;left:.35rem;top:.3rem;bottom:.3rem;border-left:1px solid #8885}.run{position:relative;display:grid;gap:.2rem;padding:.3rem .16rem .38rem .24rem;background:transparent;border-radius:.22rem;cursor:pointer}.run:hover{background:color-mix(in srgb,CanvasText 4%,Canvas)}.run:before{content:"";position:absolute;left:-1.06rem;top:.52rem;width:.5rem;height:.5rem;border:2px solid #8887;border-radius:50%;background:Canvas}.run.active:before{border-color:#0b7d53;background:#0b7d53;box-shadow:0 0 0 3px color-mix(in srgb,#0b7d53 16%,Canvas)}.run.finished:before{border-color:#4567b7}.run.aborted:before{border-color:#9a3b30;background:#9a3b30}.run.queued:before{border-color:#8a5a00;border-style:dashed}.run-title{font-size:.78rem;font-weight:680;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.run-meta{font-size:.72rem;opacity:.68;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.run-actions{display:flex;gap:.3rem;flex-wrap:wrap;margin-top:.04rem}.run-actions button{font-size:.72rem;padding:.2rem .38rem}#state{min-width:0;overflow:hidden;border-top:1px solid #8885;padding:.55rem .7rem;display:grid;gap:.25rem}.state-line{display:block;width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.8rem;text-align:left}.queued{color:#8a5a00}.active-run{color:#06623b}#chat{overflow:auto;padding:.75rem;flex:1}.msg{margin:.5rem 0;padding:.6rem .68rem;border:1px solid #8884;border-radius:.4rem;white-space:pre-wrap;cursor:pointer}.msg.selected{border-color:#888;background:color-mix(in srgb,CanvasText 5%,Canvas)}.user{margin-left:2rem;background:color-mix(in srgb,CanvasText 7%,Canvas)}.assistant{margin-right:2rem}.system{opacity:.78;font-size:.88rem;border-style:dashed}.meta{display:flex;gap:.34rem;align-items:center;opacity:.78;font-size:.76rem;margin-bottom:.3rem;white-space:nowrap;min-width:0}.subject{overflow:hidden;text-overflow:ellipsis}.actions{margin-left:auto;display:flex;gap:.22rem;flex-wrap:wrap}.hash{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}#composer{padding:.7rem;border-top:1px solid #8885;display:grid;gap:.45rem}#composer.dragging{background:color-mix(in srgb,#0b7d53 10%,Canvas)}#prompt{min-height:5.5rem;resize:vertical}.attachments{display:flex;gap:.35rem;flex-wrap:wrap}.drop-hint{border:1px dashed #8888;border-radius:.35rem;padding:.36rem .5rem;font-size:.78rem;opacity:.74}.chip{display:inline-flex;gap:.35rem;align-items:center;max-width:100%;border:1px solid #8886;border-radius:.3rem;padding:.16rem .22rem .16rem .35rem;font-size:.76rem}.chip-name{overflow:hidden;text-overflow:ellipsis}.chip-x{border:0;background:transparent;padding:.04rem .22rem}.detail-tools{display:flex;gap:.35rem;align-items:center;flex-wrap:wrap}.detail-hash{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.8rem;overflow:hidden;text-overflow:ellipsis}#diff{flex:1;overflow:auto;padding:.75rem;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.8rem;white-space:pre-wrap;overflow-wrap:anywhere}.empty{padding:.75rem;color:color-mix(in srgb,CanvasText 58%,Canvas)}
@@ -436,8 +446,8 @@ HTML = r'''<!doctype html><meta charset="utf-8"><title>codex-web-interface</titl
 :root{color-scheme:light;--bg:#f4f6f8;--panel:#fff;--panel-soft:#f8fafc;--border:#d9dee7;--border-strong:#b8c0cc;--text:#17202a;--muted:#667085;--accent:#2563eb;--good:#0b7d53;--warn:#a16207;--bad:#b42318}body{height:100vh;display:grid;grid-template-rows:auto minmax(0,1fr);color:var(--text);background:var(--bg);overflow:hidden}header{position:static;display:grid;grid-template-columns:auto minmax(16rem,1fr) auto;gap:1rem;align-items:center;padding:.7rem .85rem;background:var(--panel);border-bottom:1px solid var(--border)}button{border-color:var(--border-strong);border-radius:.35rem;background:#fff;color:var(--text)}button:hover:not(:disabled){border-color:#8d99aa;background:#f8fafc}.brand-stack{display:grid;gap:.08rem}.brand{font-size:1rem;line-height:1.05}.top-hint{max-width:none}.repo-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.7rem;align-items:center;min-width:0}.repo-label-line{display:flex;gap:.4rem;align-items:baseline;min-width:0}.repo-caption{font-size:.68rem;font-weight:750;letter-spacing:.03em;text-transform:uppercase;color:var(--muted)}#repoLabel{font-weight:680;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.repo-edit{position:relative}.repo-edit summary{cursor:pointer;color:var(--muted);font-size:.76rem;white-space:nowrap}.repo-edit summary::-webkit-details-marker{display:none}.repo-edit summary:before{content:"Change path"}.repo-edit[open] summary:before{content:"Hide path"}#repo{position:absolute;right:0;top:1.65rem;z-index:5;width:min(42rem,72vw);font-size:.78rem;color:var(--muted);background:var(--panel-soft);border-color:var(--border);box-shadow:0 8px 24px #1118271f}.repo-edit:not([open]) #repo{display:none}.header-actions{display:flex;gap:.45rem;align-items:center}.pane{background:var(--panel);border-right:1px solid var(--border)}.pane-head{padding:.75rem .8rem;border-bottom:1px solid var(--border);background:var(--panel)}.pane-title{font-size:.94rem}.hint{color:var(--muted);opacity:1}#worktrees{padding:.6rem;background:var(--panel-soft)}.section-title{margin:.58rem .12rem .35rem;color:var(--muted);opacity:1}.section-note{color:var(--muted);opacity:1}.wt{border-color:var(--border);background:var(--panel);box-shadow:0 1px 2px #1118270a}.wt:hover,.wt.active{border-color:var(--border-strong);background:#fff}.wt.running{border-color:color-mix(in srgb,var(--good) 60%,var(--border));background:color-mix(in srgb,var(--good) 7%,#fff)}.wt-path,.wt-parent,.wt-status,.run-meta{color:var(--muted);opacity:1}.runs{gap:.16rem}.run{min-height:3.35rem;padding:.34rem 2.35rem .36rem .24rem;border-radius:.32rem}.run:hover{background:#eef4ff}.run-actions{display:flex;gap:.25rem;flex-wrap:nowrap;margin-top:.04rem}.run-actions button{font-size:.7rem;padding:.16rem .32rem}.run-menu{position:absolute;right:.32rem;top:.34rem;z-index:2}.run-menu summary{display:grid;place-items:center;width:1.55rem;height:1.55rem;border:1px solid var(--border-strong);border-radius:.35rem;background:#fff;cursor:pointer;font-weight:700;line-height:1}.run-menu summary::-webkit-details-marker{display:none}.run-menu-panel{position:absolute;right:0;top:1.85rem;display:grid;gap:.25rem;min-width:6.8rem;padding:.35rem;border:1px solid var(--border-strong);border-radius:.4rem;background:#fff;box-shadow:0 8px 24px #11182724}.run-menu-panel button{text-align:left}.run.active:before{border-color:var(--good);background:var(--good)}.run.finished:before{border-color:var(--accent)}.run.aborted:before{border-color:var(--bad);background:var(--bad)}.run.queued:before{border-color:var(--warn)}#state{border-top:1px solid var(--border);background:#fff}.state-line{border-color:var(--border);background:#fff}.queued{color:var(--warn)}.active-run{color:var(--good)}#chat{padding:.85rem;background:#fff}.msg{position:relative;margin:.55rem 0;padding:.68rem .75rem;border-color:var(--border);border-radius:.45rem;background:#fff;line-height:1.36}.msg:hover{border-color:var(--border-strong);box-shadow:0 1px 4px #11182712}.msg.selected{border-color:var(--accent);background:#f3f7ff}.user{margin-left:1.4rem;background:#f8fafc}.assistant{margin-right:1.4rem}.system{background:#fffdf7}.meta{color:var(--muted);opacity:1}.actions{gap:.24rem}.msg .actions{opacity:0;transition:opacity .12s ease}.msg:hover .actions,.msg:focus-within .actions{opacity:1}.hash{color:#334155}#composer{padding:.85rem;background:#fff;border-top:1px solid var(--border)}#prompt{min-height:6rem;border-color:var(--border-strong);line-height:1.35}.drop-hint{border-color:var(--border-strong);color:var(--muted);opacity:1;background:var(--panel-soft)}.chip{border-color:var(--border-strong);background:#fff}.detail-tools{gap:.45rem}.detail-hash{color:var(--muted);opacity:1}#diff{background:var(--panel-soft);line-height:1.42;color:#1f2937}.empty{color:var(--muted)}
 @media (hover:none){.run-actions,.msg .actions{opacity:1}}
 @media (max-width:900px){body{height:auto;overflow:auto;width:100%}header{grid-template-columns:1fr}.header-actions{flex-wrap:wrap}main{overflow:hidden;max-width:100vw}.pane,#left,#worktrees{width:100%;max-width:100vw;overflow-x:hidden;background:#fff}.wt{max-width:calc(100vw - 1.2rem)}#repoLabel,.run-title{white-space:normal;overflow-wrap:anywhere}.run{max-width:100%;padding-right:.24rem}.run-title,.run-meta{width:calc(100vw - 5.2rem)}.run-menu{display:none}.run-actions,.msg .actions{opacity:1}}
-#worktrees,.runs,.wt,.run,.run-title,.run-meta,.repo-label-line,#repoLabel{min-width:0}.repo-label-line{overflow:hidden}.repo-caption{flex:0 0 auto}#repoLabel{max-width:100%}.run-title,.run-meta{display:block;max-width:100%}#worktrees{overflow-x:hidden}.base-state{border:1px solid var(--border);border-radius:.35rem;background:var(--panel-soft);color:var(--muted);padding:.42rem .5rem;font-size:.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.base-state.active{border-color:color-mix(in srgb,var(--accent) 48%,var(--border));background:#f3f7ff;color:#1d4ed8}.msg.base-selected{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}.run-actions-mobile{display:none}
-@media (max-width:900px){body{height:100vh;overflow:hidden;width:100%}header{grid-template-columns:1fr}.header-actions{flex-wrap:wrap}main{display:flex;flex-direction:column;height:100%;min-height:0;overflow:auto;max-width:100vw}.pane,#left,#worktrees{width:100%;max-width:100vw;overflow-x:hidden;background:#fff}#conversationPane{order:1;flex:0 0 min(70vh,42rem);min-height:24rem}#left{order:2;flex:0 0 38vh;min-height:18rem}#detailPane{order:3;flex:0 0 42vh;min-height:18rem}.wt{max-width:calc(100vw - 1.2rem)}#repoLabel,.run-title{white-space:normal;overflow-wrap:anywhere}.run{max-width:100%;padding-right:.24rem}.run-title,.run-meta{width:calc(100vw - 5.2rem)}.run-menu{display:none}.run-actions-mobile{display:flex}.run-actions,.msg .actions{opacity:1}#composer{position:sticky;bottom:0;z-index:3;box-shadow:0 -6px 18px #11182712}.base-state{white-space:normal}#chat{min-height:0;overflow:auto}}
+#worktrees,.runs,.wt,.run,.run-title,.run-meta,.repo-label-line,#repoLabel{min-width:0}.repo-label-line{overflow:hidden}.repo-caption{flex:0 0 auto}#repoLabel{max-width:100%}.run-title,.run-meta{display:block;max-width:100%}#worktrees{overflow-x:hidden}.base-state{border:1px solid var(--border);border-radius:.35rem;background:var(--panel-soft);color:var(--muted);padding:.42rem .5rem;font-size:.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.base-state.active{border-color:color-mix(in srgb,var(--accent) 48%,var(--border));background:#f3f7ff;color:#1d4ed8}.msg.base-selected{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}.path-link{color:var(--accent);text-decoration:underline;text-underline-offset:2px;overflow-wrap:anywhere}.run-history{margin-top:.28rem}.run-history summary{cursor:pointer;font-size:.76rem;color:var(--muted);list-style:none}.run-history summary::-webkit-details-marker{display:none}.run-history summary:before{content:"> ";font-size:.7rem}.run-history[open] summary:before{content:"v "}.run-actions-mobile{display:none}
+@media (max-width:900px){body{height:100vh;overflow:hidden;width:100%}header{grid-template-columns:1fr}.header-actions{flex-wrap:wrap}main{display:flex;flex-direction:column;height:100%;min-height:0;overflow:auto;max-width:100vw}.pane,#left,#worktrees{width:100%;max-width:100vw;overflow-x:hidden;background:#fff}#conversationPane{order:1;flex:0 0 min(70vh,42rem);min-height:24rem}#left{order:2;flex:0 0 38vh;min-height:18rem}#detailPane{order:3;flex:0 0 42vh;min-height:18rem}.wt{max-width:calc(100vw - 1.2rem)}#repoLabel,.run-title{white-space:normal;overflow-wrap:anywhere}.run{max-width:100%;padding-right:.24rem}.run-title,.run-meta{width:calc(100vw - 5.2rem)}.run-menu{display:none}.run-actions-mobile{display:flex}.run-actions,.msg .actions{opacity:1}#composer{position:sticky;bottom:0;z-index:3;box-shadow:0 -6px 18px #11182712}#composer .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:stretch}#composer .row button{width:100%;min-width:0;white-space:normal}.base-state{white-space:normal}#chat{min-height:0;overflow:auto}}
 </style>
 <header><div class="brand-stack"><span class="brand">codex-web-interface</span><span class="hint top-hint">Local Codex sessions</span></div><div class="repo-row"><span class="repo-label-line"><span class="repo-caption">Repo</span><span id="repoLabel">Loading...</span></span><details class="repo-edit"><summary title="Edit repository path"></summary><input id="repo" aria-label="Repository path" title="Full repository path"></details></div><div class="header-actions"><button onclick="refreshAll()" title="Reload repository, branch, message, and status data">Sync</button></div></header>
 <main>
@@ -453,6 +463,21 @@ const esc=s=>(s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]
 async function api(path,opt={}){let r=await fetch(path,opt),j=await r.json(); if(!r.ok||j.error)throw new Error(j.error||r.statusText); return j}
 function ce(tag, cls='', text=''){let e=document.createElement(tag); if(cls)e.className=cls; if(text!==undefined&&text!=='')e.textContent=text; return e}
 function action(label, fn, title=''){let b=ce('button','',label); b.type='button'; if(title){b.title=title; b.setAttribute('aria-label',title)} b.onclick=e=>{e.stopPropagation(); fn(e)}; return b}
+function fileHref(path){return '/api/file?repo='+encodeURIComponent($('repo').value)+'&path='+encodeURIComponent(path)}
+function textWithPathLinks(text){
+  let wrap=ce('div'), re=/\/[A-Za-z0-9._~+/@:%=-][^\s`'"<>]*/g, last=0, m;
+  while((m=re.exec(text||''))){
+    let raw=m[0], path=raw.replace(/[.,;:)\]}]+$/,'');
+    if(path.length<2){continue}
+    wrap.appendChild(document.createTextNode((text||'').slice(last,m.index)));
+    let a=ce('a','path-link',path); a.href=fileHref(path); a.download=path.split('/').filter(Boolean).slice(-1)[0]||'download'; a.title='Download local file'; a.onclick=e=>e.stopPropagation();
+    wrap.appendChild(a);
+    wrap.appendChild(document.createTextNode(raw.slice(path.length)));
+    last=m.index+raw.length;
+  }
+  wrap.appendChild(document.createTextNode((text||'').slice(last)));
+  return wrap;
+}
 function shortPath(path){let parts=(path||'').split('/').filter(Boolean), label=parts.slice(-1)[0]||path||'Repository'; if(parts.length>1&&label.length<24)label=parts.slice(-2).join('/'); return label.length>42?label.slice(0,23)+'...'+label.slice(-12):label}
 function updateRepoLabel(){let path=$('repo').value||''; $('repoLabel').textContent=shortPath(path); $('repo').title=path}
 function setBase(h,t=''){let m=messagesByHash[h]||{}; baseCommit=h; $('base').textContent='Branch base: '+h.slice(0,12)+(m.subject?' · '+m.subject:''); $('base').classList.add('active'); if(t)$('prompt').value=t; $('composer').scrollIntoView({block:'nearest'}); $('prompt').focus(); loadMessages({messages:Object.values(messagesByHash)})}
@@ -507,12 +532,17 @@ async function loadWorktrees(j=null){
 }
 function renderRuns(parent, runs, queue){
   if(!(runs&&runs.length)&&!(queue&&queue.length))return;
+  let detail=ce('details','run-history');
+  if(queue&&queue.length)detail.open=true;
+  let label=(queue&&queue.length?queue.length+' queued · ':'')+(runs&&runs.length?runs.length+' recent run'+(runs.length===1?'':'s'):'no recent runs');
+  detail.appendChild(ce('summary','',label));
   let box=ce('div','runs');
   for(let q of queue||[]){
     let r=ce('div','run queued'); r.appendChild(ce('div','run-title',(q.prompt||'Queued message').slice(0,130))); r.appendChild(ce('div','run-meta','queued '+(q.mode||q.func||''))); let acts=ce('div','run-actions'); acts.appendChild(action('Copy prompt',()=>copyText(q.prompt||'','Copy queued prompt'),'Copy queued prompt text')); r.appendChild(acts); box.appendChild(r);
   }
   for(let run of (runs||[]).slice(0,5))renderRun(box, run, false);
-  parent.appendChild(box);
+  detail.appendChild(box);
+  parent.appendChild(detail);
 }
 function renderRun(parent, run, archived){
   let r=ce('div','run '+(run.status||'open')); let branch=archived&&run.branch?' · '+run.branch:'';
@@ -556,7 +586,7 @@ async function loadMessages(j=null){
     meta.appendChild(ce('span','',t)); meta.appendChild(ce('span','subject',m.subject));
     let acts=ce('span','actions'); acts.appendChild(action('Patch',()=>diff(m.hash),'Show git patch for this commit')); acts.appendChild(action('Copy',()=>copyText(m.raw||m.subject||'','Copy commit message'),'Copy this full Git commit message')); acts.appendChild(action('Use as branch base',()=>setBase(m.hash),'Use this commit as the branch base'));
     if(m.role==='user')acts.appendChild(action('Edit',()=>setBase(m.parent||m.hash, (messagesByHash[m.hash]||m).text||''),'Branch from the parent and reuse this prompt text'));
-    meta.appendChild(acts); d.appendChild(meta); d.appendChild(ce('div','',m.text));
+    meta.appendChild(acts); d.appendChild(meta); d.appendChild(textWithPathLinks(m.text));
     c.appendChild(d);
   }
   if(nearBottom)c.scrollTop=c.scrollHeight;
@@ -609,7 +639,10 @@ class H(BaseHTTPRequestHandler):
         try:
             u=urlparse(self.path); q=parse_qs(u.query)
             if u.path=='/':
-                html=HTML.replace('__CHATGIT_CONFIG__', json.dumps({'repo':str(ROOT),'wrapper':str(WRAPPER)}))
+                root_repo = str(ROOT)
+                if q.get('repo'):
+                    root_repo = str(self.repo(q.get('repo',[''])[0]))
+                html=HTML.replace('__CHATGIT_CONFIG__', json.dumps({'repo':root_repo,'wrapper':str(WRAPPER)}))
                 b=html.encode(); self.send_response(200); self.send_header('content-type','text/html; charset=utf-8'); self.send_header('content-length',str(len(b))); self.end_headers(); self.wfile.write(b); return
             if u.path=='/api/config': self.j({'repo':str(ROOT),'wrapper':str(WRAPPER)}); return
             r=self.repo(q.get('repo',[str(ROOT)])[0])
@@ -619,6 +652,17 @@ class H(BaseHTTPRequestHandler):
             elif u.path=='/api/status': self.j(run_status(r))
             elif u.path=='/api/show': self.j({'patch':show(r,q.get('commit',[''])[0])})
             elif u.path=='/api/transcript': self.j({'transcript':transcript(r,q.get('log',[''])[0],q.get('commit',[''])[0])})
+            elif u.path=='/api/file':
+                path = safe_download_path(r, q.get('path',[''])[0])
+                data = path.read_bytes()
+                self.send_response(200)
+                self.send_header('content-type','application/octet-stream')
+                self.send_header('content-length',str(len(data)))
+                self.send_header('last-modified',formatdate(path.stat().st_mtime, usegmt=True))
+                self.send_header('content-disposition',f'attachment; filename="{path.name}"')
+                self.send_header('x-content-type-options','nosniff')
+                self.end_headers()
+                self.wfile.write(data)
             else: self.j({'error':'not found'},404)
         except Exception as e: self.j({'error':str(e)},500)
     def do_POST(self):
@@ -652,6 +696,6 @@ def main():
     ap=argparse.ArgumentParser(); ap.add_argument('--repo',default=os.getcwd()); ap.add_argument('--wrapper',default=str(WRAPPER)); ap.add_argument('--port',type=int,default=6174)
     ns=ap.parse_args(); ROOT=Path(ns.repo).expanduser().resolve(); WRAPPER=Path(ns.wrapper).expanduser().resolve(); git(ROOT,'rev-parse','--git-dir')
     if not WRAPPER.exists(): raise SystemExit(f'wrapper not found: {WRAPPER}')
-    print(f'codex-web-interface: http://127.0.0.1:{ns.port}/\nrepo: {ROOT}\nwrapper: {WRAPPER}')
+    print(f'codex-web-interface: http://127.0.0.1:{ns.port}/?repo={quote(str(ROOT), safe="")}\nrepo: {ROOT}\nwrapper: {WRAPPER}')
     ThreadingHTTPServer(('127.0.0.1',ns.port),H).serve_forever()
 if __name__=='__main__': main()

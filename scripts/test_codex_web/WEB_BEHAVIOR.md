@@ -12,6 +12,11 @@ making broader visual rewrites.
 - when they run `chatgit`,
 - then the web server starts for that repository, not for
   `~/repos/ai-agent-learnings`.
+- The launcher should print a browser URL containing `?repo=<encoded path>` for
+  the exact repository where it was started.
+- Opening the root page with `?repo=<path>` should load that repository path in
+  the initial browser config, so a copied link can point at a specific local
+  repository.
 
 ## Branching
 
@@ -145,6 +150,9 @@ not be inferred from worktree directory names.
 - then the server stores it under the repo's Git common directory,
 - returns a filesystem path for the uploaded file,
 - and prompts sent with that attachment include the uploaded path.
+- When Codex output includes a local path under `/tmp`, the repo root, or the
+  repo's Git common state, the UI should render the path as a download link
+  rather than inert text.
 
 ## Branch Renaming
 

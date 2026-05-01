@@ -7,6 +7,8 @@ source. The active helper surface is `codex_wrap` for Git-backed Codex marker
 commits, `branch_commands.sh` for branch/worktree placement and dispatch, and
 `chatgit`/`codex_web.py` for the small local web UI.
 
+oh you are saying jj is too large, fine. can you tell me the largest files I could delete to make some space and didn't use recently? (do not delete anything yet)
+
 ## Active Goals
 - [x] Commit the human-updated `STATUS.md` before taking new work.
 - [x] Add `codex_dispatch` for one-round Codex delegation with concise context,
@@ -16,15 +18,19 @@ commits, `branch_commands.sh` for branch/worktree placement and dispatch, and
   current frontend is a legacy plain-JS surface with known AI rough edges.
 - [x] Clean stale `STATUS.md` entries and inspect local/upstream branch state.
 - [x] Add an optional Jujutsu project-management helper experiment.
+- [x] Render local file paths in Codex output as clickable download links, with
+  tests and bounded downloadable roots.
+- [x] Make `chatgit` print a copyable `?repo=<path>` URL and make the web root
+  accept `?repo=` to open a specific local Git repository.
+- [x] Collapse branch-pane run history so the left panel is less verbose.
 - [ ] Decide whether to merge, preserve, or delete the unmerged `dev` branch and
   `origin/dev`.
 - [ ] Install `jj` before trying the Jujutsu helper on a real task.
 
 ## TODO Plan
-- [ ] Restart the `chatgit-main` tmux server so `127.0.0.1:6174` serves the
-  patched UI.
-- [ ] Run a final status check, commit this compact `STATUS.md`, and push
-  `main`.
+- [ ] Restart the `chatgit-main` tmux server again after the latest path-link
+  and `?repo=` changes.
+- [ ] Run final validation, commit/push `main`, and report exact branch state.
 - [ ] Defer deleting `dev`: it is checked out in a worktree and contains
   unmerged commits/files, so it is not safe to remove as unused.
 
@@ -39,6 +45,9 @@ commits, `branch_commands.sh` for branch/worktree placement and dispatch, and
 - Implemented `called-by` marker metadata, `codex_dispatch`, `codex_checkpoint`,
   compact `/api/overview` polling, mobile composer reachability, visible branch
   base state, clearer branch labels, mobile run actions, and docs/tests.
+- Added clickable local path downloads, `chatgit` copyable repo URLs, `?repo=`
+  initial config, and collapsed branch run history; changes were developed
+  against `scripts/test_codex_web/WEB_BEHAVIOR.md`.
 - Added `scripts/jj_project.sh` as an optional Jujutsu task-DAG experiment; it
   fails clearly when `jj` is missing.
 - Verification passed:

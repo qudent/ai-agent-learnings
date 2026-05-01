@@ -28,7 +28,9 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
 - `scripts/chatgit`: launcher for the Git-backed `codex-web-interface` for the current
   repository. Add `export PATH="$HOME/repos/ai-agent-learnings/scripts:$PATH"` to `.zshrc` or
   `.bashrc`, then run `chatgit` from any Git repo. Set `CHATGIT_PORT` to choose
-  a non-default port.
+  a non-default port. The server prints a browser URL with `?repo=<path>` for
+  the exact repository it was launched from; the root page also accepts that
+  query parameter to open any Git repository path the server can access.
 - `scripts/codex_web.py`: loopback web UI for Git-backed Codex conversations.
   When it creates a branch, it records `branch.<name>.parent-branch` and
   `branch.<name>.parent-commit` in Git config so the UI has an explicit

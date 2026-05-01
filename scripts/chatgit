@@ -4,6 +4,9 @@ set -euo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 repo=${1:-$PWD}
 port=${CHATGIT_PORT:-6174}
+encoded_repo=$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$repo")
+
+echo "chatgit: http://127.0.0.1:$port/?repo=$encoded_repo"
 
 exec python3 "$script_dir/codex_web.py" \
   --repo "$repo" \

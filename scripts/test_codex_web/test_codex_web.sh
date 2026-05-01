@@ -84,6 +84,8 @@ done
 
 config=$(curl -fsS "http://127.0.0.1:$PORT/api/config")
 printf '%s' "$config" | grep -F "\"repo\": \"$REPO\"" >/dev/null
+grep -F "chatgit: http://127.0.0.1:$PORT/?repo=$(urlencode "$REPO")" "$TMP/server.log" >/dev/null
+grep -F "codex-web-interface: http://127.0.0.1:$PORT/?repo=$(urlencode "$REPO")" "$TMP/server.log" >/dev/null
 printf 'ok - chatgit serves the caller repository\n'
 
 page=$(curl -fsS "http://127.0.0.1:$PORT/")
@@ -128,6 +130,9 @@ printf '%s' "$page" | grep -F 'agent-active' >/dev/null
 printf '%s' "$page" | grep -F 'Full repository path' >/dev/null
 printf '%s' "$page" | grep -F '#conversationPane{order:1' >/dev/null
 printf '%s' "$page" | grep -F '#composer{position:sticky' >/dev/null
+printf '%s' "$page" | grep -F 'textWithPathLinks' >/dev/null
+printf '%s' "$page" | grep -F '/api/file?repo=' >/dev/null
+printf '%s' "$page" | grep -F 'run-history' >/dev/null
 printf 'ok - page copy exposes interface name, auto-load, polling, copy-message, queue, transcript, and rename hints\n'
 
 overview=$(curl -fsS "http://127.0.0.1:$PORT/api/overview?repo=$(urlencode "$REPO")")
@@ -154,6 +159,8 @@ parent=$(git -C "$REPO" config --get "branch.$branch.parent-branch")
 parent_commit=$(git -C "$REPO" config --get "branch.$branch.parent-commit")
 [ "$parent" = main ]
 [ "$parent_commit" = "$base" ]
+linked_page=$(curl -fsS "http://127.0.0.1:$PORT/?repo=$(urlencode "$worktree")")
+printf '%s' "$linked_page" | grep -F "\"repo\": \"$worktree\"" >/dev/null
 printf 'ok - branch mode creates a child branch with explicit parent metadata\n'
 
 child_base=$(git -C "$worktree" rev-parse HEAD)
@@ -204,6 +211,11 @@ upload_path=$(printf '%s' "$upload_response" | python3 -c 'import json,sys; prin
 [ -s "$upload_path" ]
 printf '%s' "$upload_path" | grep -F 'chatgit-uploads' >/dev/null
 printf '%s' "$upload_response" | grep -F '"content_type": "text/plain"' >/dev/null
+downloaded=$(curl -fsS "http://127.0.0.1:$PORT/api/file?repo=$(urlencode "$REPO")&path=$(urlencode "$upload_path")")
+[ "$downloaded" = 'plain text attachment' ]
+bad_download_code=$(curl -sS -o "$TMP/bad-download.json" -w '%{http_code}' "http://127.0.0.1:$PORT/api/file?repo=$(urlencode "$REPO")&path=$(urlencode /etc/passwd)")
+[ "$bad_download_code" = 500 ]
+grep -F 'outside downloadable roots' "$TMP/bad-download.json" >/dev/null
 upload_run=$(curl -fsS -X POST -H 'content-type: application/json' \
   -d "{\"repo\":\"$REPO\",\"prompt\":\"read attached file\",\"mode\":\"fresh\",\"attachments\":[\"$upload_path\"]}" \
   "http://127.0.0.1:$PORT/api/run")
@@ -212,7 +224,7 @@ upload_pid=$(printf '%s' "$upload_run" | python3 -c 'import json,sys; print(json
 wait_pid "$upload_pid"
 upload_transcript=$(curl -fsS "http://127.0.0.1:$PORT/api/transcript?repo=$(urlencode "$REPO")&log=$(urlencode "$upload_log")" | python3 -c 'import json,sys; print(json.load(sys.stdin)["transcript"])')
 printf '%s' "$upload_transcript" | grep -F "$upload_path" >/dev/null
-printf 'ok - arbitrary file upload stores a file and includes its path in prompts\n'
+printf 'ok - arbitrary file upload stores a file, downloads it, and includes its path in prompts\n'
 
 injection_file="$TMP/should-not-exist"
 injection_run=$(python3 - "$REPO" "$PORT" "$injection_file" <<'PY'
