@@ -7,7 +7,17 @@ source. The active helper surface is `codex_wrap` for Git-backed Codex marker
 commits, `branch_commands.sh` for branch/worktree placement and dispatch, and
 `chatgit`/`codex_web.py` for the small local web UI.
 
-oh you are saying jj is too large, fine. can you tell me the largest files I could delete to make some space and didn't use recently? (do not delete anything yet)
+oh you are saying jj is too large, fine. can you tell me the largest files I could delete to make some space and didn't use recently? (do not delete anything yet) write your answers into STATUS.md
+
+
+also if codex outputs a path in markdown `/tmp/...` (or path otherwise) in the web ui this should be clickable and downloadable
+make sure you have test driven development
+are you going through the UI testing markdown file to check stuff?
+i want that the web server can open arbitrary folders by a path in the URL. So if chatgit is entered, it should (if nothing happened before) start the stuff, and return a link to opening the exact repository it was called from in the shell (that can be copied to browser). change chatgit script accordingly.
+
+please move the prompts you are processing into "active goals" or so, after refactoring. also put into the status.md how you are delegating the stuff to dispatchers.
+
+the current ui (as I remember it) is way too verbose on the left pannel, for each branch it shows lots of useless commits. it should be done similarly. 
 
 ## Active Goals
 - [x] Commit the human-updated `STATUS.md` before taking new work.

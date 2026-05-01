@@ -696,6 +696,6 @@ def main():
     ap=argparse.ArgumentParser(); ap.add_argument('--repo',default=os.getcwd()); ap.add_argument('--wrapper',default=str(WRAPPER)); ap.add_argument('--port',type=int,default=6174)
     ns=ap.parse_args(); ROOT=Path(ns.repo).expanduser().resolve(); WRAPPER=Path(ns.wrapper).expanduser().resolve(); git(ROOT,'rev-parse','--git-dir')
     if not WRAPPER.exists(): raise SystemExit(f'wrapper not found: {WRAPPER}')
-    print(f'codex-web-interface: http://127.0.0.1:{ns.port}/?repo={quote(str(ROOT), safe="")}\nrepo: {ROOT}\nwrapper: {WRAPPER}')
+    print(f'codex-web-interface: http://127.0.0.1:{ns.port}/?repo={quote(str(ROOT), safe="")}\nrepo: {ROOT}\nwrapper: {WRAPPER}', flush=True)
     ThreadingHTTPServer(('127.0.0.1',ns.port),H).serve_forever()
 if __name__=='__main__': main()
