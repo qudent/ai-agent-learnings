@@ -49,9 +49,24 @@ For branch-targeted Codex work, source the branch helper too:
 | `codex_sync_push` | `git fetch --prune origin`, rebase onto the configured upstream so duplicate patches are skipped, then push. Refuses while a local Codex run is active unless `CODEX_SYNC_PUSH_ALLOW_ACTIVE=1` is set. |
 | `codex_commit_push <prompt...>` | Run `codex_sync_push`, then `codex_commit`, then `codex_sync_push` again; use only when that combined workflow is intentional. |
 | `codex_in_branch @ <branch-or-commit> <prompt...>` | Run Codex in the target branch/worktree via `do_at_branch` or create a commit-rooted worktree via `do_at_commit`. |
+| `codex_spawn <codex_commit|codex_resume|codex_new_message|codex_in_branch> <args...>` | Start a detached child wrapper run that survives the dispatcher shell exiting while still writing normal marker commits/logs for ChatGit. |
 
 Plain `codex_commit @ ...` is prompt text. It must not select branches or create
 worktrees.
+
+Dispatch agents should source both helper files, then use `codex_spawn` for
+implementation children:
+
+```bash
+. scripts/codex_wrap.sh
+. scripts/branch_commands.sh
+codex_spawn codex_in_branch @ HEAD "implement the isolated task; cite STATUS.md and commits"
+```
+
+`codex_spawn` sets `CODEX_WRAP_CALLED_BY` from `codex_active` by default. Its
+stdout reports the detached launcher pid and dispatch log path; the child run
+itself appears in ChatGit after the normal `[codex_start_user]` marker is
+written.
 
 ## Backend CLI
 

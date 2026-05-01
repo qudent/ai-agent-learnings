@@ -358,6 +358,20 @@ test_codex_status_empty_commit() {
   ok 'codex status empty commit'
 }
 
+test_codex_spawn_detached_agent() {
+  setup_repo
+  out=$(codex_spawn codex_commit long-spawn)
+  contains 'codex_spawn: pid=' "$out"
+  log=$(printf '%s\n' "$out" | sed -n 's/.* log=\([^ ]*\) .*/\1/p')
+  [ -n "$log" ] || fail 'spawn log missing'
+  wait_subject '[codex_start_user] long-spawn' || fail 'spawned run did not start'
+  codex_active >/tmp/cw-spawn-active || fail 'spawned run is not active'
+  [ -f "$log" ] || fail 'spawn log file not created'
+  git log --format=%B --grep='^\[codex_start_user\]' -1 | grep -F 'called-by: user' >/dev/null || fail 'spawn caller metadata missing'
+  codex_abort >/tmp/cw-spawn-abort.out 2>/tmp/cw-spawn-abort.err || fail 'could not abort spawned run'
+  ok 'codex spawn detached agent'
+}
+
 test_codex_agents_lists_live_pid_tasks() {
   setup_repo
   h=$(python3 - <<'PY'
@@ -452,15 +466,21 @@ test_codex_dispatch_prompt_contract() {
   target="$ROOT/dispatch-should-not-exist"
   printf '# Test Status\n\n## Active Goals\n- [ ] dispatch sample\n' >STATUS.md
   git add STATUS.md && git commit -q -m status
+  git commit --allow-empty -q -m '[codex_start_user] You are a Codex dispatch/orchestration agent. Prior duplicated body that should be elided from context' -m $'user\nYou are a Codex dispatch/orchestration agent. Prior duplicated body that should be elided from context\n\nsession-id: 22222222-2222-2222-2222-222222222222\ncalled-by: user\npid: 999999\npgid: 999999\nhost: test-host\ncwd: /tmp/test\nstarted-at: 2026-05-01T00:00:00+0000'
   codex_dispatch "split this safely \$(touch $target)"
   [ ! -e "$target" ] || fail 'dispatch prompt shell metacharacters executed'
   b=$(git log --format=%B --grep='^\[codex_start_user\]' -1)
   contains 'You are a Codex dispatch/orchestration agent.' "$b"
+  contains 'Recent commits (subjects compacted; dispatch prompts elided):' "$b"
+  contains '[codex_start_user] <dispatch prompt elided>' "$b"
+  not_contains 'Prior duplicated body that should be elided from context' "$b"
   contains 'Recent run-start markers with pid metadata:' "$b"
-  contains 'Live Codex-related processes for PID cross-check:' "$b"
+  contains 'Live Codex-related processes for PID cross-check (command text elided):' "$b"
   contains 'compare recent run-start marker pid/cwd metadata with the live process table' "$b"
-  contains 'End with a single round of new codex_* calls' "$b"
-  contains 'CODEX_WRAP_CALLED_BY=$(codex_active)' "$b"
+  contains 'Source the helpers before calling them' "$b"
+  contains 'codex_spawn codex_in_branch @ <branch-or-commit> "<prompt>"' "$b"
+  contains 'codex_spawn sets CODEX_WRAP_CALLED_BY from codex_active by default' "$b"
+  contains 'End with a single round of codex_spawn calls' "$b"
   contains 'Include concise citations in dispatched prompts' "$b"
   contains 'periodic empty [status] commits' "$b"
   contains 'checkpoint: last save state before <work>' "$b"
@@ -540,6 +560,7 @@ test_codex_in_branch_at_commit_uses_worktree_wrapper
 test_do_at_branch_uses_existing_branch_worktree
 test_codex_checkpoint_empty_commit
 test_codex_status_empty_commit
+test_codex_spawn_detached_agent
 test_codex_agents_lists_live_pid_tasks
 test_codex_sync_push_skips_duplicate_upstream_patch
 test_codex_sync_push_refuses_active_run

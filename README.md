@@ -65,7 +65,7 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
   `do_at_branch`, `do_at_commit`, and thin tool-specific wrappers like
   `codex_in_branch`. It also exposes `codex_dispatch`, which sends one
   orchestration prompt to Codex and requires a single round of delegated
-  `codex_*` calls with citations and `called-by` propagation.
+  `codex_spawn ...` calls with citations and `called-by` propagation.
 - `scripts/jj_project.sh`: experimental Jujutsu project-management helpers for
   representing TODO work as mutable `jj` changes. The helper is optional and
   fails clearly when `jj` is not installed.
@@ -108,10 +108,28 @@ When branch-ref dispatch is configured outside this repo, the hook should pass t
 
 For ad hoc local orchestration, source `scripts/codex_wrap.sh` and
 `scripts/branch_commands.sh`, then run `codex_dispatch "<instruction>"`. The
-dispatcher prompt must delegate implementation to child `codex_*` calls, pass
-`CODEX_WRAP_CALLED_BY=$(codex_active)` to those calls, cite the files/commits or
-`STATUS.md` evidence used, and use empty one-line checkpoint commits shaped
-like `checkpoint: last save state before <reason>` before disruptive work.
+dispatcher prompt must delegate implementation to child `codex_spawn ...` calls,
+cite the files/commits or `STATUS.md` evidence used, and use empty one-line
+checkpoint commits shaped like `checkpoint: last save state before <reason>`
+before disruptive work.
+
+`codex_spawn <codex_commit|codex_resume|codex_new_message|codex_in_branch>
+<args...>` is the detached child-agent launcher. It starts the normal wrapper in
+a new session with stdin closed and output redirected under
+`.git/codex-wrap/dispatch/`, so children survive the dispatcher process exiting
+while still writing the usual pid/cwd marker commits and transcript logs that
+ChatGit uses for active-agent and run-history display. `codex_spawn` sets
+`CODEX_WRAP_CALLED_BY` from `codex_active` by default; override it only when
+deliberately attaching work to a different caller commit.
+
+Typical dispatch calls:
+
+```bash
+codex_spawn codex_in_branch @ HEAD "implement the isolated task; cite STATUS.md and commits"
+codex_spawn codex_commit "continue in this worktree with this narrow task"
+codex_spawn codex_new_message "follow up on the active/latest session"
+```
+
 For long runs where marker commits become too noisy, `codex_status "<summary>"`
 creates an empty `[status]` commit; include the relevant commit hashes in that
 summary so future agents can recover the decision path without loading every
