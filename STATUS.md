@@ -13,6 +13,18 @@ names the callable helper commands, launches implementation children detached
 from the dispatcher, and avoids recursively embedding old dispatcher prompts in
 new dispatch context.
 
+also (please start side process for this if relevant): chat-ok-codex-process-disappeared-list-active-869940b ← main
+...
+chat-ok-codex-process-d...tive-869940b
+parent main @ 869940b18c7c
+agent active 705ba98
+1 queued · no recent runs
+ok but the codex process disappeared from the list of active processes in my web interface before i stopped. also, is higher paral
+queued branch
+Copy prompt
+
+wait, what are the remains of the "queuing" behavior in the web interface? i clicked "create" child branch, and the output was "queued". the point is supposed to be that in the child branch, you can work in parallel. why queued?
+
 ## Active Goals
 - [x] Answer whether the previous duplicate-context fix actually landed.
 - [x] Add an explicit detached child-agent launcher for dispatch agents.
