@@ -38,6 +38,7 @@ path-style URLs with the real filesystem path, including `/repos`, for example
 - [x] Add tested web dispatch support and keep dispatch orchestration in
   `branch_commands.sh`.
   are you actually dispatching stuff? can you go through the git history to check whether you missed some of my feedback?
+  can you implement a wrapper command to list the current active agents based on git history cross references with PIDs? and very concise task description
 - [x] Fix dispatch/run UI follow-ups: no active-run warning for Dispatch,
   run-history disclosure clicks stay expanded, and dispatch prompts list live
   run-start/process evidence.
