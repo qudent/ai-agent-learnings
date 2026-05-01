@@ -68,7 +68,7 @@ web UI process/queue observations.
   reports this run active at `9ee3fcb` with queue depth `0`.
 - Current divergence was real: `main...origin/main` was `ahead 5, behind 1`
   after fetch. The behind side was merged with a normal merge commit and pushed;
-  `HEAD` and `origin/main` matched at `02581d1` after the final push check.
+  `git status --short --branch` reported no ahead/behind after the push check.
 - The latest unprocessed human note was pasted into `STATUS.md` but not turned
   into checklist state. It asks why the Codex process vanished from active
   processes and why creating a child branch showed "queued" when the intended
