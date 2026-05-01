@@ -63,15 +63,40 @@ def worktrees(repo):
         ans.append(add_worktree_metadata(repo, cur))
     return attach_runs(repo, ans)
 
-def create_worktree(repo, commit):
+BRANCH_SLUG_MAX = 44
+BRANCH_STEM_MAX = 72
+BRANCH_STOP_WORDS = {
+    'a', 'an', 'and', 'are', 'as', 'at', 'be', 'but', 'by', 'for', 'from',
+    'if', 'in', 'into', 'is', 'it', 'of', 'on', 'or', 'please', 'still',
+    'super', 'that', 'the', 'this', 'to', 'with',
+}
+
+def prompt_branch_slug(prompt):
+    prompt = str(prompt or '').split('\nAttached files:', 1)[0]
+    words = re.findall(r'[a-z0-9]+', prompt.lower())
+    selected = [w for w in words if w not in BRANCH_STOP_WORDS]
+    if not selected:
+        selected = words
+    slug = ''
+    for word in selected[:10]:
+        candidate = f'{slug}-{word}' if slug else word
+        if len(candidate) > BRANCH_SLUG_MAX:
+            break
+        slug = candidate
+    return slug or 'chat'
+
+def branch_name_for_prompt(prompt, short_commit, suffix):
+    stem = f'chat-{prompt_branch_slug(prompt)}-{short_commit}'
+    stem = stem[:BRANCH_STEM_MAX].rstrip('-')
+    return f'{stem}-{suffix}' if suffix else stem
+
+def create_worktree(repo, commit, prompt=''):
     root = repo_root(repo)
     parent = current_branch(repo)
     base = git(repo, 'rev-parse', commit).strip()
     short = git(repo, 'rev-parse', '--short', base).strip()
     for i in range(100):
-        suf = f'-{i}' if i else ''
-        stamp = f'{time.strftime("%Y%m%d-%H%M%S")}-{time.time_ns() % 1_000_000_000:09d}'
-        branch = f'codex-web-interface-{short}-{stamp}{suf}'
+        branch = branch_name_for_prompt(prompt, short, i or '')
         wt = Path(f'{root}.worktrees') / branch
         if not wt.exists():
             try:
@@ -672,7 +697,7 @@ class H(BaseHTTPRequestHandler):
                 prompt=prompt_with_attachments(str(b.get('prompt') or ''), b.get('attachments') or []); mode=str(b.get('mode') or 'send'); wt=None
                 if not prompt: raise ValueError('missing prompt')
                 target=r
-                if mode=='branch': wt=create_worktree(r,str(b.get('base_commit') or '')); target=Path(wt['path']); func='codex_commit'
+                if mode=='branch': wt=create_worktree(r,str(b.get('base_commit') or ''), prompt); target=Path(wt['path']); func='codex_commit'
                 elif mode=='fresh': func='codex_commit'
                 elif mode in ('send','new_message'): func='codex_new_message'
                 elif mode=='resume': func='codex_resume'

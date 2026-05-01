@@ -53,6 +53,9 @@ not be inferred from worktree directory names.
 - then the branch request creates a new child worktree and starts there
   immediately instead of being blocked or queued behind the current worktree.
 - Branch creation requests must receive distinct branch/worktree names.
+- Automatically generated branch names should be short prompt-derived names
+  like `chat-fix-branch-names-abc1234`, not timestamp-heavy
+  `codex-web-interface-*` identifiers.
 - Spawned wrapper processes must receive distinct web log files, even when they
   start within the same second.
 

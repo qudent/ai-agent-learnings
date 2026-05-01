@@ -155,6 +155,8 @@ log=$(printf '%s' "$response" | python3 -c 'import json,sys; print(json.load(sys
 pid=$(printf '%s' "$response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["process"]["pid"])')
 wait_pid "$pid"
 
+[[ "$branch" == chat-branch-test-* ]]
+[[ "$branch" != codex-web-interface-* ]]
 git -C "$worktree" merge-base --is-ancestor "$base" HEAD
 parent=$(git -C "$REPO" config --get "branch.$branch.parent-branch")
 parent_commit=$(git -C "$REPO" config --get "branch.$branch.parent-commit")
@@ -172,6 +174,7 @@ branch_child=$(printf '%s' "$response_child" | python3 -c 'import json,sys; prin
 worktree_child=$(printf '%s' "$response_child" | python3 -c 'import json,sys; print(json.load(sys.stdin)["worktree"]["path"])')
 pid_child=$(printf '%s' "$response_child" | python3 -c 'import json,sys; print(json.load(sys.stdin)["process"]["pid"])')
 wait_pid "$pid_child"
+[[ "$branch_child" == chat-grandchild-branch-test-* ]]
 parent_child=$(git -C "$REPO" config --get "branch.$branch_child.parent-branch")
 parent_commit_child=$(git -C "$REPO" config --get "branch.$branch_child.parent-commit")
 [ "$parent_child" = "$branch" ]
@@ -321,13 +324,14 @@ printf '%s' "$worktrees" | grep -F "\"parent_branch\": \"$branch\"" >/dev/null
 printf 'ok - worktree API exposes parent branch metadata\n'
 
 response2=$(curl -fsS -X POST -H 'content-type: application/json' \
-  -d "{\"repo\":\"$REPO\",\"prompt\":\"second branch test\",\"mode\":\"branch\",\"base_commit\":\"$base\"}" \
+  -d "{\"repo\":\"$REPO\",\"prompt\":\"branch test\",\"mode\":\"branch\",\"base_commit\":\"$base\"}" \
   "http://127.0.0.1:$PORT/api/run")
 branch2=$(printf '%s' "$response2" | python3 -c 'import json,sys; print(json.load(sys.stdin)["worktree"]["branch"])')
 worktree2=$(printf '%s' "$response2" | python3 -c 'import json,sys; print(json.load(sys.stdin)["worktree"]["path"])')
 log2=$(printf '%s' "$response2" | python3 -c 'import json,sys; print(json.load(sys.stdin)["process"]["log"])')
 pid2=$(printf '%s' "$response2" | python3 -c 'import json,sys; print(json.load(sys.stdin)["process"]["pid"])')
 wait_pid "$pid2"
+[ "$branch2" = "$branch-1" ]
 [ "$branch2" != "$branch" ]
 [ "$worktree2" != "$worktree" ]
 [ "$log2" != "$log" ]
@@ -342,7 +346,7 @@ printf '%s' "$archived" | grep -F "\"branch\": \"$branch2\"" >/dev/null
 printf '%s' "$archived" | grep -F '"raw": "[codex_start_user]' >/dev/null
 archive_hash=$(printf '%s' "$archived" | python3 -c 'import json,sys; j=json.load(sys.stdin); print(j["archived_runs"][0]["hash"])')
 archive_transcript=$(curl -fsS "http://127.0.0.1:$PORT/api/transcript?repo=$(urlencode "$REPO")&commit=$archive_hash" | python3 -c 'import json,sys; print(json.load(sys.stdin)["transcript"])')
-printf '%s' "$archive_transcript" | grep -F 'second branch test' >/dev/null
+printf '%s' "$archive_transcript" | grep -F 'branch test' >/dev/null
 printf 'ok - archived runs survive finished branch cleanup with transcripts\n'
 
 renamed="renamed-$branch"

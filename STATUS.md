@@ -8,6 +8,13 @@ commits, `branch_commands.sh` for branch/worktree placement and dispatch, and
 `chatgit`/`codex_web.py` for the small local web UI.
 
 ## Active Goals
+
+
+wait wait what are you doing with repoprover here? i see repoprover related stuff in the learnings repo web interface...?
+
+also great clean up finished things here in this todo list
+where does this pattern of divergence between origin and main come from? can you change your workflow so it doesn't occur anymore?
+
 - [x] Commit the human-updated `STATUS.md` before taking new work.
 - [x] Add `codex_dispatch` for one-round Codex delegation with concise context,
   citations, checkpoint guidance, and `called-by` propagation.
@@ -39,26 +46,16 @@ commits, `branch_commands.sh` for branch/worktree placement and dispatch, and
 - [ ] Push `main` and report exact branch state.
 - [ ] Defer deleting `dev`: it is checked out in a worktree and contains
   unmerged commits/files, so it is not safe to remove as unused.
+  oh check this, and do that maybe? if the commits are good. cross check with your own work though.
 
 ## Blockers
 - `jj` is not installed on this machine, no Rust toolchain is present, and the
   root filesystem has only about 4.8 GB free. The Jujutsu experiment is
   scaffolded but not live-tested with `jj`.
+  ok now there is enough space, you can commit. also push.
+
 - Automatic 30-minute `[status]` commits are not implemented yet; only the
   manual `codex_status` helper and dispatch prompt contract were added.
-
-## Cleanup Candidates
-- `/home/name/.cache/huggingface` is about 21 GB. The largest files found are
-  PG19 dataset `.arrow` shards and downloads, mostly 300-880 MB each, with
-  access/modify times around 2026-02-16. yeah delete this one 
-- `/home/name/repos/nanochat-d20-play` is about 8.0 GB. Large candidates include
-  `models/nanochat-d20/model.safetensors` at 1.1 GB and CUDA/PyTorch shared
-  libraries inside `.venv`, last accessed around 2026-02-16. and this one too
-- `/home/name/.local/share` is about 4.8 GB and may need a second-level scan
-  before deletion decisions.
-- Other notable directories: `.elan/toolchains` 2.6 GB, `.hermes` 1.5 GB,
-  `.npm` 1.4 GB, `repos/modality_alignment_data` 1.1 GB, and
-  `.cache/ms-playwright` 613 MB. Do not delete without confirming current use.
 
 ## Recent Results
 - Created `Record active coordination prompts` for the human `STATUS.md` edit
@@ -68,7 +65,7 @@ commits, `branch_commands.sh` for branch/worktree placement and dispatch, and
   base state, clearer branch labels, mobile run actions, and docs/tests.
 - Added clickable local path downloads, `chatgit` copyable repo URLs, `?repo=`
   initial config, and collapsed branch run history; changes were developed
-  against `scripts/test_codex_web/WEB_BEHAVIOR.md`.
+  against `scripts/test_codex_web/WEB_BEHAVIOR.md` oh
 - Disk scan found the machine is at 67 GB used of 75 GB, with 4.8 GB free; no
   files were deleted during the scan. After explicit approval, deleting the
   Hugging Face cache and `nanochat-d20-play` reduced usage to 39 GB used with
@@ -86,6 +83,8 @@ commits, `branch_commands.sh` for branch/worktree placement and dispatch, and
 - `git fetch --prune origin` found no stale remote refs. Local `dev` is still
   checked out at `/home/name/repos/ai-agent-learnings.worktrees/dev`, is ahead
   of `origin/dev`, and is not merged into `main`.
+
+  great i deleted it.
 
 ## Agent Notes
 - This run used internal read-only subagents for UI critique and wrapper tracing,
