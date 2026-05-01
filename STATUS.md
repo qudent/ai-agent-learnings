@@ -25,42 +25,41 @@ active-run warning, run-history disclosure clicks no longer select/collapse the
 worktree row, and `codex_dispatch` now includes recent run-start markers plus a
 live Codex-related process table for PID/cwd cross-checking.
 
-Path state: `chatgit` currently prints the shortened route
-`/home/name/<repo>` and the server maps that to `~/repos/<repo>` when it is a
-Git repo. That was my interpretation of the requested
-`/home/name/repoprover` URL. If "wrong paths" means the URL must show the real
-filesystem path, change `repo_url_path`/`scripts/chatgit` to stop eliding
-`/repos`; do not reintroduce browser `?repo=` links.
+Path state: corrected after the latest note. `chatgit` and the browser now use
+path-style URLs with the real filesystem path, including `/repos`, for example
+`http://127.0.0.1:6174/home/name/repos/repoprover`. Do not reintroduce browser
+`?repo=` links and do not elide `/repos`.
 
 ## Active Goals
 - [x] Make `chatgit` graceful when port 6174 is already running.
-- [x] Replace browser `?repo=` links with path-style repo URLs such as
-  `http://127.0.0.1:6174/home/name/repoprover`; do not keep browser query
-  compatibility.
+- [x] Replace browser `?repo=` links with path-style repo URLs that keep the
+  real filesystem path, such as
+  `http://127.0.0.1:6174/home/name/repos/repoprover`.
 - [x] Add tested web dispatch support and keep dispatch orchestration in
   `branch_commands.sh`.
+  are you actually dispatching stuff? can you go through the git history to check whether you missed some of my feedback?
 - [x] Fix dispatch/run UI follow-ups: no active-run warning for Dispatch,
   run-history disclosure clicks stay expanded, and dispatch prompts list live
   run-start/process evidence.
 - [x] Install `jj` and smoke-test `jj_project.sh`.
 - [x] Preserve useful `dev` content before branch cleanup.
-- [ ] Push `main`, remove stale local/remote branches, and restart live
+- [x] Push `main`, remove stale local/remote branches, and restart live
   `chatgit-main` on port 6174.
 
 ## TODO Plan
-- [ ] Push `main` to `origin/main`.
-- [ ] Remove stale local worktrees/branches: `dev`,
+- [x] Push `main` to `origin/main`.
+- [x] Remove stale local worktrees/branches: `dev`,
   `chat-ugly-my-point-should-selectable-visible-url-d6224ce`, and temporary
   `dispatch-*` branches.
-- [ ] Delete stale remote branches after `main` is safely pushed:
+- [x] Delete stale remote branches after `main` is safely pushed:
   `origin/dev` and `origin/chat-ugly-my-point-should-selectable-visible-url-d6224ce`.
-- [ ] Restart the live port-6174 server from updated `main`.
+- [x] Restart the live port-6174 server from updated `main`.
 
 ## Blockers
 - None.
 
 ## Recent Results
-- `scripts/chatgit` now prints path-style URLs, exits cleanly if a chatgit
+- `scripts/chatgit` now prints real-path path-style URLs, exits cleanly if a chatgit
   server already responds on the chosen port, and no longer crashes with
   `OSError: [Errno 98] Address already in use`.
 - `scripts/codex_web.py` accepts path-style browser routes, ignores `?repo=`

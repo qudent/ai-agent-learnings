@@ -17,6 +17,8 @@ making broader visual rewrites.
   running chatgit server.
 - Opening a path-style URL such as `/tmp/repo` should load that repository path
   in the initial browser config.
+- Path-style URLs should use the real filesystem path. Do not elide path
+  components such as `/repos`.
 - Browser navigation should not use `?repo=` compatibility links. Worktree
   selection updates the address bar to a path-style URL.
 

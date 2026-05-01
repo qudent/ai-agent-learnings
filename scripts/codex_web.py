@@ -31,27 +31,10 @@ def repo_root(repo):
 
 def repo_url_path(repo):
     repo = Path(repo).expanduser().resolve()
-    home_repos = Path.home() / 'repos'
-    try:
-        rel = repo.relative_to(home_repos)
-        if rel.parts:
-            return '/' + quote(str(Path.home()).lstrip('/') + '/' + str(rel), safe='/')
-    except ValueError:
-        pass
     return quote(str(repo), safe='/')
 
 def resolve_repo_path(value):
     candidate = Path(value or str(ROOT)).expanduser().resolve()
-    if is_git_repo(candidate):
-        return candidate
-    try:
-        home_rel = candidate.relative_to(Path.home())
-    except ValueError:
-        home_rel = None
-    if home_rel and home_rel.parts[:1] != ('repos',):
-        repos_candidate = (Path.home() / 'repos' / home_rel).resolve()
-        if is_git_repo(repos_candidate):
-            return repos_candidate
     git(candidate, 'rev-parse', '--git-dir')
     return candidate
 
@@ -536,8 +519,7 @@ function textWithPathLinks(text){
 function shortPath(path){let parts=(path||'').split('/').filter(Boolean), label=parts.slice(-1)[0]||path||'Repository'; if(parts.length>1&&label.length<24)label=parts.slice(-2).join('/'); return label.length>42?label.slice(0,23)+'...'+label.slice(-12):label}
 function updateRepoLabel(){let path=$('repo').value||''; document.title='chatgit · '+shortPath(path)}
 function repoUrlPath(path){
-  let c=window.CHATGIT_CONFIG||{}, p=path||'';
-  if(c.repos&&c.home&&p.startsWith(c.repos+'/'))p=c.home+'/'+p.slice(c.repos.length+1);
+  let p=path||'';
   return p.split('/').map(encodeURIComponent).join('/').replace(/^([^/])/,'/$1');
 }
 function updateRepoUrl(path, replace=false){history[replace?'replaceState':'pushState']({repo:path},'',repoUrlPath(path))}
@@ -704,7 +686,7 @@ class H(BaseHTTPRequestHandler):
                 root_repo = str(ROOT)
                 if u.path != '/':
                     root_repo = str(self.repo(unquote(u.path)))
-                html=HTML.replace('__CHATGIT_CONFIG__', json.dumps({'repo':root_repo,'wrapper':str(WRAPPER),'home':str(Path.home()),'repos':str(Path.home() / 'repos')}))
+                html=HTML.replace('__CHATGIT_CONFIG__', json.dumps({'repo':root_repo,'wrapper':str(WRAPPER)}))
                 b=html.encode(); self.send_response(200); self.send_header('content-type','text/html; charset=utf-8'); self.send_header('content-length',str(len(b))); self.end_headers(); self.wfile.write(b); return
             if u.path=='/api/config': self.j({'repo':str(ROOT),'wrapper':str(WRAPPER)}); return
             r=self.repo(q.get('repo',[str(ROOT)])[0])

@@ -29,10 +29,10 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
 - `scripts/chatgit`: launcher for the Git-backed `codex-web-interface` for the current
   repository. Add `export PATH="$HOME/repos/ai-agent-learnings/scripts:$PATH"` to `.zshrc` or
   `.bashrc`, then run `chatgit` from any Git repo. Set `CHATGIT_PORT` to choose
-  a non-default port. The server prints a path-style browser URL such as
-  `/home/name/repo-name`; `/home/name/<repo>` resolves to `~/repos/<repo>` when
-  that Git repo exists. Browser links do not use `?repo=`; selecting another
-  worktree updates the address bar to another path-style URL. Re-running
+  a non-default port. The server prints a path-style browser URL using the real
+  filesystem path, such as `/home/name/repos/repo-name`. Browser links do not
+  use `?repo=`; selecting another worktree updates the address bar to another
+  path-style URL. Re-running
   `chatgit` against an already-running server prints the URL and exits without
   a traceback.
 - `scripts/codex_web.py`: loopback web UI for Git-backed Codex conversations.

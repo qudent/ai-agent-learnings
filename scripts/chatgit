@@ -10,13 +10,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 repo = Path(sys.argv[1]).expanduser().resolve()
-home = Path.home()
-try:
-    rel = repo.relative_to(home / "repos")
-    path = "/" + str(home).lstrip("/") + "/" + str(rel)
-except ValueError:
-    path = str(repo)
-print(quote(path, safe="/"))
+print(quote(str(repo), safe="/"))
 PY
 )
 
