@@ -17,6 +17,7 @@ import signal
 import socket
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -61,6 +62,22 @@ def git(args: list[str], *, stdin: str | None = None, check: bool = True) -> str
 
 def git_ok(args: list[str]) -> bool:
     return subprocess.run(["git", *args], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+
+
+def git_index(index_path: Path, args: list[str], *, stdin: str | None = None, check: bool = True) -> str:
+    proc = subprocess.run(
+        ["git", *args],
+        input=stdin,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env={**os.environ, "GIT_INDEX_FILE": str(index_path)},
+    )
+    if check and proc.returncode != 0:
+        if proc.stderr:
+            sys.stderr.write(proc.stderr)
+        raise SystemExit(proc.returncode)
+    return proc.stdout
 
 
 def head() -> str:
@@ -111,8 +128,51 @@ def common_dir() -> Path:
     return path
 
 
-def update_ref(message: str, tree_src: str, mode: str, parent_src: str, expected: str) -> str | None:
-    tree = git(["rev-parse", f"{tree_src}^{{tree}}"]).strip()
+def overlay_tree(tree_src: str, set_files: dict[str, str] | None = None, remove_paths: list[str] | None = None) -> str:
+    if not set_files and not remove_paths:
+        return git(["rev-parse", f"{tree_src}^{{tree}}"]).strip()
+    fd, index_name = tempfile.mkstemp(prefix="codex-wrap-index-")
+    os.close(fd)
+    index_path = Path(index_name)
+    try:
+        git_index(index_path, ["read-tree", f"{tree_src}^{{tree}}"])
+        for path in remove_paths or []:
+            git_index(index_path, ["update-index", "--force-remove", "--", path], check=False)
+        for path, content in (set_files or {}).items():
+            blob = git(["hash-object", "-w", "--stdin"], stdin=content).strip()
+            git_index(index_path, ["update-index", "--add", "--cacheinfo", "100644", blob, path])
+        return git_index(index_path, ["write-tree"]).strip()
+    finally:
+        index_path.unlink(missing_ok=True)
+
+
+def sync_worktree_files(set_files: dict[str, str] | None = None, remove_paths: list[str] | None = None) -> None:
+    for path, content in (set_files or {}).items():
+        target = Path(path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+        git(["update-index", "--add", "--", path], check=False)
+    for path in remove_paths or []:
+        target = Path(path)
+        target.unlink(missing_ok=True)
+        git(["update-index", "--force-remove", "--", path], check=False)
+        try:
+            target.parent.rmdir()
+        except OSError:
+            pass
+
+
+def update_ref(
+    message: str,
+    tree_src: str,
+    mode: str,
+    parent_src: str,
+    expected: str,
+    *,
+    set_files: dict[str, str] | None = None,
+    remove_paths: list[str] | None = None,
+) -> str | None:
+    tree = overlay_tree(tree_src, set_files=set_files, remove_paths=remove_paths)
     parents: list[str]
     if mode == "normal":
         parents = [expected]
@@ -131,17 +191,100 @@ def update_ref(message: str, tree_src: str, mode: str, parent_src: str, expected
     return new if proc.returncode == 0 else None
 
 
-def marker(message: str) -> str:
+def marker(
+    message: str,
+    *,
+    set_files: dict[str, str] | None = None,
+    remove_paths: list[str] | None = None,
+) -> str:
     for _ in range(7):
         old = head()
         if not old:
             raise SystemExit(1)
         mode = "amend" if subject(old).startswith("[autosave]") else "normal"
-        new = update_ref(message, old, mode, old, old)
+        new = update_ref(message, old, mode, old, old, set_files=set_files, remove_paths=remove_paths)
         if new:
+            sync_worktree_files(set_files=set_files, remove_paths=remove_paths)
             return new
         time.sleep(0.05)
     raise SystemExit(1)
+
+
+def short_hash(commit: str) -> str:
+    return git(["rev-parse", "--short", commit], check=False).strip() or commit[:7]
+
+
+def active_agent_path(run_start: str) -> str:
+    return f"active-agents/{short_hash(run_start)}.md"
+
+
+def show_path(ref: str, path: str) -> str:
+    return git(["show", f"{ref}:{path}"], check=False)
+
+
+def active_agent_content(
+    run_start: str,
+    sid: str,
+    status: str,
+    prompt: str,
+    json_path: Path,
+    err_path: Path,
+    *,
+    previous: str = "",
+    output: str = "",
+) -> str:
+    lines = [
+        "# Active Codex Agent",
+        "",
+        f"- status: {status}",
+        f"- run-start-commit-hash: {run_start}",
+        f"- session-id: {sid or 'unknown'}",
+        f"- host: {host()}",
+        f"- cwd: {Path.cwd()}",
+        f"- json-log: {json_path}",
+        f"- stderr-log: {err_path}",
+        "",
+        "## Current User Prompt",
+        "",
+        prompt.strip() or "(empty)",
+    ]
+    if previous and "## Codex Output" in previous:
+        prior_output = previous.split("## Codex Output", 1)[1].strip()
+        lines.extend(["", "## Codex Output", "", prior_output])
+    elif output:
+        lines.extend(["", "## Codex Output"])
+    if output:
+        lines.extend(["", f"### {int(time.time())}", "", output.strip()])
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def active_agent_start(run_start: str, sid: str, prompt: str, json_path: Path, err_path: Path) -> None:
+    path = active_agent_path(run_start)
+    content = active_agent_content(run_start, sid, "active", prompt, json_path, err_path)
+    message = (
+        f"[active-agent] start {short_hash(run_start)}\n\n"
+        f"active-agent-path: {path}\n"
+        f"run-start-commit-hash: {run_start}\n"
+        f"session-id: {sid or 'unknown'}\n"
+        f"at: {now()}\n"
+    )
+    marker(message, set_files={path: content})
+
+
+def active_agent_output(run_start: str, sid: str, prompt: str, json_path: Path, err_path: Path, output: str) -> dict[str, str]:
+    path = active_agent_path(run_start)
+    previous = show_path("HEAD", path)
+    content = active_agent_content(
+        run_start,
+        sid,
+        "active",
+        prompt,
+        json_path,
+        err_path,
+        previous=previous,
+        output=output,
+    )
+    return {path: content}
 
 
 def agent_parts_from_commit(commit: str) -> tuple[str, str]:
@@ -160,7 +303,7 @@ def agent_parts_from_commit(commit: str) -> tuple[str, str]:
     return "\n".join(lines).strip(), "\n".join(reversed([line for line in metadata if line.strip()]))
 
 
-def agent_marker(text: str, sid: str, run_start: str) -> str | None:
+def agent_marker(text: str, sid: str, run_start: str, *, set_files: dict[str, str] | None = None) -> str | None:
     for _ in range(7):
         old = head()
         if not old:
@@ -191,8 +334,9 @@ def agent_marker(text: str, sid: str, run_start: str) -> str | None:
                     if metadata:
                         message += f"\n\n{metadata}"
                     parent = f"{old}^"
-        new = update_ref(message, old, mode, parent, old)
+        new = update_ref(message, old, mode, parent, old, set_files=set_files)
         if new:
+            sync_worktree_files(set_files=set_files)
             return new
         time.sleep(0.05)
     return None
@@ -228,6 +372,11 @@ def start_message(kind: str, prompt: str, sid: str, pid: int, pgid: int, stderr_
 
 def stop_message(label: str, sid: str, run_start: str, detail: str) -> str:
     return f"{label} {sid or 'unknown'}\n\nrun-start-commit-hash: {run_start}\nsession-id: {sid or 'unknown'}\n{detail}\nat: {now()}\n"
+
+
+def stop_marker(label: str, sid: str, run_start: str, detail: str) -> str:
+    remove_paths = [active_agent_path(run_start)] if run_start else []
+    return marker(stop_message(label, sid, run_start, detail), remove_paths=remove_paths)
 
 
 def run_closed(run_start: str) -> bool:
@@ -405,6 +554,7 @@ def run_agent(mode: str, args: list[str], sid: str = "") -> int:
     if mode == "resume":
         run_start = marker(start_message("resume", prompt, sid, proc.pid, pgid))
         json_path, err_path = rename_logs(base, pending, run_start)
+        active_agent_start(run_start, sid, prompt, json_path, err_path)
 
     with json_path.open("a", encoding="utf-8", errors="replace") as json_file:
         assert proc.stdout is not None
@@ -421,6 +571,7 @@ def run_agent(mode: str, args: list[str], sid: str = "") -> int:
                     run_start = marker(start_message("start", prompt, sid, proc.pid, pgid, err_path))
                     json_file.close()
                     json_path, err_path = rename_logs(base, pending, run_start)
+                    active_agent_start(run_start, sid, prompt, json_path, err_path)
                     json_file = json_path.open("a", encoding="utf-8", errors="replace")
                     started = True
                 continue
@@ -438,12 +589,13 @@ def run_agent(mode: str, args: list[str], sid: str = "") -> int:
             seen.add(item_id)
             sys.stderr.write(f"\ncodex\n{text}\n")
             sys.stderr.flush()
-            agent_marker(text, sid, run_start)
+            active_files = active_agent_output(run_start, sid, prompt, json_path, err_path, text)
+            agent_marker(text, sid, run_start, set_files=active_files)
 
     rc = proc.wait()
     stderr_thread.join(timeout=1)
     if run_start and not run_closed(run_start):
-        marker(stop_message("[codex_stop]", sid or last_sid(), run_start, f"exit-status: {rc}"))
+        stop_marker("[codex_stop]", sid or last_sid(), run_start, f"exit-status: {rc}")
     return rc
 
 
@@ -461,7 +613,7 @@ def abort_run(run: str = "") -> int:
     if not proc_alive(pid):
         sys.stderr.write(f"codex_wrap: process {pid} is not alive\n")
         return 1
-    marker(stop_message("[codex_abort]", field(target, "session-id"), target, "reason: abort"))
+    stop_marker("[codex_abort]", field(target, "session-id"), target, "reason: abort")
     kill_process(pid, pgid)
     return 0
 
@@ -476,7 +628,7 @@ def new_message(args: list[str]) -> int:
         sid = field(run, "session-id")
         pid = field(run, "pid")
         pgid = field(run, "pgid") or pid
-        marker(stop_message("[codex_stop]", sid, run, "reason: restart with new user message"))
+        stop_marker("[codex_stop]", sid, run, "reason: restart with new user message")
         kill_process(pid, pgid)
         return run_agent("resume", args, sid)
     sid = last_sid()
