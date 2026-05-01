@@ -48,7 +48,13 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
   process. It should not own branch or worktree placement. Start/resume marker
   commits include `called-by: user` unless `CODEX_WRAP_CALLED_BY=<commit>` is
   set by a dispatcher or parent agent. `codex_agents` lists live local wrapper
-  agents from recent run-start commits cross-checked with live PIDs.
+  agents from recent run-start commits cross-checked with live PIDs. While a
+  wrapper run is active, the wrapper also maintains a tracked
+  `active-agents/<run-start-short>.md` file containing the current prompt,
+  latest Codex outputs, and log paths. That file is committed into the active
+  run history, then deleted by the stop/abort commit when the run finishes, so
+  the current worktree stays uncluttered while the transcript artifact remains
+  recoverable from Git history.
   `codex_commit` and the web UI do not push by themselves. Use
   `codex_sync_push` to fetch, rebase onto the configured upstream, and push; it
   is intentionally the shared end-of-session path for avoiding duplicate
@@ -108,10 +114,15 @@ When branch-ref dispatch is configured outside this repo, the hook should pass t
 
 For ad hoc local orchestration, source `scripts/codex_wrap.sh` and
 `scripts/branch_commands.sh`, then run `codex_dispatch "<instruction>"`. The
-dispatcher prompt must delegate implementation to child `codex_spawn ...` calls,
-cite the files/commits or `STATUS.md` evidence used, and use empty one-line
-checkpoint commits shaped like `checkpoint: last save state before <reason>`
-before disruptive work.
+dispatcher prompt first reconciles branch/worktree state, upstream divergence,
+active wrapper runs, queued work, relevant `STATUS.md` goals, and the latest
+human prompt. It then classifies the request as `status-only`, `trivial-chat`,
+`direct-implementation`, `parallel-dispatch`, `cleanup`, or `blocked`.
+Status-only and trivial-chat requests should not spawn child agents. Parallel
+implementation should use child `codex_spawn ...` calls with disjoint write
+scopes, cite the files/commits or `STATUS.md` evidence used, verify the child
+start markers, and use empty one-line checkpoint commits shaped like
+`checkpoint: last save state before <reason>` before disruptive work.
 
 `codex_spawn <codex_commit|codex_resume|codex_new_message|codex_in_branch>
 <args...>` is the detached child-agent launcher. It starts the normal wrapper in
@@ -134,6 +145,12 @@ For long runs where marker commits become too noisy, `codex_status "<summary>"`
 creates an empty `[status]` commit; include the relevant commit hashes in that
 summary so future agents can recover the decision path without loading every
 intermediate transcript commit.
+
+## History Audits
+
+- `history-prompt-flow-report.md`: timestamped audit of the reachable user
+  prompt history, what the user asked for, what happened next, and which
+  workflow changes are evidence-backed rather than impressionistic.
 
 ## Experimental Jujutsu Project Management
 

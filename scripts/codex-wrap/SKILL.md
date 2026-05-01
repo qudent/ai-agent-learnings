@@ -68,6 +68,20 @@ stdout reports the detached launcher pid and dispatch log path; the child run
 itself appears in ChatGit after the normal `[codex_start_user]` marker is
 written.
 
+## Active Agent Artifacts
+
+Each active wrapper run has a tracked file under
+`active-agents/<run-start-short>.md`. The file contains the current prompt,
+session/run metadata, log paths, and latest Codex output. It is added and
+updated by marker commits while the process is live, then removed by the
+`[codex_stop]` or `[codex_abort]` commit. This keeps the current checkout clear
+after completion while preserving the active transcript artifact in Git
+history.
+
+Use this when the user asks "what is running?" or wants to inspect the current
+active transcript from the filesystem. Use `git log -- active-agents` or
+`git show <commit>:active-agents/<file>.md` to recover finished artifacts.
+
 ## Backend CLI
 
 The shell functions are thin wrappers over:
@@ -97,6 +111,8 @@ backend debugging.
 - Preserve existing `session-id` and `run-start-commit-hash` metadata when
   folding/amending wrapper marker commits.
 - Prefer exact-shape regression assertions for marker commit bodies.
+- Keep `active-agents/` as wrapper-managed state. Do not put project-specific
+  runbooks there, and do not leave the files present after stop/abort.
 
 ## Validation
 
