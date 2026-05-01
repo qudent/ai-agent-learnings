@@ -7,15 +7,16 @@ Run:
 No auth; binds to 127.0.0.1 by default. Do NOT run on 0.0.0.0. Use SSH port forwarding for remote use.
 """
 from __future__ import annotations
-import argparse, base64, binascii, json, os, re, socket, subprocess, sys, threading, time
+import argparse, base64, binascii, errno, json, os, re, socket, subprocess, sys, threading, time
 from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, quote, urlparse
+from urllib.parse import parse_qs, quote, unquote, urlparse
 from email.utils import formatdate
 
 ROOT = Path.cwd()
 WRAPPER = Path(__file__).with_name('codex_wrap.sh')
+BRANCH_COMMANDS = Path(__file__).with_name('branch_commands.sh')
 RUN_LOCK = threading.RLock()
 RUNNERS = {}
 
@@ -27,6 +28,35 @@ def git(repo, *args, check=True):
 
 def repo_root(repo):
     return Path(git(repo, 'rev-parse', '--show-toplevel').strip()).resolve()
+
+def repo_url_path(repo):
+    repo = Path(repo).expanduser().resolve()
+    home_repos = Path.home() / 'repos'
+    try:
+        rel = repo.relative_to(home_repos)
+        if rel.parts:
+            return '/' + quote(str(Path.home()).lstrip('/') + '/' + str(rel), safe='/')
+    except ValueError:
+        pass
+    return quote(str(repo), safe='/')
+
+def resolve_repo_path(value):
+    candidate = Path(value or str(ROOT)).expanduser().resolve()
+    if is_git_repo(candidate):
+        return candidate
+    try:
+        home_rel = candidate.relative_to(Path.home())
+    except ValueError:
+        home_rel = None
+    if home_rel and home_rel.parts[:1] != ('repos',):
+        repos_candidate = (Path.home() / 'repos' / home_rel).resolve()
+        if is_git_repo(repos_candidate):
+            return repos_candidate
+    git(candidate, 'rev-parse', '--git-dir')
+    return candidate
+
+def is_git_repo(path):
+    return sh(['git', 'rev-parse', '--git-dir'], path, check=False).returncode == 0
 
 def common_dir(repo):
     return Path(git(repo, 'rev-parse', '--path-format=absolute', '--git-common-dir').strip()).resolve()
@@ -117,9 +147,9 @@ def spawn_process(repo, func, args, meta=None):
     stamp = f'{time.strftime("%Y%m%d-%H%M%S")}-{time.time_ns() % 1_000_000_000:09d}'
     log = logdir / f'{stamp}-{os.getpid()}-{func}.log'
     env = os.environ.copy(); env['CODEX_WRAP_STDIN_NEW_MESSAGE'] = '0'
-    script = 'source "$1"; shift; fn="$1"; shift; "$fn" "$@"'
+    script = 'source "$1"; source "$2"; shift 2; fn="$1"; shift; "$fn" "$@"'
     fh = open(log, 'ab')
-    p = subprocess.Popen(['bash', '-lc', script, 'bash', str(WRAPPER), func, *args], cwd=str(repo), stdin=subprocess.DEVNULL, stdout=fh, stderr=subprocess.STDOUT, env=env, start_new_session=True)
+    p = subprocess.Popen(['bash', '-lc', script, 'bash', str(WRAPPER), str(BRANCH_COMMANDS), func, *args], cwd=str(repo), stdin=subprocess.DEVNULL, stdout=fh, stderr=subprocess.STDOUT, env=env, start_new_session=True)
     fh.close()
     info = {'pid': p.pid, 'log': str(log), 'func': func, 'started_at': int(time.time())}
     if meta:
@@ -477,7 +507,7 @@ HTML = r'''<!doctype html><meta charset="utf-8"><meta name="viewport" content="w
 <header><div class="brand-stack"><span class="brand">codex-web-interface</span><span class="hint top-hint">Local Codex sessions</span></div><div class="repo-row"><span class="repo-label-line"><span class="repo-caption">Repo</span><span id="repoLabel">Loading...</span></span><details class="repo-edit"><summary title="Edit repository path"></summary><input id="repo" aria-label="Repository path" title="Full repository path"></details></div><div class="header-actions"><button onclick="refreshAll()" title="Reload repository, branch, message, and status data">Sync</button></div></header>
 <main>
   <section class="pane" id="left"><div class="pane-head"><div class="pane-title">Branches</div><div class="hint">Worktrees and recent runs</div></div><div id="worktrees"></div><div id="state"></div></section>
-  <section class="pane" id="conversationPane"><div class="pane-head"><div class="pane-title">Conversation</div><div class="hint">Select a row for detail, or use a row as the branch base.</div></div><div id="chat"></div><div id="composer"><div id="base" class="base-state">Branch base: none selected.</div><textarea id="prompt" placeholder="Ask Codex..." title="Continue resumes the latest session. Use Queue when a run is active."></textarea><div id="dropHint" class="drop-hint">Paste or drop files here.</div><div id="attachments" class="attachments"></div><div class="row"><button onclick="send('send')" title="Resume the latest Codex session now">Continue</button><button onclick="send('fresh')" title="Start a new Codex session now">Fresh</button><button onclick="send('branch')" title="Create a child worktree from the selected branch base">Create child branch</button><button onclick="send('queue')" title="Queue this prompt behind the active run">Queue</button><button onclick="pauseRun()" title="Stop the active Codex run in this worktree and clear queued messages">Pause run</button><button onclick="clearBase()" title="Clear the selected branch base commit">Clear base</button></div></div></section>
+  <section class="pane" id="conversationPane"><div class="pane-head"><div class="pane-title">Conversation</div><div class="hint">Select a row for detail, or use a row as the branch base.</div></div><div id="chat"></div><div id="composer"><div id="base" class="base-state">Branch base: none selected.</div><textarea id="prompt" placeholder="Ask Codex..." title="Continue resumes the latest session. Use Queue when a run is active."></textarea><div id="dropHint" class="drop-hint">Paste or drop files here.</div><div id="attachments" class="attachments"></div><div class="row"><button onclick="send('dispatch')" title="Dispatch this task through codex_dispatch">Dispatch</button><button onclick="send('send')" title="Resume the latest Codex session now">Continue</button><button onclick="send('fresh')" title="Start a new Codex session now">Fresh</button><button onclick="send('branch')" title="Create a child worktree from the selected branch base">Create child branch</button><button onclick="send('queue')" title="Queue this prompt behind the active run">Queue</button><button onclick="pauseRun()" title="Stop the active Codex run in this worktree and clear queued messages">Pause run</button><button onclick="clearBase()" title="Clear the selected branch base commit">Clear base</button></div></div></section>
   <aside class="pane" id="detailPane"><div class="pane-head"><div class="pane-title">Detail</div><div class="hint">Select a commit for its patch, or a run for its transcript.</div><div class="detail-tools"><span id="detailHash" class="detail-hash hint">Select a commit or run</span><button id="copyDetail" onclick="copyDetail()" disabled>Copy detail</button></div></div><pre id="diff" class="empty">Select a commit or run to inspect it here.</pre></aside>
 </main>
 <script>
@@ -657,16 +687,18 @@ class H(BaseHTTPRequestHandler):
     def j(self, obj, code=200):
         b=json.dumps(obj,ensure_ascii=False).encode(); self.send_response(code); self.send_header('content-type','application/json; charset=utf-8'); self.send_header('content-length',str(len(b))); self.end_headers(); self.wfile.write(b)
     def repo(self, v):
-        p=Path(v or str(ROOT)).expanduser().resolve(); git(p,'rev-parse','--git-dir'); return p
+        return resolve_repo_path(v or str(ROOT))
     def body(self):
         n=int(self.headers.get('content-length','0') or 0); return json.loads(self.rfile.read(n).decode() or '{}') if n else {}
     def do_GET(self):
         try:
             u=urlparse(self.path); q=parse_qs(u.query)
-            if u.path=='/':
+            if u.path=='/' or (u.path and not u.path.startswith('/api/')):
                 root_repo = str(ROOT)
                 if q.get('repo'):
                     root_repo = str(self.repo(q.get('repo',[''])[0]))
+                elif u.path != '/':
+                    root_repo = str(self.repo(unquote(u.path)))
                 html=HTML.replace('__CHATGIT_CONFIG__', json.dumps({'repo':root_repo,'wrapper':str(WRAPPER)}))
                 b=html.encode(); self.send_response(200); self.send_header('content-type','text/html; charset=utf-8'); self.send_header('content-length',str(len(b))); self.end_headers(); self.wfile.write(b); return
             if u.path=='/api/config': self.j({'repo':str(ROOT),'wrapper':str(WRAPPER)}); return
@@ -697,7 +729,8 @@ class H(BaseHTTPRequestHandler):
                 prompt=prompt_with_attachments(str(b.get('prompt') or ''), b.get('attachments') or []); mode=str(b.get('mode') or 'send'); wt=None
                 if not prompt: raise ValueError('missing prompt')
                 target=r
-                if mode=='branch': wt=create_worktree(r,str(b.get('base_commit') or ''), prompt); target=Path(wt['path']); func='codex_commit'
+                if mode=='dispatch': func='codex_dispatch'
+                elif mode=='branch': wt=create_worktree(r,str(b.get('base_commit') or ''), prompt); target=Path(wt['path']); func='codex_commit'
                 elif mode=='fresh': func='codex_commit'
                 elif mode in ('send','new_message'): func='codex_new_message'
                 elif mode=='resume': func='codex_resume'
@@ -719,8 +752,16 @@ class H(BaseHTTPRequestHandler):
 def main():
     global ROOT, WRAPPER
     ap=argparse.ArgumentParser(); ap.add_argument('--repo',default=os.getcwd()); ap.add_argument('--wrapper',default=str(WRAPPER)); ap.add_argument('--port',type=int,default=6174)
-    ns=ap.parse_args(); ROOT=Path(ns.repo).expanduser().resolve(); WRAPPER=Path(ns.wrapper).expanduser().resolve(); git(ROOT,'rev-parse','--git-dir')
+    ns=ap.parse_args(); ROOT=resolve_repo_path(ns.repo); WRAPPER=Path(ns.wrapper).expanduser().resolve(); git(ROOT,'rev-parse','--git-dir')
     if not WRAPPER.exists(): raise SystemExit(f'wrapper not found: {WRAPPER}')
-    print(f'codex-web-interface: http://127.0.0.1:{ns.port}/?repo={quote(str(ROOT), safe="")}\nrepo: {ROOT}\nwrapper: {WRAPPER}', flush=True)
-    ThreadingHTTPServer(('127.0.0.1',ns.port),H).serve_forever()
+    url = f'http://127.0.0.1:{ns.port}{repo_url_path(ROOT)}'
+    print(f'codex-web-interface: {url}\nrepo: {ROOT}\nwrapper: {WRAPPER}', flush=True)
+    try:
+        server = ThreadingHTTPServer(('127.0.0.1',ns.port),H)
+    except OSError as e:
+        if e.errno == errno.EADDRINUSE:
+            print(f'codex-web-interface already running: {url}', flush=True)
+            return
+        raise
+    server.serve_forever()
 if __name__=='__main__': main()

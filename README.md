@@ -13,6 +13,7 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
 | File | When to reference |
 |------|-------------------|
 | `AGENTS.md` | Canonical global operating policy (CLAUDE.md and AGENTS.md symlink here)|
+| `frontend-design.md` | Frontend/UI design and behavior guidance distilled from user feedback |
 | `ml-experiments.md` | Any training run, search, or optimization task |
 | `vast-ai.md` | Any work involving Vast.ai GPU instances (includes cost estimation) |
 | `modal-inference.md` | Modal inference deployments |
@@ -28,9 +29,11 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
 - `scripts/chatgit`: launcher for the Git-backed `codex-web-interface` for the current
   repository. Add `export PATH="$HOME/repos/ai-agent-learnings/scripts:$PATH"` to `.zshrc` or
   `.bashrc`, then run `chatgit` from any Git repo. Set `CHATGIT_PORT` to choose
-  a non-default port. The server prints a browser URL with `?repo=<path>` for
-  the exact repository it was launched from; the root page also accepts that
-  query parameter to open any Git repository path the server can access.
+  a non-default port. The server prints a path-style browser URL such as
+  `/home/name/repo-name`; `/home/name/<repo>` resolves to `~/repos/<repo>` when
+  that Git repo exists. The older `?repo=<path>` form still works for direct
+  full-path links, and re-running `chatgit` against an already-running server
+  prints the URL and exits without a traceback.
 - `scripts/codex_web.py`: loopback web UI for Git-backed Codex conversations.
   When it creates a branch, it records `branch.<name>.parent-branch` and
   `branch.<name>.parent-commit` in Git config so the UI has an explicit
@@ -44,6 +47,9 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
   process. It should not own branch or worktree placement. Start/resume marker
   commits include `called-by: user` unless `CODEX_WRAP_CALLED_BY=<commit>` is
   set by a dispatcher or parent agent.
+- `scripts/codex-wrap/SKILL.md`: skill-style command guide for the Codex
+  wrapper backend, including when to use `codex_commit`, `codex_resume`,
+  `codex_new_message`, `codex_abort`, `codex_active`, and `codex_in_branch`.
 - `scripts/parallel-worktrees/worktrees.sh`: shared worktree primitives for
   creating, finding, merging, and cleaning branch worktrees.
 - `scripts/branch_commands.sh`: generic command placement helpers such as

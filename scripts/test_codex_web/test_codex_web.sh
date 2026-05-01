@@ -13,6 +13,10 @@ urlencode() {
   python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$1"
 }
 
+urlpath() {
+  python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe="/"))' "$1"
+}
+
 wait_pid() {
   local pid=$1
   for _ in $(seq 1 50); do
@@ -84,9 +88,17 @@ done
 
 config=$(curl -fsS "http://127.0.0.1:$PORT/api/config")
 printf '%s' "$config" | grep -F "\"repo\": \"$REPO\"" >/dev/null
-grep -F "chatgit: http://127.0.0.1:$PORT/?repo=$(urlencode "$REPO")" "$TMP/server.log" >/dev/null
-grep -F "codex-web-interface: http://127.0.0.1:$PORT/?repo=$(urlencode "$REPO")" "$TMP/server.log" >/dev/null
+grep -F "chatgit: http://127.0.0.1:$PORT$(urlpath "$REPO")" "$TMP/server.log" >/dev/null
+grep -F "codex-web-interface: http://127.0.0.1:$PORT$(urlpath "$REPO")" "$TMP/server.log" >/dev/null
 printf 'ok - chatgit serves the caller repository\n'
+
+(
+  cd "$REPO"
+  CHATGIT_PORT=$PORT PATH="$FAKEBIN:$PATH" "$SCRIPT_DIR/chatgit" >"$TMP/server-already.log" 2>&1
+)
+grep -F "chatgit: server already running on port $PORT" "$TMP/server-already.log" >/dev/null
+! grep -F 'Traceback' "$TMP/server-already.log" >/dev/null
+printf 'ok - chatgit exits cleanly when the server is already running\n'
 
 page=$(curl -fsS "http://127.0.0.1:$PORT/")
 printf '%s' "$page" | grep -F 'codex-web-interface' >/dev/null
@@ -102,6 +114,8 @@ printf '%s' "$page" | grep -F "Click row to show the full transcript" >/dev/null
 printf '%s' "$page" | grep -F "d.onclick=e=>{if(!e.target.closest('button')&&!hasTextSelection())diff(m.hash)}" >/dev/null
 printf '%s' "$page" | grep -F "r.onclick=e=>{if(!e.target.closest('button,summary,details')&&!hasTextSelection())showTranscript(run.hash,'')}" >/dev/null
 printf '%s' "$page" | grep -F 'Ask Codex...' >/dev/null
+printf '%s' "$page" | grep -F 'Dispatch this task through codex_dispatch' >/dev/null
+printf '%s' "$page" | grep -F 'codex_dispatch' >/dev/null
 printf '%s' "$page" | grep -F 'Branch base: none selected.' >/dev/null
 printf '%s' "$page" | grep -F 'Use as branch base' >/dev/null
 printf '%s' "$page" | grep -F 'Create child branch' >/dev/null
@@ -146,6 +160,17 @@ printf '%s' "$status" | python3 -c 'import json,sys; j=json.load(sys.stdin); ass
 printf 'ok - overview API combines branch, message, and status data\n'
 
 base=$(git -C "$REPO" rev-parse HEAD)
+dispatch_response=$(curl -fsS -X POST -H 'content-type: application/json' \
+  -d "{\"repo\":\"$REPO\",\"prompt\":\"dispatch ui smoke\",\"mode\":\"dispatch\",\"base_commit\":\"\"}" \
+  "http://127.0.0.1:$PORT/api/run")
+dispatch_log=$(printf '%s' "$dispatch_response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["process"]["log"])')
+dispatch_pid=$(printf '%s' "$dispatch_response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["process"]["pid"])')
+wait_pid "$dispatch_pid"
+dispatch_transcript=$(curl -fsS "http://127.0.0.1:$PORT/api/transcript?repo=$(urlencode "$REPO")&log=$(urlencode "$dispatch_log")" | python3 -c 'import json,sys; print(json.load(sys.stdin)["transcript"])')
+printf '%s' "$dispatch_transcript" | grep -F 'You are a Codex dispatch/orchestration agent.' >/dev/null
+printf '%s' "$dispatch_transcript" | grep -F 'dispatch ui smoke' >/dev/null
+printf 'ok - dispatch mode invokes codex_dispatch through the web API\n'
+
 response=$(curl -fsS -X POST -H 'content-type: application/json' \
   -d "{\"repo\":\"$REPO\",\"prompt\":\"branch test\",\"mode\":\"branch\",\"base_commit\":\"$base\"}" \
   "http://127.0.0.1:$PORT/api/run")
@@ -164,6 +189,8 @@ parent_commit=$(git -C "$REPO" config --get "branch.$branch.parent-commit")
 [ "$parent_commit" = "$base" ]
 linked_page=$(curl -fsS "http://127.0.0.1:$PORT/?repo=$(urlencode "$worktree")")
 printf '%s' "$linked_page" | grep -F "\"repo\": \"$worktree\"" >/dev/null
+path_page=$(curl -fsS "http://127.0.0.1:$PORT$(urlpath "$worktree")")
+printf '%s' "$path_page" | grep -F "\"repo\": \"$worktree\"" >/dev/null
 printf 'ok - branch mode creates a child branch with explicit parent metadata\n'
 
 child_base=$(git -C "$worktree" rev-parse HEAD)

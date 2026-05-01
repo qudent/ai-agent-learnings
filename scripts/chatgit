@@ -4,9 +4,28 @@ set -euo pipefail
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 repo=${1:-$PWD}
 port=${CHATGIT_PORT:-6174}
-encoded_repo=$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$repo")
+url_path=$(python3 - "$repo" <<'PY'
+import sys
+from pathlib import Path
+from urllib.parse import quote
 
-echo "chatgit: http://127.0.0.1:$port/?repo=$encoded_repo"
+repo = Path(sys.argv[1]).expanduser().resolve()
+home = Path.home()
+try:
+    rel = repo.relative_to(home / "repos")
+    path = "/" + str(home).lstrip("/") + "/" + str(rel)
+except ValueError:
+    path = str(repo)
+print(quote(path, safe="/"))
+PY
+)
+
+echo "chatgit: http://127.0.0.1:$port$url_path"
+
+if curl -fsS "http://127.0.0.1:$port/api/config" >/dev/null 2>&1; then
+  echo "chatgit: server already running on port $port"
+  exit 0
+fi
 
 exec python3 "$script_dir/codex_web.py" \
   --repo "$repo" \

@@ -12,10 +12,12 @@ making broader visual rewrites.
 - when they run `chatgit`,
 - then the web server starts for that repository, not for
   `~/repos/ai-agent-learnings`.
-- The launcher should print a browser URL containing `?repo=<encoded path>` for
-  the exact repository where it was started.
-- Opening the root page with `?repo=<path>` should load that repository path in
-  the initial browser config, so a copied link can point at a specific local
+- The launcher should print a path-style browser URL for the exact repository
+  where it was started, and it should exit cleanly when that port already has a
+  running chatgit server.
+- Opening a path-style URL such as `/tmp/repo` should load that repository path
+  in the initial browser config. The older root page with `?repo=<path>` should
+  keep working so existing copied links can still point at a specific local
   repository.
 
 ## Branching
@@ -74,6 +76,8 @@ not be inferred from worktree directory names.
   loses them.
 - The web UI labels the ordinary follow-up action as continuing the latest
   session and makes clear that active worktree runs are queued server-side.
+- The browser can submit a task through `codex_dispatch`; the API should invoke
+  the shell helper rather than reimplementing dispatch orchestration in Python.
 
 ## Browser Smoke
 
