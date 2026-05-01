@@ -7,7 +7,19 @@ files symlink to it, and branch-ref dispatch remains a policy pattern rather
 than a tracked helper-script implementation in this repo. The `chatgit`
 launcher now serves the Git-backed `codex-web-interface`.
 
-## Active Human Prompts - repo relocation
+## Active Human Prompts
+clean up stale STATUS.md entries, clean unused branches (both local and upstream).
+
+make a new "codex_dispatch" command where you can put an arbitrary new instruction and it then sends it to codex together with relevant yet concise context/commits (active agents/recent commit history/STATUS.md in branches) and the task to split it up into tasks and do the right thing (eg interrupting running agents, restarting, doing questions in new branches if they are just questions, merging things etc). so to be clear it should end with a single round of new codex_... calls, and leave the further execution to the called agents. the codex dispatch command should, besides calling these, end with a quick status update as reply saying what kind of thing was dispatched. as said, it is important to specify in the prompt that the actual work, and followup, should be delegated to the dispatched agents.
+
+think one more last time hard about the UI of the thing, what is clear, what isn't how it could be changed (eg the "branching from" with the position of the text field staying at the bottom is currently super unintuitive), then implement it, then write note. make sure you make a clear commit of the last save state. on write note that the current frontend is abandoned and has some ai bugs.
+
+change the code that for each new commit starting an agent run, there should be a called-by entry denoting either it is called by the user or the commit hash of the thing calling it. also add requirement that it should cite things.
+
+you can use this (new complex) prompt as a sample for what kind of input the dispatch command would get - the task is to figure out how to cleanly separate this into multiple branches, parallelize and orchestrate, so that it doesn't become a mess in the end.
+also make a bit clearer one-line intermediate empty commits clearly flagging checkpoints (last save state before...)
+
+ - repo relocation
 Desired state: the learnings repo lives at `~/repos/ai-agent-learnings`, legacy
 top-level path references are removed, relative helper paths still work, and
 global `AGENTS.md`/`CLAUDE.md` symlinks resolve to the moved repo.
