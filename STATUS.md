@@ -27,6 +27,11 @@ commits, `branch_commands.sh` for branch/worktree placement and dispatch, and
   `origin/dev`.
 - [ ] Install `jj` before trying the Jujutsu helper on a real task.
 
+also i see a similar problem (or is it a problem?) as with my chatgpt convo history:
+- the titles here are jsut the first words of what was typed and completely useless (in chatgpt the topic is chosen after the conversation - still useless)
+- i basically never revisit stuff, it is mostly waste of screen real estate.
+maybe the ideal thing is something that does the searching for me and surfaces relevant information (i think the human won't be that interested, but the agent may). this is what i am getting at with dispatch. but for that i would need to get the result wait 
+
 ## TODO Plan
 - [ ] Restart the `chatgit-main` tmux server again after the latest path-link
   and `?repo=` changes.
