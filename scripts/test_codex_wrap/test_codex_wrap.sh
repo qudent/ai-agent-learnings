@@ -402,6 +402,24 @@ EOF
   ok 'codex agents lists live pid tasks'
 }
 
+test_active_agent_artifacts_are_tracked_and_removed() {
+  setup_repo
+  codex_commit long >/tmp/cw-active-artifact.out 2>/tmp/cw-active-artifact.err & bg=$!
+  wait_active_sid || fail 'no active sid for active artifact run'
+  run=$(codex_active)
+  short=$(git rev-parse --short "$run")
+  path="active-agents/$short.md"
+  [ -f "$path" ] || fail 'active agent file missing from worktree'
+  git ls-tree --name-only -r HEAD | grep -F "$path" >/dev/null || fail 'active agent file missing from active HEAD'
+  git show "HEAD:$path" | grep -F 'long' >/dev/null || fail 'active agent file does not include prompt'
+  codex_abort >/tmp/cw-active-artifact-abort.out 2>/tmp/cw-active-artifact-abort.err || fail 'could not abort active artifact run'
+  wait "$bg" || true
+  [ ! -e "$path" ] || fail 'active agent file should be deleted after abort'
+  ! git ls-tree --name-only -r HEAD | grep -F "$path" >/dev/null || fail 'active agent file should be absent from final HEAD'
+  git log --all --name-only --format= -- active-agents | grep -F "$path" >/dev/null || fail 'active agent file was not preserved in git history'
+  ok 'active agent artifacts are tracked and removed'
+}
+
 test_codex_sync_push_skips_duplicate_upstream_patch() {
   setup_repo
   remote=$(mktemp -d "$ROOT/remote.XXXXXX")
@@ -562,6 +580,7 @@ test_codex_checkpoint_empty_commit
 test_codex_status_empty_commit
 test_codex_spawn_detached_agent
 test_codex_agents_lists_live_pid_tasks
+test_active_agent_artifacts_are_tracked_and_removed
 test_codex_sync_push_skips_duplicate_upstream_patch
 test_codex_sync_push_refuses_active_run
 test_codex_dispatch_prompt_contract
