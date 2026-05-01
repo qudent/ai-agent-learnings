@@ -46,7 +46,7 @@ user asked for versus what happened.
   lifecycle and make the wrapper suite pass.
 - [x] Update dispatch prompt tests and implementation for classification and
   post-spawn verification.
-- [ ] Run the web suite because wrapper marker history now includes
+- [x] Run the web suite because wrapper marker history now includes
   `[active-agent]` commits.
 - [ ] Reconcile/push `main` only after tests pass; avoid rebasing active marker
   history unless no local wrapper run is active.
@@ -78,9 +78,11 @@ user asked for versus what happened.
   `HEAD` while Git history keeps the artifact.
 - Added dispatch classification rules in `scripts/branch_commands.sh` and a
   timestamped audit in `history-prompt-flow-report.md`.
+- Validation passed after the changes:
+  `PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile scripts/codex_wrap.py scripts/codex_web.py`,
+  `PYTHONDONTWRITEBYTECODE=1 bash scripts/test_codex_wrap/test_codex_wrap.sh scripts/codex_wrap.sh`,
+  and `PYTHONDONTWRITEBYTECODE=1 bash scripts/test_codex_web/test_codex_web.sh scripts/codex_web.py`.
 
 ## Agent Notes
-- Current handoff: wrapper validation is green after the active-agent change:
-  `PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile scripts/codex_wrap.py` and
-  `PYTHONDONTWRITEBYTECODE=1 bash scripts/test_codex_wrap/test_codex_wrap.sh scripts/codex_wrap.sh`.
-  The web suite still needs to run before pushing.
+- Current handoff: tests are green; finish by reconciling the current
+  `ahead 6, behind 1` marker/autosave divergence and pushing.
