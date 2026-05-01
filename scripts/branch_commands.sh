@@ -58,3 +58,57 @@ codex_in_branch() {
     do_at_commit "$target" codex_commit "$@"
   fi
 }
+
+codex_checkpoint() {
+  local msg=${*:-last save state}
+  git commit --allow-empty -m "checkpoint: $msg"
+}
+
+_codex_dispatch_context() {
+  local branch
+  branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || printf '(unknown)')
+  printf 'Current branch: %s\n' "$branch"
+  printf 'Current HEAD: %s\n\n' "$(git rev-parse --short HEAD 2>/dev/null || printf unknown)"
+  printf 'Active run on this branch:\n'
+  codex_active 2>/dev/null || printf 'none\n'
+  printf '\nRecent commits:\n'
+  git log --oneline --decorate --max-count=18 2>/dev/null || true
+  printf '\nWorktrees:\n'
+  git worktree list --porcelain 2>/dev/null | sed -n '1,80p' || true
+  printf '\nLocal branches:\n'
+  git branch -vv 2>/dev/null | sed -n '1,40p' || true
+  if [ -f STATUS.md ]; then
+    printf '\nCurrent STATUS.md:\n'
+    sed -n '1,120p' STATUS.md
+  fi
+}
+
+codex_dispatch() {
+  if [ $# -lt 1 ]; then
+    echo "Usage: codex_dispatch <instruction...>" >&2
+    return 1
+  fi
+  local user_instruction context prompt
+  user_instruction=$*
+  context=$(_codex_dispatch_context)
+  prompt=$(cat <<EOF
+You are a Codex dispatch/orchestration agent. Do not complete the requested implementation yourself unless it is needed only to decide dispatch.
+
+User instruction:
+$user_instruction
+
+Relevant concise context:
+$context
+
+Dispatch contract:
+- Split the instruction into independent, reviewable tasks.
+- End with a single round of new codex_* calls, such as codex_in_branch, codex_commit, codex_new_message, or codex_abort, then stop.
+- Leave the actual work and followup to the called agents.
+- Prefix every codex_* call that starts or resumes an agent with CODEX_WRAP_CALLED_BY=\$(codex_active) so start commits cite this dispatcher as their caller.
+- Include concise citations in dispatched prompts and your final status: cite commit hashes, branch names, STATUS.md sections, and file paths that justify each task.
+- Use one-line empty checkpoint commits before disruptive work, for example: git commit --allow-empty -m "checkpoint: last save state before <work>".
+- Finish with a quick status update saying what kind of work was dispatched and where.
+EOF
+)
+  codex_commit "$prompt"
+}

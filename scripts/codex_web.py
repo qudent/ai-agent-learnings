@@ -197,7 +197,7 @@ def run_status(repo):
         active = {**active, **web_active}
     return {'active': active, 'queue': queued, 'queue_depth': len(queued)}
 
-def records(repo, limit=150):
+def records(repo, limit=150, full=True):
     fmt = '%H%x1f%P%x1f%ct%x1f%s%x1f%B%x1e'
     out = git(repo, 'log', f'--max-count={limit}', f'--format={fmt}', check=False)
     rows = []
@@ -220,7 +220,12 @@ def records(repo, limit=150):
         elif subj.startswith('[codex_stop]'): kind, text = 'stop', body.strip() or subj
         elif subj.startswith('[codex_abort]'): kind, text = 'abort', body.strip() or subj
         fields = dict(re.findall(r'^([A-Za-z0-9_-]+):\s*(.*)$', raw, re.M))
-        rows.append({'hash':h,'short':h[:7],'parents':parents.split(),'parent':parents.split()[0] if parents else '', 'timestamp':int(ts or 0),'subject':subj,'raw':raw,'body':body,'role':role,'kind':kind,'text':text,'fields':fields})
+        row = {'hash':h,'short':h[:7],'parents':parents.split(),'parent':parents.split()[0] if parents else '', 'timestamp':int(ts or 0),'subject':subj,'role':role,'kind':kind,'text':text,'fields':fields}
+        if full:
+            row.update({'raw':raw,'body':body})
+        else:
+            row['text'] = text[:700]
+        rows.append(row)
     rows.reverse(); return rows
 
 def pid_alive(pid):
@@ -340,7 +345,7 @@ def attach_runs(repo, wts):
 
 def overview(repo):
     wt_payload = worktrees(repo)
-    return {**wt_payload, 'messages': records(repo, 150), 'status': run_status(repo)}
+    return {**wt_payload, 'messages': records(repo, 80, full=False), 'status': run_status(repo)}
 
 def codex_dir(repo):
     return common_dir(repo) / 'codex-wrap'
@@ -431,13 +436,14 @@ HTML = r'''<!doctype html><meta charset="utf-8"><title>codex-web-interface</titl
 :root{color-scheme:light;--bg:#f4f6f8;--panel:#fff;--panel-soft:#f8fafc;--border:#d9dee7;--border-strong:#b8c0cc;--text:#17202a;--muted:#667085;--accent:#2563eb;--good:#0b7d53;--warn:#a16207;--bad:#b42318}body{height:100vh;display:grid;grid-template-rows:auto minmax(0,1fr);color:var(--text);background:var(--bg);overflow:hidden}header{position:static;display:grid;grid-template-columns:auto minmax(16rem,1fr) auto;gap:1rem;align-items:center;padding:.7rem .85rem;background:var(--panel);border-bottom:1px solid var(--border)}button{border-color:var(--border-strong);border-radius:.35rem;background:#fff;color:var(--text)}button:hover:not(:disabled){border-color:#8d99aa;background:#f8fafc}.brand-stack{display:grid;gap:.08rem}.brand{font-size:1rem;line-height:1.05}.top-hint{max-width:none}.repo-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.7rem;align-items:center;min-width:0}.repo-label-line{display:flex;gap:.4rem;align-items:baseline;min-width:0}.repo-caption{font-size:.68rem;font-weight:750;letter-spacing:.03em;text-transform:uppercase;color:var(--muted)}#repoLabel{font-weight:680;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.repo-edit{position:relative}.repo-edit summary{cursor:pointer;color:var(--muted);font-size:.76rem;white-space:nowrap}.repo-edit summary::-webkit-details-marker{display:none}.repo-edit summary:before{content:"Change path"}.repo-edit[open] summary:before{content:"Hide path"}#repo{position:absolute;right:0;top:1.65rem;z-index:5;width:min(42rem,72vw);font-size:.78rem;color:var(--muted);background:var(--panel-soft);border-color:var(--border);box-shadow:0 8px 24px #1118271f}.repo-edit:not([open]) #repo{display:none}.header-actions{display:flex;gap:.45rem;align-items:center}.pane{background:var(--panel);border-right:1px solid var(--border)}.pane-head{padding:.75rem .8rem;border-bottom:1px solid var(--border);background:var(--panel)}.pane-title{font-size:.94rem}.hint{color:var(--muted);opacity:1}#worktrees{padding:.6rem;background:var(--panel-soft)}.section-title{margin:.58rem .12rem .35rem;color:var(--muted);opacity:1}.section-note{color:var(--muted);opacity:1}.wt{border-color:var(--border);background:var(--panel);box-shadow:0 1px 2px #1118270a}.wt:hover,.wt.active{border-color:var(--border-strong);background:#fff}.wt.running{border-color:color-mix(in srgb,var(--good) 60%,var(--border));background:color-mix(in srgb,var(--good) 7%,#fff)}.wt-path,.wt-parent,.wt-status,.run-meta{color:var(--muted);opacity:1}.runs{gap:.16rem}.run{min-height:3.35rem;padding:.34rem 2.35rem .36rem .24rem;border-radius:.32rem}.run:hover{background:#eef4ff}.run-actions{display:flex;gap:.25rem;flex-wrap:nowrap;margin-top:.04rem}.run-actions button{font-size:.7rem;padding:.16rem .32rem}.run-menu{position:absolute;right:.32rem;top:.34rem;z-index:2}.run-menu summary{display:grid;place-items:center;width:1.55rem;height:1.55rem;border:1px solid var(--border-strong);border-radius:.35rem;background:#fff;cursor:pointer;font-weight:700;line-height:1}.run-menu summary::-webkit-details-marker{display:none}.run-menu-panel{position:absolute;right:0;top:1.85rem;display:grid;gap:.25rem;min-width:6.8rem;padding:.35rem;border:1px solid var(--border-strong);border-radius:.4rem;background:#fff;box-shadow:0 8px 24px #11182724}.run-menu-panel button{text-align:left}.run.active:before{border-color:var(--good);background:var(--good)}.run.finished:before{border-color:var(--accent)}.run.aborted:before{border-color:var(--bad);background:var(--bad)}.run.queued:before{border-color:var(--warn)}#state{border-top:1px solid var(--border);background:#fff}.state-line{border-color:var(--border);background:#fff}.queued{color:var(--warn)}.active-run{color:var(--good)}#chat{padding:.85rem;background:#fff}.msg{position:relative;margin:.55rem 0;padding:.68rem .75rem;border-color:var(--border);border-radius:.45rem;background:#fff;line-height:1.36}.msg:hover{border-color:var(--border-strong);box-shadow:0 1px 4px #11182712}.msg.selected{border-color:var(--accent);background:#f3f7ff}.user{margin-left:1.4rem;background:#f8fafc}.assistant{margin-right:1.4rem}.system{background:#fffdf7}.meta{color:var(--muted);opacity:1}.actions{gap:.24rem}.msg .actions{opacity:0;transition:opacity .12s ease}.msg:hover .actions,.msg:focus-within .actions{opacity:1}.hash{color:#334155}#composer{padding:.85rem;background:#fff;border-top:1px solid var(--border)}#prompt{min-height:6rem;border-color:var(--border-strong);line-height:1.35}.drop-hint{border-color:var(--border-strong);color:var(--muted);opacity:1;background:var(--panel-soft)}.chip{border-color:var(--border-strong);background:#fff}.detail-tools{gap:.45rem}.detail-hash{color:var(--muted);opacity:1}#diff{background:var(--panel-soft);line-height:1.42;color:#1f2937}.empty{color:var(--muted)}
 @media (hover:none){.run-actions,.msg .actions{opacity:1}}
 @media (max-width:900px){body{height:auto;overflow:auto;width:100%}header{grid-template-columns:1fr}.header-actions{flex-wrap:wrap}main{overflow:hidden;max-width:100vw}.pane,#left,#worktrees{width:100%;max-width:100vw;overflow-x:hidden;background:#fff}.wt{max-width:calc(100vw - 1.2rem)}#repoLabel,.run-title{white-space:normal;overflow-wrap:anywhere}.run{max-width:100%;padding-right:.24rem}.run-title,.run-meta{width:calc(100vw - 5.2rem)}.run-menu{display:none}.run-actions,.msg .actions{opacity:1}}
-#worktrees,.runs,.wt,.run,.run-title,.run-meta,.repo-label-line,#repoLabel{min-width:0}.repo-label-line{overflow:hidden}.repo-caption{flex:0 0 auto}#repoLabel{max-width:100%}.run-title,.run-meta{display:block;max-width:100%}#worktrees{overflow-x:hidden}
+#worktrees,.runs,.wt,.run,.run-title,.run-meta,.repo-label-line,#repoLabel{min-width:0}.repo-label-line{overflow:hidden}.repo-caption{flex:0 0 auto}#repoLabel{max-width:100%}.run-title,.run-meta{display:block;max-width:100%}#worktrees{overflow-x:hidden}.base-state{border:1px solid var(--border);border-radius:.35rem;background:var(--panel-soft);color:var(--muted);padding:.42rem .5rem;font-size:.78rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.base-state.active{border-color:color-mix(in srgb,var(--accent) 48%,var(--border));background:#f3f7ff;color:#1d4ed8}.msg.base-selected{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}.run-actions-mobile{display:none}
+@media (max-width:900px){body{height:100vh;overflow:hidden;width:100%}header{grid-template-columns:1fr}.header-actions{flex-wrap:wrap}main{display:flex;flex-direction:column;height:100%;min-height:0;overflow:auto;max-width:100vw}.pane,#left,#worktrees{width:100%;max-width:100vw;overflow-x:hidden;background:#fff}#conversationPane{order:1;flex:0 0 min(70vh,42rem);min-height:24rem}#left{order:2;flex:0 0 38vh;min-height:18rem}#detailPane{order:3;flex:0 0 42vh;min-height:18rem}.wt{max-width:calc(100vw - 1.2rem)}#repoLabel,.run-title{white-space:normal;overflow-wrap:anywhere}.run{max-width:100%;padding-right:.24rem}.run-title,.run-meta{width:calc(100vw - 5.2rem)}.run-menu{display:none}.run-actions-mobile{display:flex}.run-actions,.msg .actions{opacity:1}#composer{position:sticky;bottom:0;z-index:3;box-shadow:0 -6px 18px #11182712}.base-state{white-space:normal}#chat{min-height:0;overflow:auto}}
 </style>
 <header><div class="brand-stack"><span class="brand">codex-web-interface</span><span class="hint top-hint">Local Codex sessions</span></div><div class="repo-row"><span class="repo-label-line"><span class="repo-caption">Repo</span><span id="repoLabel">Loading...</span></span><details class="repo-edit"><summary title="Edit repository path"></summary><input id="repo" aria-label="Repository path" title="Full repository path"></details></div><div class="header-actions"><button onclick="refreshAll()" title="Reload repository, branch, message, and status data">Sync</button></div></header>
 <main>
   <section class="pane" id="left"><div class="pane-head"><div class="pane-title">Branches</div><div class="hint">Worktrees and recent runs</div></div><div id="worktrees"></div><div id="state"></div></section>
-  <section class="pane"><div class="pane-head"><div class="pane-title">Conversation</div><div id="base" class="hint">No base selected. Click a hash to copy it.</div></div><div id="chat"></div><div id="composer"><textarea id="prompt" placeholder="Ask Codex..." title="Continue resumes the latest session. Use Queue when a run is active."></textarea><div id="dropHint" class="drop-hint">Paste or drop files here.</div><div id="attachments" class="attachments"></div><div class="row"><button onclick="send('send')" title="Resume the latest Codex session now">Continue</button><button onclick="send('fresh')" title="Start a new Codex session now">Fresh</button><button onclick="send('branch')" title="Start a child worktree from the selected commit">Branch from selected</button><button onclick="send('queue')" title="Queue this prompt behind the active run">Queue</button><button onclick="pauseRun()" title="Stop the active Codex run in this worktree and clear queued messages">Pause run</button><button onclick="clearBase()" title="Clear the selected branch base commit">Clear base</button></div></div></section>
-  <aside class="pane"><div class="pane-head"><div class="pane-title">Detail</div><div class="hint">Select a commit for its patch, or a run for its transcript.</div><div class="detail-tools"><span id="detailHash" class="detail-hash hint">Select a commit or run</span><button id="copyDetail" onclick="copyDetail()" disabled>Copy detail</button></div></div><pre id="diff" class="empty">Select a commit or run to inspect it here.</pre></aside>
+  <section class="pane" id="conversationPane"><div class="pane-head"><div class="pane-title">Conversation</div><div class="hint">Select a row for detail, or use a row as the branch base.</div></div><div id="chat"></div><div id="composer"><div id="base" class="base-state">Branch base: none selected.</div><textarea id="prompt" placeholder="Ask Codex..." title="Continue resumes the latest session. Use Queue when a run is active."></textarea><div id="dropHint" class="drop-hint">Paste or drop files here.</div><div id="attachments" class="attachments"></div><div class="row"><button onclick="send('send')" title="Resume the latest Codex session now">Continue</button><button onclick="send('fresh')" title="Start a new Codex session now">Fresh</button><button onclick="send('branch')" title="Create a child worktree from the selected branch base">Create child branch</button><button onclick="send('queue')" title="Queue this prompt behind the active run">Queue</button><button onclick="pauseRun()" title="Stop the active Codex run in this worktree and clear queued messages">Pause run</button><button onclick="clearBase()" title="Clear the selected branch base commit">Clear base</button></div></div></section>
+  <aside class="pane" id="detailPane"><div class="pane-head"><div class="pane-title">Detail</div><div class="hint">Select a commit for its patch, or a run for its transcript.</div><div class="detail-tools"><span id="detailHash" class="detail-hash hint">Select a commit or run</span><button id="copyDetail" onclick="copyDetail()" disabled>Copy detail</button></div></div><pre id="diff" class="empty">Select a commit or run to inspect it here.</pre></aside>
 </main>
 <script>
 window.CHATGIT_CONFIG=__CHATGIT_CONFIG__;
@@ -449,8 +455,8 @@ function ce(tag, cls='', text=''){let e=document.createElement(tag); if(cls)e.cl
 function action(label, fn, title=''){let b=ce('button','',label); b.type='button'; if(title){b.title=title; b.setAttribute('aria-label',title)} b.onclick=e=>{e.stopPropagation(); fn(e)}; return b}
 function shortPath(path){let parts=(path||'').split('/').filter(Boolean), label=parts.slice(-1)[0]||path||'Repository'; if(parts.length>1&&label.length<24)label=parts.slice(-2).join('/'); return label.length>42?label.slice(0,23)+'...'+label.slice(-12):label}
 function updateRepoLabel(){let path=$('repo').value||''; $('repoLabel').textContent=shortPath(path); $('repo').title=path}
-function setBase(h,t=''){baseCommit=h; $('base').textContent='Branch base: '+h.slice(0,12); if(t)$('prompt').value=t}
-function clearBase(){baseCommit=''; $('base').textContent='No base selected.'}
+function setBase(h,t=''){let m=messagesByHash[h]||{}; baseCommit=h; $('base').textContent='Branch base: '+h.slice(0,12)+(m.subject?' · '+m.subject:''); $('base').classList.add('active'); if(t)$('prompt').value=t; $('composer').scrollIntoView({block:'nearest'}); $('prompt').focus(); loadMessages({messages:Object.values(messagesByHash)})}
+function clearBase(){baseCommit=''; $('base').textContent='Branch base: none selected.'; $('base').classList.remove('active'); loadMessages({messages:Object.values(messagesByHash)})}
 function setRepo(path){$('repo').value=path; updateRepoLabel(); selectedCommit=''; clearBase(); refreshAll(true)}
 function repoPathChanged(){updateRepoLabel(); clearTimeout(repoTimer); repoTimer=setTimeout(()=>{selectedCommit=''; clearBase(); refreshAll(true)},350)}
 async function copyText(text,label='Copy text'){try{await navigator.clipboard.writeText(text)}catch(e){window.prompt(label,text)}}
@@ -519,7 +525,11 @@ function renderRun(parent, run, archived){
   let panel=ce('div','run-menu-panel');
   panel.appendChild(action('Patch',()=>diff(run.hash),'Show patch for the run-start commit'));
   panel.appendChild(action('Copy',()=>copyText(run.raw||run.subject||run.prompt||'','Copy commit message'),'Copy the run-start commit message'));
-  menu.appendChild(panel); r.appendChild(menu); parent.appendChild(r);
+  menu.appendChild(panel); r.appendChild(menu);
+  let mobileActs=ce('div','run-actions run-actions-mobile');
+  mobileActs.appendChild(action('Patch',()=>diff(run.hash),'Show patch for the run-start commit'));
+  mobileActs.appendChild(action('Copy',()=>copyText(run.raw||run.subject||run.prompt||'','Copy commit message'),'Copy the run-start commit message'));
+  r.appendChild(mobileActs); parent.appendChild(r);
 }
 async function loadStatus(j=null){
   j = j || await api('/api/status?repo='+encodeURIComponent($('repo').value));
@@ -537,14 +547,14 @@ async function loadMessages(j=null){
   c.innerHTML=''; messagesByHash={};
   for(let m of j.messages){
     messagesByHash[m.hash]=m;
-    let cls=m.role==='assistant'?'assistant':(m.role==='user'?'user':'system'); let d=ce('div','msg '+cls+(m.hash===selectedCommit?' selected':''));
+    let cls=m.role==='assistant'?'assistant':(m.role==='user'?'user':'system'); let d=ce('div','msg '+cls+(m.hash===selectedCommit?' selected':'')+(m.hash===baseCommit?' base-selected':''));
     d.title='Click row to show this commit patch';
     d.onclick=e=>{if(!e.target.closest('button')&&!hasTextSelection())diff(m.hash)};
     let t=m.timestamp?new Date(m.timestamp*1000).toLocaleString():'';
     let meta=ce('div','meta');
     let hb=action(m.short,()=>copyText(m.hash,'Copy hash')); hb.className='hash'; hb.title='Click a hash to copy it'; meta.appendChild(hb);
     meta.appendChild(ce('span','',t)); meta.appendChild(ce('span','subject',m.subject));
-    let acts=ce('span','actions'); acts.appendChild(action('Patch',()=>diff(m.hash),'Show git patch for this commit')); acts.appendChild(action('Copy',()=>copyText(m.raw||m.subject||'','Copy commit message'),'Copy this full Git commit message')); acts.appendChild(action('Branch',()=>setBase(m.hash),'Use this commit as the branch base'));
+    let acts=ce('span','actions'); acts.appendChild(action('Patch',()=>diff(m.hash),'Show git patch for this commit')); acts.appendChild(action('Copy',()=>copyText(m.raw||m.subject||'','Copy commit message'),'Copy this full Git commit message')); acts.appendChild(action('Use as branch base',()=>setBase(m.hash),'Use this commit as the branch base'));
     if(m.role==='user')acts.appendChild(action('Edit',()=>setBase(m.parent||m.hash, (messagesByHash[m.hash]||m).text||''),'Branch from the parent and reuse this prompt text'));
     meta.appendChild(acts); d.appendChild(meta); d.appendChild(ce('div','',m.text));
     c.appendChild(d);
@@ -570,7 +580,7 @@ async function renameBranch(path, oldBranch){
   await refreshAll(true);
 }
 async function send(mode){
-  let p=$('prompt').value.trim(); if(!p)return; if(mode==='branch'&&!baseCommit){alert('choose a branch base first');return}
+  let p=$('prompt').value.trim(); if(!p)return; if(mode==='branch'&&!baseCommit){alert('Choose a branch base with Use as branch base first.');return}
   if(mode==='queue'){
     if(!hasActiveRun()){alert('No active run to queue behind. Use Continue or Fresh.');return}
     mode='send';

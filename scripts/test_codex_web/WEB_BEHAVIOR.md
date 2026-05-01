@@ -2,6 +2,9 @@
 
 These tests describe the minimum behavior `scripts/codex_web.py` and
 `scripts/chatgit` must preserve while the UI remains a small plain-JS app.
+The frontend is a maintained legacy interface with known AI-generated rough
+edges, not a polished standalone product; preserve tested behavior before
+making broader visual rewrites.
 
 ## Launching
 
@@ -20,6 +23,9 @@ These tests describe the minimum behavior `scripts/codex_web.py` and
 - when they submit another prompt in `branch` mode,
 - then the server creates a grandchild worktree and records the selected child
   branch as its parent.
+- The chosen branch base must be visible in the composer area, not only in a
+  distant pane header, and the submit action should be labeled as creating a
+  child branch rather than implying any selected detail row will be used.
 
 ## Parent Branch Metadata
 
@@ -91,6 +97,8 @@ not be inferred from worktree directory names.
 - The composer should support pasted or dropped arbitrary file uploads, allow
   removing attached files before sending, and include uploaded file paths in
   the prompt sent to Codex.
+- On narrow/mobile screens, the composer must remain reachable without first
+  scrolling through the full branch list or all recent conversation commits.
 
 ## Commit Detail
 

@@ -99,6 +99,9 @@ printf '%s' "$page" | grep -F "Click row to show the full transcript" >/dev/null
 printf '%s' "$page" | grep -F "d.onclick=e=>{if(!e.target.closest('button')&&!hasTextSelection())diff(m.hash)}" >/dev/null
 printf '%s' "$page" | grep -F "r.onclick=e=>{if(!e.target.closest('button,summary,details')&&!hasTextSelection())showTranscript(run.hash,'')}" >/dev/null
 printf '%s' "$page" | grep -F 'Ask Codex...' >/dev/null
+printf '%s' "$page" | grep -F 'Branch base: none selected.' >/dev/null
+printf '%s' "$page" | grep -F 'Use as branch base' >/dev/null
+printf '%s' "$page" | grep -F 'Create child branch' >/dev/null
 printf '%s' "$page" | grep -F 'Continue resumes the latest session. Use Queue when a run is active.' >/dev/null
 printf '%s' "$page" | grep -F 'Queue this prompt behind the active run' >/dev/null
 printf '%s' "$page" | grep -F 'Pause run' >/dev/null
@@ -123,6 +126,8 @@ printf '%s' "$page" | grep -F '.state-line{display:block;width:100%;min-width:0;
 ! printf '%s' "$page" | grep -F 'Attach screenshot' >/dev/null
 printf '%s' "$page" | grep -F 'agent-active' >/dev/null
 printf '%s' "$page" | grep -F 'Full repository path' >/dev/null
+printf '%s' "$page" | grep -F '#conversationPane{order:1' >/dev/null
+printf '%s' "$page" | grep -F '#composer{position:sticky' >/dev/null
 printf 'ok - page copy exposes interface name, auto-load, polling, copy-message, queue, transcript, and rename hints\n'
 
 overview=$(curl -fsS "http://127.0.0.1:$PORT/api/overview?repo=$(urlencode "$REPO")")

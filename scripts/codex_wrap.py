@@ -85,6 +85,23 @@ def field(commit: str, name: str) -> str:
     return ""
 
 
+def called_by() -> str:
+    value = env("CODEX_WRAP_CALLED_BY", "user").strip() or "user"
+    if value == "user":
+        return value
+    proc = subprocess.run(
+        ["git", "rev-parse", "--verify", "--quiet", "--end-of-options", f"{value}^{{commit}}"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+    )
+    commit = proc.stdout.strip()
+    if proc.returncode == 0 and re.fullmatch(r"[0-9a-fA-F]{40}", commit):
+        return commit
+    sys.stderr.write(f"codex_wrap: invalid CODEX_WRAP_CALLED_BY value: {value}\n")
+    raise SystemExit(2)
+
+
 def common_dir() -> Path:
     out = git(["rev-parse", "--path-format=absolute", "--git-common-dir"], check=False).strip()
     if not out:
@@ -205,7 +222,7 @@ def start_message(kind: str, prompt: str, sid: str, pid: int, pgid: int, stderr_
         msg = f"[codex_start_user] {oneline(prompt)}\n\n{banner(stderr_path or Path(), sid)}\nuser\n{prompt}\n\n"
     else:
         msg = f"[codex_resume_user] {oneline(prompt)}\n\nuser\n{prompt}\n\n"
-    msg += f"session-id: {sid or 'unknown'}\npid: {pid}\npgid: {pgid}\nhost: {host()}\ncwd: {Path.cwd()}\nstarted-at: {now()}\n"
+    msg += f"session-id: {sid or 'unknown'}\ncalled-by: {called_by()}\npid: {pid}\npgid: {pgid}\nhost: {host()}\ncwd: {Path.cwd()}\nstarted-at: {now()}\n"
     return msg
 
 

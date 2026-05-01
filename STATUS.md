@@ -7,7 +7,7 @@ files symlink to it, and branch-ref dispatch remains a policy pattern rather
 than a tracked helper-script implementation in this repo. The `chatgit`
 launcher now serves the Git-backed `codex-web-interface`.
 
-## Active Human Prompts
+## Human Prompts
 clean up stale STATUS.md entries, clean unused branches (both local and upstream).
 
 make a new "codex_dispatch" command where you can put an arbitrary new instruction and it then sends it to codex together with relevant yet concise context/commits (active agents/recent commit history/STATUS.md in branches) and the task to split it up into tasks and do the right thing (eg interrupting running agents, restarting, doing questions in new branches if they are just questions, merging things etc). so to be clear it should end with a single round of new codex_... calls, and leave the further execution to the called agents. the codex dispatch command should, besides calling these, end with a quick status update as reply saying what kind of thing was dispatched. as said, it is important to specify in the prompt that the actual work, and followup, should be delegated to the dispatched agents.
@@ -23,6 +23,14 @@ also make a bit clearer one-line intermediate empty commits clearly flagging che
 Desired state: the learnings repo lives at `~/repos/ai-agent-learnings`, legacy
 top-level path references are removed, relative helper paths still work, and
 global `AGENTS.md`/`CLAUDE.md` symlinks resolve to the moved repo.
+
+
+ok wait to be clear, are you using your internal subagent system or are you dispatching multiple codex_commit calls as background processes? you should do the dispatching of larger tasks to codex_commits with git commits
+
+
+also (experimentally) implement using jujutsu instead of git to do project management, i think it may save some effort or be a more beautiful paradigm that todo lists/a DAG of unfinished work can be done and modified?
+
+also the "chatgit" command should check if something is already running and abort if not. it should output commands before. it should 
 
 ## Active Goals
 - [x] Keep global agent instructions centralized in

@@ -33,14 +33,22 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
   When it creates a branch, it records `branch.<name>.parent-branch` and
   `branch.<name>.parent-commit` in Git config so the UI has an explicit
   parent-branch convention instead of inferring ancestry from worktree paths.
+  Maintenance note: the current frontend is a small legacy plain-JS interface
+  with known AI-generated rough edges, not a polished product shell; preserve
+  the mobile composer/base-selection behavior before attempting broader UI
+  rewrites.
 - `scripts/codex_wrap.sh` / `scripts/codex_wrap.py`: Codex session wrapper only.
   It records start/resume/agent/stop marker commits and manages the live Codex
-  process. It should not own branch or worktree placement.
+  process. It should not own branch or worktree placement. Start/resume marker
+  commits include `called-by: user` unless `CODEX_WRAP_CALLED_BY=<commit>` is
+  set by a dispatcher or parent agent.
 - `scripts/parallel-worktrees/worktrees.sh`: shared worktree primitives for
   creating, finding, merging, and cleaning branch worktrees.
 - `scripts/branch_commands.sh`: generic command placement helpers such as
   `do_at_branch`, `do_at_commit`, and thin tool-specific wrappers like
-  `codex_in_branch`.
+  `codex_in_branch`. It also exposes `codex_dispatch`, which sends one
+  orchestration prompt to Codex and requires a single round of delegated
+  `codex_*` calls with citations and `called-by` propagation.
 
 ### `do_at` direction
 
@@ -77,3 +85,10 @@ The tracked local dispatcher helper scripts have been retired from this repo. Th
 When branch-ref dispatch is configured outside this repo, the hook should pass the changed `refs/heads/<branch>` name as `SOURCE_BRANCH`; a commit object alone does not reliably identify which branch created it. Branch work should happen in the branch-owned worktree, following the `parallel-worktrees` sibling layout for new worktrees.
 
 `codex exec` and `claude -p` are non-interactive after launch. To add more instructions while a dispatched run is active, make another `@codex` or `@claude` commit on the same branch; the dispatcher lock queues it until the current run exits. Attach to the tmux session for monitoring, not for prompt input.
+
+For ad hoc local orchestration, source `scripts/codex_wrap.sh` and
+`scripts/branch_commands.sh`, then run `codex_dispatch "<instruction>"`. The
+dispatcher prompt must delegate implementation to child `codex_*` calls, pass
+`CODEX_WRAP_CALLED_BY=$(codex_active)` to those calls, cite the files/commits or
+`STATUS.md` evidence used, and use empty one-line checkpoint commits shaped
+like `checkpoint: last save state before <reason>` before disruptive work.

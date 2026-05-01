@@ -158,6 +158,7 @@ test_basic() {
   contains '[codex] done: hi' "$s"
   contains '[codex_stop] 11111111-1111-1111-1111-111111111111' "$s"
   git log --format=%B --grep='^\[codex_start_user\]' -1 | grep -F 'OpenAI Codex v0.125.0 (fake)' >/dev/null || fail 'start banner missing'
+  git log --format=%B --grep='^\[codex_start_user\]' -1 | grep -F 'called-by: user' >/dev/null || fail 'start caller metadata missing'
   sh=$(git log --format=%H --grep='^\[codex_start_user\]' -1)
   ab=$(git log --format=%B --grep='^\[codex\]' -1)
   contains "run-start-commit-hash: $sh" "$ab"
@@ -216,7 +217,26 @@ test_resume() {
   s=$(subjects)
   contains '[codex_resume_user]' "$s"
   contains '[codex] resumed: again' "$s"
+  git log --format=%B --grep='^\[codex_resume_user\]' -1 | grep -F 'called-by: user' >/dev/null || fail 'resume caller metadata missing'
   ok resume
+}
+
+test_called_by_env_commit() {
+  setup_repo
+  caller=$(git rev-parse HEAD)
+  CODEX_WRAP_CALLED_BY=$caller codex_commit child
+  git log --format=%B --grep='^\[codex_start_user\]' -1 | grep -F "called-by: $caller" >/dev/null || fail 'explicit caller metadata missing'
+  ok 'called-by env commit'
+}
+
+test_called_by_env_rejects_invalid_commit() {
+  setup_repo
+  if CODEX_WRAP_CALLED_BY=not-a-commit codex_commit invalid >/tmp/cw-invalid.out 2>/tmp/cw-invalid.err; then
+    fail 'invalid called-by should fail'
+  fi
+  ! git log --format=%B --grep='^\[codex_start_user\]' -1 | grep -F 'invalid' >/dev/null || fail 'invalid called-by created start marker'
+  grep -F 'invalid CODEX_WRAP_CALLED_BY value' /tmp/cw-invalid.err >/dev/null || fail 'invalid called-by error missing'
+  ok 'called-by env rejects invalid commit'
 }
 
 test_new_message_interrupts_running_process() {
@@ -316,6 +336,36 @@ test_do_at_branch_uses_existing_branch_worktree() {
   ok 'do_at_branch existing worktree'
 }
 
+test_codex_checkpoint_empty_commit() {
+  setup_repo
+  before=$(git rev-parse HEAD)
+  codex_checkpoint 'last save state before risky edit'
+  after=$(git rev-parse HEAD)
+  [ "$before" != "$after" ] || fail 'checkpoint did not create a commit'
+  [ "$(git log -1 --pretty=%s)" = 'checkpoint: last save state before risky edit' ] || fail 'checkpoint subject mismatch'
+  [ "$(git diff-tree --no-commit-id --name-only -r HEAD)" = "" ] || fail 'checkpoint should be empty'
+  ok 'codex checkpoint empty commit'
+}
+
+test_codex_dispatch_prompt_contract() {
+  setup_repo
+  target="$ROOT/dispatch-should-not-exist"
+  printf '# Test Status\n\n## Active Goals\n- [ ] dispatch sample\n' >STATUS.md
+  git add STATUS.md && git commit -q -m status
+  codex_dispatch "split this safely \$(touch $target)"
+  [ ! -e "$target" ] || fail 'dispatch prompt shell metacharacters executed'
+  b=$(git log --format=%B --grep='^\[codex_start_user\]' -1)
+  contains 'You are a Codex dispatch/orchestration agent.' "$b"
+  contains 'End with a single round of new codex_* calls' "$b"
+  contains 'CODEX_WRAP_CALLED_BY=$(codex_active)' "$b"
+  contains 'Include concise citations in dispatched prompts' "$b"
+  contains 'checkpoint: last save state before <work>' "$b"
+  contains 'Current STATUS.md:' "$b"
+  contains 'dispatch sample' "$b"
+  contains '$(touch ' "$b"
+  ok 'codex dispatch prompt contract'
+}
+
 
 test_parallel_sibling_worktrees_are_branch_local() {
   setup_repo
@@ -375,6 +425,8 @@ test_fold_codex_messages_and_ignore_tools
 test_autosave_is_rewritten
 test_index_lock_does_not_block_markers
 test_resume
+test_called_by_env_commit
+test_called_by_env_rejects_invalid_commit
 test_new_message_interrupts_running_process
 test_abort_from_other_shell_context
 test_interactive_job_control_tracks_setsid_child
@@ -382,6 +434,8 @@ test_codex_commit_at_is_plain_prompt
 test_codex_prompt_metacharacters_are_literal
 test_codex_in_branch_at_commit_uses_worktree_wrapper
 test_do_at_branch_uses_existing_branch_worktree
+test_codex_checkpoint_empty_commit
+test_codex_dispatch_prompt_contract
 test_parallel_sibling_worktrees_are_branch_local
 test_text_transcript_fixture
 
