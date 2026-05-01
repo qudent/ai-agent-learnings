@@ -175,10 +175,15 @@ Relevant concise context:
 $context
 
 Dispatch contract:
-- Split the instruction into independent, reviewable tasks.
+- First reconcile state: branch/worktree, upstream divergence if visible, active local wrapper runs, queued work, relevant STATUS goals, and the latest human prompt.
+- Classify the request as exactly one of: status-only, trivial-chat, direct-implementation, parallel-dispatch, cleanup, or blocked.
+- If status-only or trivial-chat, do not spawn; answer directly in the final status.
+- If direct-implementation, do the implementation locally in this dispatcher only when that is safer than spawning, then verify and report the changed files.
+- If parallel-dispatch, split the instruction into independent, reviewable tasks with disjoint write scopes.
 - Inspect currently running sessions before dispatching: compare recent run-start marker pid/cwd metadata with the live process table above, then decide whether to call codex_commit, codex_new_message/codex_continue-style followup, codex_abort, or explicitly report blocked-by.
 - Source the helpers before calling them: . scripts/codex_wrap.sh && . scripts/branch_commands.sh.
 - Use codex_spawn for child implementation agents so they run detached from this dispatcher and survive this dispatcher exiting. The web UI will still show them because codex_spawn runs the normal wrapper, which writes pid/cwd marker commits and logs.
+- After each codex_spawn call, verify that a child start marker appears with the expected called-by, branch/worktree cwd, pid, and dispatch log path. If a child produces only marker commits and no useful diff, report it as marker-only/no-op.
 - Command quick reference:
   - codex_spawn codex_in_branch @ <branch-or-commit> "<prompt>": detached child in a branch/worktree rooted at the target.
   - codex_spawn codex_commit "<prompt>": detached child in the current worktree.
