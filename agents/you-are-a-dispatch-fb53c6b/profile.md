@@ -1,7 +1,7 @@
 ---
 agent: you-are-a-dispatch-fb53c6b
 kind: codex
-status: active
+status: finished
 branch: main
 worktree: /home/name/repos/ai-agent-learnings
 parent: user
