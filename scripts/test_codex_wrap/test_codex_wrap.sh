@@ -402,22 +402,36 @@ EOF
   ok 'codex agents lists live pid tasks'
 }
 
-test_active_agent_artifacts_are_tracked_and_removed() {
+test_transcript_inbox_artifacts_are_tracked_and_active_pointer_removed() {
   setup_repo
-  codex_commit long >/tmp/cw-active-artifact.out 2>/tmp/cw-active-artifact.err & bg=$!
-  wait_active_sid || fail 'no active sid for active artifact run'
+  codex_commit long >/tmp/cw-transcript-inbox.out 2>/tmp/cw-transcript-inbox.err & bg=$!
+  wait_active_sid || fail 'no active sid for transcript inbox run'
   run=$(codex_active)
-  short=$(git rev-parse --short "$run")
-  path="active-agents/$short.md"
-  [ -f "$path" ] || fail 'active agent file missing from worktree'
-  git ls-tree --name-only -r HEAD | grep -F "$path" >/dev/null || fail 'active agent file missing from active HEAD'
-  git show "HEAD:$path" | grep -F 'long' >/dev/null || fail 'active agent file does not include prompt'
-  codex_abort >/tmp/cw-active-artifact-abort.out 2>/tmp/cw-active-artifact-abort.err || fail 'could not abort active artifact run'
+  active_path=$(git ls-tree --name-only -r HEAD | grep -E '^transcripts/active/[^/]+\.md$' | head -n1 || true)
+  [ -n "$active_path" ] || fail 'active transcript pointer missing from active HEAD'
+  slug=${active_path#transcripts/active/}
+  slug=${slug%.md}
+  profile_path="agents/$slug/profile.md"
+  inbox_path="agents/$slug/inbox.md"
+  archive_path=$(git ls-tree --name-only -r HEAD | grep -E "^transcripts/archive/[0-9]{4}-[0-9]{2}-[0-9]{2}-$slug\\.md$" | head -n1 || true)
+  [ -f "$profile_path" ] || fail 'agent profile missing from worktree'
+  [ -f "$inbox_path" ] || fail 'agent inbox missing from worktree'
+  [ -n "$archive_path" ] || fail 'archive transcript missing from active HEAD'
+  [ -f "$archive_path" ] || fail 'archive transcript missing from worktree'
+  git show "HEAD:$profile_path" | grep -F "agent: $slug" >/dev/null || fail 'profile does not include slug metadata'
+  git show "HEAD:$inbox_path" | grep -F '## pending' >/dev/null || fail 'inbox missing pending section'
+  git show "HEAD:$archive_path" | grep -F '## ' | grep -F ' user' >/dev/null || fail 'archive transcript missing user block'
+  git show "HEAD:$active_path" | grep -F "transcript: ../archive/" >/dev/null || fail 'active pointer missing transcript reference'
+  git show -s --format='%an <%ae>' HEAD | grep -E '^(codex:|user <user@local\.agent>|orchestrator:)' >/dev/null || fail 'wrapper commit author does not identify speaker'
+  codex_abort >/tmp/cw-transcript-inbox-abort.out 2>/tmp/cw-transcript-inbox-abort.err || fail 'could not abort transcript inbox run'
   wait "$bg" || true
-  [ ! -e "$path" ] || fail 'active agent file should be deleted after abort'
-  ! git ls-tree --name-only -r HEAD | grep -F "$path" >/dev/null || fail 'active agent file should be absent from final HEAD'
-  git log --all --name-only --format= -- active-agents | grep -F "$path" >/dev/null || fail 'active agent file was not preserved in git history'
-  ok 'active agent artifacts are tracked and removed'
+  [ ! -e "$active_path" ] || fail 'active transcript pointer should be deleted after abort'
+  ! git ls-tree --name-only -r HEAD | grep -F "$active_path" >/dev/null || fail 'active transcript pointer should be absent from final HEAD'
+  [ -f "$profile_path" ] || fail 'profile should remain after abort'
+  [ -f "$inbox_path" ] || fail 'inbox should remain after abort'
+  [ -f "$archive_path" ] || fail 'archive transcript should remain after abort'
+  git log --all --name-only --format= -- transcripts agents | grep -F "$archive_path" >/dev/null || fail 'archive transcript was not preserved in git history'
+  ok 'transcript inbox artifacts are tracked and active pointer removed'
 }
 
 test_codex_sync_push_skips_duplicate_upstream_patch() {
@@ -586,7 +600,7 @@ test_codex_checkpoint_empty_commit
 test_codex_status_empty_commit
 test_codex_spawn_detached_agent
 test_codex_agents_lists_live_pid_tasks
-test_active_agent_artifacts_are_tracked_and_removed
+test_transcript_inbox_artifacts_are_tracked_and_active_pointer_removed
 test_codex_sync_push_skips_duplicate_upstream_patch
 test_codex_sync_push_refuses_active_run
 test_codex_dispatch_prompt_contract
