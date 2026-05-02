@@ -7,3 +7,7 @@ I’ll ground this in the branch-local state first, then make the narrow wrapper
 ## 2026-05-02T20:18:49+0000 codex:you-are-a-child-688bc17
 
 I’ve confirmed the stale classification is in the dispatch prompt, README, and tests, and the branch already has wrapper transcript artifacts staged from this child run. I’m reading the exact surrounding text now so the edits stay small and don’t disturb unrelated wrapper behavior.
+
+## 2026-05-02T20:19:27+0000 codex:you-are-a-child-688bc17
+
+The change is generalizable: it updates the reusable dispatcher contract, not a one-off project runbook. I’m going to revise the dispatcher prompt, mirror that policy in the canonical docs/skill text, and make the wrapper test assert the allowed classification line and delegation contract positively.
