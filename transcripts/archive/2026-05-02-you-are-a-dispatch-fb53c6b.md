@@ -129,3 +129,7 @@ I’ll treat this as dispatcher work: first reconcile the branch state and wrapp
 ## 2026-05-02T20:17:37+0000 codex:you-are-a-dispatch-fb53c6b
 
 The current surface still names `direct-implementation` in both the generated dispatch prompt and README, and `AGENTS.md` only says use the dispatcher when work is split. I’m checking the live wrapper functions and active sessions before deciding the child task shape.
+
+## 2026-05-02T20:17:48+0000 codex:you-are-a-dispatch-fb53c6b
+
+`codex_agents` reports one live wrapper run at commit `fb53c6b` in this worktree. I’m checking whether that is an active dispatcher/session I should follow up instead of creating a competing child.
