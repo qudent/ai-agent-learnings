@@ -90,6 +90,43 @@ transcript_for_active() {
   [ -f "transcripts/archive/$trans" ] && printf 'transcripts/archive/%s\n' "$trans"
 }
 
+print_profile_summary() {
+  local file=$1
+  [ -f "$file" ] || return 0
+  python3 - "$file" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+p = Path(sys.argv[1])
+text = p.read_text(errors="replace")
+front = []
+lines = text.splitlines()
+if lines and lines[0].strip() == "---":
+    front.append("---")
+    for line in lines[1:]:
+        front.append(line.rstrip())
+        if line.strip() == "---":
+            break
+else:
+    front = lines[:12]
+print("\n".join(front))
+task = ""
+for idx, line in enumerate(lines):
+    if line.startswith("Task:"):
+        task = line[len("Task:"):].strip()
+        if idx + 1 < len(lines) and lines[idx + 1].strip() and not lines[idx + 1].startswith("## "):
+            task += " ..."
+        break
+if task:
+    task = re.sub(r"\s+", " ", task)
+    if len(task) > 220:
+        task = task[:217].rstrip() + "..."
+    print("")
+    print(f"Task summary: {task}")
+PY
+}
+
 print_transcript_tail() {
   local file=$1 limit=${2:-80}
   [ -f "$file" ] || return 0
@@ -125,6 +162,30 @@ audit() {
     | awk 'BEGIN{RS="\036"; FS="\n"} NF{while(NF && $1==""){for(j=1;j<NF;j++) $j=$(j+1); NF--} if(!NF) next; head=$1; split(head,p,"\t"); if (p[3] ~ /^\[codex_start_user\]/) p[3]="[codex_start_user] <prompt elided>"; if (p[3] ~ /^\[codex_resume_user\]/) p[3]="[codex_resume_user] <prompt elided>"; if (p[3] ~ /^\[codex\]/) p[3]="[codex] <assistant elided>"; called=""; transcript=""; tools=""; for(i=2;i<=NF;i++){if($i ~ /^called-by: /) called=$i; if($i ~ /^transcript: /) transcript=$i; if($i ~ /^tool-calls: /) tools=$i} if (length(p[1])) print "- " p[1] "\t" p[2] "\t" p[3] (called?" | " called:"") (transcript?" | " transcript:"") (tools?" | " tools:"")}'
 }
 
+live_agents() {
+  printf '## Live local wrapper agents\n'
+  if [ -x "$(_root)/scripts/codex_wrap.py" ]; then
+    python3 "$(_root)/scripts/codex_wrap.py" agents 2>/dev/null || printf 'none\n'
+  else
+    printf 'none\n'
+  fi
+}
+
+jj_surface() {
+  printf '## JJ task surface\n'
+  if ! command -v jj >/dev/null 2>&1; then
+    printf 'jj unavailable; use STATUS.md and agents/*/inbox.md as the task surface.\n'
+    return
+  fi
+  if [ ! -d .jj ]; then
+    printf 'jj installed, but .jj is not configured in this repo. Optional helper: . scripts/jj_project.sh && jj_project_init\n'
+    return
+  fi
+  jj log -r 'mutable()' --template 'change_id.short() ++ " " ++ commit_id.short() ++ " " ++ description.first_line() ++ "\n"' 2>/dev/null | sed -n '1,20p' || {
+    printf 'jj configured, but task log could not be read. Keep STATUS.md as source of truth.\n'
+  }
+}
+
 context() {
   local limit=${1:-$_limit} branch head active_any=0 prof trans
   branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || printf unknown)
@@ -147,13 +208,17 @@ context() {
     rm -f /tmp/active-transcripts.$$
   fi
   [ "$active_any" -eq 1 ] || printf 'none\n'
+  printf '\n'
+  live_agents
+  printf '\n'
+  jj_surface
   printf '\n## Relevant agent profiles and inboxes\n'
   if [ "$active_any" -eq 1 ]; then
     find transcripts/active -maxdepth 1 -type f 2>/dev/null | sort | while read -r active; do
       prof=$(profile_for_active "$active" || true)
       [ -n "$prof" ] || continue
       printf '\n### %s\n' "$prof"
-      sed -n '1,80p' "$prof"
+      print_profile_summary "$prof"
       inbox=$(_field "$prof" inbox)
       if [ -n "$inbox" ] && [ -f "$inbox" ]; then
         printf '\n### %s\n' "$inbox"
@@ -161,13 +226,7 @@ context() {
       fi
     done
   else
-    if [ -d agents ]; then
-      find agents -path '*/profile.md' -type f 2>/dev/null | sort | head -n 5 | while read -r prof; do
-        printf '\n### %s\n' "$prof"; sed -n '1,60p' "$prof"
-      done
-    else
-      printf 'none\n'
-    fi
+    printf 'none (no active agent profiles; finished agents are summarized in the audit trail)\n'
   fi
   printf '\n## Current transcript excerpts\n'
   if [ "$active_any" -eq 1 ]; then
@@ -176,11 +235,7 @@ context() {
       [ -n "$trans" ] && print_transcript_tail "$trans" "$limit"
     done
   else
-    if [ -d transcripts/archive ]; then
-      find transcripts/archive -maxdepth 1 -type f 2>/dev/null | sort | tail -n 3 | while read -r trans; do print_transcript_tail "$trans" "$limit"; done
-    else
-      printf 'none\n'
-    fi
+    printf 'none (no active transcript pointers; archived transcripts stay in transcripts/archive/)\n'
   fi
   printf '\n## Audit trail\n'
   audit 30

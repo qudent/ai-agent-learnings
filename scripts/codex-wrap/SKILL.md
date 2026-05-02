@@ -57,12 +57,14 @@ For branch-targeted Codex work, source the branch helper too:
 Plain `codex_commit @ ...` is prompt text. It must not select branches or create
 worktrees.
 
-Dispatch agents should source both helper files, then use `codex_spawn` for
-implementation children. Future Hermes/Codex coding tasks that need repository
-work beyond trivial chat or status should go through `codex_dispatch` by default
-so the dispatcher reconciles the generated Agent Context Pack, updates
-`STATUS.md` or `agents/<slug>/inbox.md` when appropriate, and records ancestry
-before delegating implementation.
+Dispatch agents should source both helper files, then actively route work.
+Future Hermes/Codex coding tasks that need repository work beyond trivial chat
+or status should go through `codex_dispatch` by default so the dispatcher
+reconciles the generated Agent Context Pack, inspects active runs and
+interruption/follow-up intent, updates `STATUS.md`, optional JJ task mirrors, or
+`agents/<slug>/inbox.md` when appropriate, and does at least one meaningful
+routing/work slice before stopping. Use `codex_spawn` for broad implementation
+children; do not make the dispatcher a ceremony-only trampoline.
 
 ```bash
 . scripts/codex_wrap.sh
@@ -71,10 +73,10 @@ codex_dispatch "split this broad task into isolated child agents"
 codex_spawn codex_in_branch @ HEAD "implement the isolated task; cite STATUS.md, transcripts, and commits"
 ```
 
-`codex_spawn` sets `CODEX_WRAP_CALLED_BY` from `codex_active` by default. Its
-stdout reports the detached launcher pid and dispatch log path; the child run
-itself appears in ChatGit after the normal `[codex_start_user]` marker is
-written.
+`codex_spawn` sets `CODEX_WRAP_CALLED_BY` from `codex_active` by default and
+injects a bounded fresh Agent Context Pack into the child prompt. Its stdout
+reports the detached launcher pid and dispatch log path; the child run itself
+appears in ChatGit after the normal `[codex_start_user]` marker is written.
 
 ## Transcript And Inbox Artifacts
 
@@ -86,8 +88,8 @@ Each active wrapper run has tracked files under `agents/<slug>/` and
 listing for current/known agents.
 
 Tool calls are tracked separately at `agents/<slug>/tool-calls.md` as bounded
-metadata: timestamp, item id, tool name, status, compact args summary/hash, and
-output byte count. Do not put raw tool output in tracked transcript files by
+metadata: compact UTC timestamp, Unix epoch, caller, item id, tool name, status,
+compact args summary/hash, and output byte count. Do not put raw tool output in tracked transcript files by
 default; keep raw JSON/stderr output in ignored wrapper logs unless a human asks
 for a specific artifact.
 
@@ -124,8 +126,10 @@ backend debugging.
   resume behavior.
 - Use `codex_dispatch` rather than raw `codex_commit` for future Hermes/Codex
   coding tasks that need repository work beyond trivial chat or status. The
-  dispatcher should update task routing surfaces, use `codex_spawn` with
-  disjoint write scopes for implementation work, and verify child start markers.
+  dispatcher is an active orchestration thread: inspect current state, update
+  routing surfaces, do a focused first slice when useful, use `codex_spawn` with
+  disjoint write scopes for broader implementation work, and verify child start
+  markers.
 - Keep `STATUS.md` current-only: delete completed checklist items and use
   `agent_context.sh prune-status STATUS.md` when stale done entries accumulate.
   Finished work is recoverable from Git history, `transcripts/archive/`, and

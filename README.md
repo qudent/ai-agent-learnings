@@ -57,8 +57,9 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
   dispatch context lists the branch-local active/inbox files directly. The
   active pointer is deleted by stop/abort; archive transcript, inbox, and
   profile files remain. Tool call metadata is kept in
-  `agents/<slug>/tool-calls.md` as a bounded summary table with timestamp, tool
-  name, status, compact args summary/hash, and output byte count; raw tool
+  `agents/<slug>/tool-calls.md` as a bounded summary table with compact UTC
+  timestamp, Unix epoch, caller, tool name, status, compact args summary/hash,
+  and output byte count; raw tool
   outputs stay in ignored wrapper JSON/stderr logs. New wrapper runs do not
   create `active-agents/` artifacts.
 - `scripts/agent_context.sh`: generates the Agent Context Pack used by
@@ -82,13 +83,14 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
   creating, finding, merging, and cleaning branch worktrees.
 - `scripts/branch_commands.sh`: generic command placement helpers such as
   `do_at_branch`, `do_at_commit`, and thin tool-specific wrappers like
-  `codex_in_branch`. It also exposes `codex_dispatch`, which sends one
-  orchestration prompt to Codex. Dispatch context lists transcript/inbox files
-  and requires agents to read `transcripts/index.md` plus relevant
-  `agents/*/profile.md` files before routing follow-ups. It requires
-  dispatchers to update the task surface (`STATUS.md`, and
-  `agents/<slug>/inbox.md` for targeted follow-up when appropriate) and to use
-  delegated `codex_spawn ...` calls with citations and `called-by`
+  `codex_in_branch`. It also exposes `codex_dispatch`, which starts an active
+  orchestration thread in Codex. Dispatch context lists transcript/inbox files,
+  live wrapper runs, optional JJ task surface, and relevant compact profile
+  summaries. Dispatchers must read `transcripts/index.md` plus relevant
+  `agents/*/profile.md` files before routing follow-ups, update the task
+  surface (`STATUS.md`, optional JJ task mirrors, and `agents/<slug>/inbox.md`
+  for targeted follow-up when appropriate), and either do a focused first slice
+  or use delegated `codex_spawn ...` calls with citations and `called-by`
   propagation for implementation work.
 - `scripts/jj_project.sh`: experimental Jujutsu project-management helpers for
   representing TODO work as mutable `jj` changes. The helper is optional and
@@ -138,21 +140,21 @@ For ad hoc local orchestration, source `scripts/codex_wrap.sh` and
 this dispatcher path by default for future Hermes/Codex coding tasks that need
 repository work beyond trivial chat or status. The dispatcher prompt first
 reconciles the generated Agent Context Pack: branch, current HEAD, pruned
-branch-local `STATUS.md`, active transcript pointers, relevant agent
-profiles/inboxes, recent transcript tails, and parent/child audit edges. It then
-classifies the request as `status-only`, `trivial-chat`,
-`delegated-implementation`, `cleanup`, or `blocked`. Status-only and
-trivial-chat requests should not spawn child agents. For delegated
-implementation, the dispatcher should create or update the task surface first:
-`STATUS.md` for current state and plan, `agents/<slug>/inbox.md` for targeted
-follow-up when an agent already exists, and child `codex_spawn ...` calls for
-implementation work. Broad implementation or recursive work must be delegated
-with disjoint write scopes, cite the files/commits/transcripts or `STATUS.md`
-evidence used, verify the child start markers, and use empty one-line checkpoint
-commits shaped like `checkpoint: last save state before <reason>` before
-disruptive work. Direct implementation inside the dispatcher should be limited
-to tiny routing/glue fixes needed to decide delegation, update routing surfaces,
-or fix the dispatcher itself.
+branch-local `STATUS.md`, live wrapper runs, optional JJ task surface, active
+transcript pointers, relevant compact agent profiles/inboxes, recent transcript
+tails, and parent/child audit edges. It then classifies the request as
+`status-only`, `trivial-chat`, `active-orchestration`, `cleanup`, or `blocked`.
+Status-only and trivial-chat requests should not spawn child agents. For
+active-orchestration, the dispatcher should inspect interruption/follow-up
+intent, update the task surface first (`STATUS.md`, optional JJ task mirrors,
+`agents/<slug>/inbox.md` for targeted follow-up), and do at least one meaningful
+routing/work slice itself. Broad implementation or recursive work should be
+delegated with disjoint write scopes, cite the files/commits/transcripts or
+`STATUS.md` evidence used, verify the child start markers, and use empty
+one-line checkpoint commits shaped like `checkpoint: last save state before
+<reason>` before disruptive work. Direct dispatcher implementation is appropriate
+for routing glue, task-surface updates, first-slice work, interruption/follow-up
+decisions, or dispatcher fixes; delegate the rest when scope grows.
 
 `codex_spawn <codex_commit|codex_resume|codex_new_message|codex_in_branch>
 <args...>` is the detached child-agent launcher. It starts the normal wrapper in
@@ -160,7 +162,8 @@ a new session with stdin closed and output redirected under
 `.git/codex-wrap/dispatch/`, so children survive the dispatcher process exiting
 while still writing the usual pid/cwd marker commits and transcript logs that
 ChatGit uses for active-agent and run-history display. `codex_spawn` sets
-`CODEX_WRAP_CALLED_BY` from `codex_active` by default; override it only when
+`CODEX_WRAP_CALLED_BY` from `codex_active` by default and injects a bounded
+fresh Agent Context Pack into child prompts; override the caller only when
 deliberately attaching work to a different caller commit.
 
 Typical dispatch calls:
@@ -182,8 +185,9 @@ Tool-call logs must stay summary-only. Raw command/provider outputs can easily
 turn a repo into a transcript artifact store because shell commands, file reads,
 test logs, and model tool results are often KB-to-MB each. The tracked
 `agents/<slug>/tool-calls.md` contract records one bounded metadata row per
-completed tool event and caps retained rows with `CODEX_WRAP_TOOL_LOG_LIMIT`
-(default `200`). That should usually be KB per run, not MB. If a run needs raw
+completed tool event: compact UTC time, Unix epoch, caller, item id, tool,
+status, args summary/hash, and output byte count. Retained rows are capped with
+`CODEX_WRAP_TOOL_LOG_LIMIT` (default `200`). That should usually be KB per run, not MB. If a run needs raw
 outputs for debugging, keep them in ignored local logs under `.git/codex-wrap/`
 or attach them as explicit external artifacts, not as default tracked files.
 

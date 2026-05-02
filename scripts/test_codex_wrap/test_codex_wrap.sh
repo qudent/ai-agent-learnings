@@ -231,6 +231,8 @@ test_tool_calls_use_bounded_summary_logs() {
   [ -f "$tool_log" ] || fail 'tool summary file missing'
   log_text=$(cat "$tool_log")
   contains 'Bounded metadata only' "$log_text"
+  contains 'time_utc | epoch | caller | item | tool' "$log_text"
+  contains 'user | tool-1 | command_execution' "$log_text"
   contains 'command_execution' "$log_text"
   contains 'git status' "$log_text"
   contains 'output_bytes |' "$log_text"
@@ -453,6 +455,29 @@ test_codex_spawn_detached_agent() {
   ok 'codex spawn detached agent'
 }
 
+test_codex_spawn_injects_child_context_pack() {
+  setup_repo
+  printf '# Spawn Context Status\n\n## Active Goals\n- [ ] child sees context\n' >STATUS.md
+  git add STATUS.md && git commit -q -m status
+  out=$(CODEX_WRAP_CHILD_CONTEXT_LIMIT=20 codex_spawn codex_commit long-child-context)
+  contains 'codex_spawn: pid=' "$out"
+  wait_subject '[transcript] start' || fail 'spawned transcript did not start'
+  active_path=$(git ls-tree --name-only -r HEAD | grep -E '^transcripts/active/[^/]+\.md$' | head -n1 || true)
+  [ -n "$active_path" ] || fail 'spawned active transcript pointer missing'
+  slug=${active_path#transcripts/active/}
+  slug=${slug%.md}
+  archive_path=$(git ls-tree --name-only -r HEAD | grep -E "^transcripts/archive/[0-9]{4}-[0-9]{2}-[0-9]{2}-$slug\\.md$" | head -n1 || true)
+  [ -n "$archive_path" ] || fail 'spawned archive transcript missing'
+  archive=$(cat "$archive_path")
+  contains 'long-child-context' "$archive"
+  contains 'Relevant fresh Agent Context Pack for this child:' "$archive"
+  contains 'Agent Context Pack' "$archive"
+  contains 'child sees context' "$archive"
+  contains 'Child context contract:' "$archive"
+  codex_abort >/tmp/cw-spawn-context-abort.out 2>/tmp/cw-spawn-context-abort.err || fail 'could not abort spawned context run'
+  ok 'codex spawn injects child context pack'
+}
+
 test_codex_agents_lists_live_pid_tasks() {
   setup_repo
   h=$(python3 - <<'PY'
@@ -595,24 +620,27 @@ test_codex_dispatch_prompt_contract() {
   not_contains 'Prior duplicated body that should be elided from context' "$transcript"
   contains 'First reconcile state from the Agent Context Pack' "$transcript"
   expected_dispatch_contract=$(cat <<'EOF'
-- Classify the request as exactly one of: status-only, trivial-chat, delegated-implementation, cleanup, or blocked.
+- Classify the request as exactly one of: status-only, trivial-chat, active-orchestration, cleanup, or blocked.
 - If status-only or trivial-chat, do not spawn; answer directly in the final status.
-- If delegated-implementation is needed, create or update the task surface first: STATUS.md for current state and plan, agents/<slug>/inbox.md for targeted follow-up when an agent already exists, and codex_spawn child tasks for implementation work.
-- Broad implementation must be delegated via codex_spawn: split into independent, reviewable tasks with disjoint write scopes and call child agents rather than doing broad work in the dispatcher.
+- If active-orchestration is needed, inspect input and active runs, choose interruption/follow-up/spawn/status, update the task surface first, and do at least one meaningful routing/work thread yourself before stopping.
+- Task surfaces are STATUS.md for current state and plan, agents/<slug>/inbox.md for targeted follow-up when an agent already exists, optional jj_project.sh task mirrors when .jj is present, and codex_spawn child tasks for implementation work.
+- Broad implementation should still be delegated via codex_spawn: split into independent, reviewable tasks with disjoint write scopes and call child agents rather than doing all implementation in the dispatcher.
 EOF
 )
   contains "$expected_dispatch_contract" "$transcript"
-  contains 'Do local implementation only for the tiny glue needed to decide dispatch, unblock routing, update task routing surfaces, or fix the dispatcher itself; otherwise delegate.' "$transcript"
+  contains 'Do local implementation for routing glue, task-surface updates, first-slice work, interruption/follow-up decisions, or dispatcher fixes; delegate the rest when scope grows beyond a focused slice.' "$transcript"
   contains 'compare recent run-start marker pid/cwd metadata with the live process table' "$transcript"
+  contains 'optional JJ task surface' "$transcript"
   contains 'Read transcripts/index.md and the relevant agents/*/profile.md' "$transcript"
   contains 'Send follow-ups through codex_new_message or a target agents/<slug>/inbox.md update' "$transcript"
   contains 'Spawn new agents with named task scopes' "$transcript"
   contains 'Source the helpers before calling them' "$transcript"
+  contains 'receive a bounded fresh Agent Context Pack' "$transcript"
   contains 'After each codex_spawn call, verify that a child start marker appears' "$transcript"
   contains 'marker-only/no-op' "$transcript"
   contains 'codex_spawn codex_in_branch @ <branch-or-commit> "<prompt>"' "$transcript"
   contains 'codex_spawn sets CODEX_WRAP_CALLED_BY from codex_active by default' "$transcript"
-  contains 'End with a single round of codex_spawn calls' "$transcript"
+  contains 'do not stop at ceremony if no useful work was routed' "$transcript"
   contains 'Include concise citations in dispatched prompts' "$transcript"
   contains 'periodic empty [status] commits' "$transcript"
   contains 'checkpoint: last save state before <work>' "$transcript"
@@ -690,6 +718,7 @@ test_do_at_branch_uses_existing_branch_worktree
 test_codex_checkpoint_empty_commit
 test_codex_status_empty_commit
 test_codex_spawn_detached_agent
+test_codex_spawn_injects_child_context_pack
 test_codex_agents_lists_live_pid_tasks
 test_transcript_inbox_artifacts_are_tracked_and_active_pointer_removed
 test_codex_sync_push_skips_duplicate_upstream_patch

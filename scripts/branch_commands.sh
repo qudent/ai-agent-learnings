@@ -67,6 +67,59 @@ _codex_spawn_log() {
   printf '%s/%s-%s.log\n' "$logdir" "$(date +%Y%m%d-%H%M%S)" "$$"
 }
 
+_codex_child_context() {
+  local limit=${CODEX_WRAP_CHILD_CONTEXT_LIMIT:-60}
+  if [ -x "$_BC_SCRIPT_DIR/agent_context.sh" ]; then
+    "$_BC_SCRIPT_DIR/agent_context.sh" context --limit "$limit"
+    return
+  fi
+  _codex_dispatch_context
+}
+
+_codex_child_prompt() {
+  local user_instruction context limit=${CODEX_WRAP_CHILD_CONTEXT_LIMIT:-60}
+  user_instruction=$*
+  context=$(_codex_child_context)
+  cat <<EOF
+$user_instruction
+
+Relevant fresh Agent Context Pack for this child:
+$context
+
+Child context contract:
+- Treat the Agent Context Pack above as the bounded user-source snapshot for this child.
+- Re-run scripts/agent_context.sh context --limit $limit before routing follow-ups, checking active runs, or making decisions that depend on current branch state.
+- Keep implementation scoped to the dispatched task and cite STATUS.md, agent profiles/inboxes, transcripts, or commits that justify the work.
+EOF
+}
+
+_codex_spawn_add_context() {
+  local fn=$1
+  shift
+  case "$fn" in
+    codex_commit|codex_new_message)
+      set -- "$(_codex_child_prompt "$@")"
+      ;;
+    codex_resume)
+      if [[ ${1:-} =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]; then
+        local sid=$1
+        shift
+        set -- "$sid" "$(_codex_child_prompt "$@")"
+      else
+        set -- "$(_codex_child_prompt "$@")"
+      fi
+      ;;
+    codex_in_branch)
+      if [ "${1:-}" = @ ] && [ $# -ge 3 ]; then
+        local marker=$1 target=$2
+        shift 2
+        set -- "$marker" "$target" "$(_codex_child_prompt "$@")"
+      fi
+      ;;
+  esac
+  printf '%s\0' "$@"
+}
+
 codex_spawn() {
   if [ $# -lt 2 ]; then
     echo "Usage: codex_spawn <codex_commit|codex_resume|codex_new_message|codex_in_branch> <args...>" >&2
@@ -85,6 +138,8 @@ codex_spawn() {
   if [ -z "$caller" ]; then
     caller=$(codex_active 2>/dev/null || printf 'user')
   fi
+  local -a spawn_args
+  mapfile -d '' -t spawn_args < <(_codex_spawn_add_context "$fn" "$@")
   log=$(_codex_spawn_log) || return
   CODEX_WRAP_CALLED_BY=$caller setsid bash -lc '
     source "$1"
@@ -93,7 +148,7 @@ codex_spawn() {
     fn=$1
     shift
     "$fn" "$@"
-  ' bash "$_BC_SCRIPT_DIR/codex_wrap.sh" "$_BC_SCRIPT_DIR/branch_commands.sh" "$fn" "$@" </dev/null >>"$log" 2>&1 &
+  ' bash "$_BC_SCRIPT_DIR/codex_wrap.sh" "$_BC_SCRIPT_DIR/branch_commands.sh" "$fn" "${spawn_args[@]}" </dev/null >>"$log" 2>&1 &
   pid=$!
   disown "$pid" 2>/dev/null || true
   printf 'codex_spawn: pid=%s log=%s command=%s called-by=%s\n' "$pid" "$log" "$fn" "$caller"
@@ -157,7 +212,7 @@ codex_dispatch() {
   user_instruction=$*
   context=$(_codex_dispatch_context)
   prompt=$(cat <<EOF
-You are a Codex dispatch/orchestration agent. Do not complete broad implementation yourself; reconcile context and route work through the wrapper surface.
+You are a Codex dispatch/orchestration agent. Be an active orchestration thread: reconcile context, update routing surfaces, and do the first meaningful routing/work slice yourself. Delegate broad implementation through the wrapper surface.
 
 User instruction:
 $user_instruction
@@ -166,18 +221,19 @@ Relevant concise context:
 $context
 
 Dispatch contract:
-- First reconcile state from the Agent Context Pack: branch/worktree, upstream divergence if visible, active local wrapper runs, queued work, current STATUS goals, active transcript pointers, inboxes, recent transcript excerpts, and the audit trail.
-- Classify the request as exactly one of: status-only, trivial-chat, delegated-implementation, cleanup, or blocked.
+- First reconcile state from the Agent Context Pack: branch/worktree, upstream divergence if visible, live wrapper runs with pids/called-by/cwd, queued work, current STATUS goals, optional JJ task surface, active transcript pointers, inboxes, recent transcript excerpts, and the audit trail.
+- Classify the request as exactly one of: status-only, trivial-chat, active-orchestration, cleanup, or blocked.
 - If status-only or trivial-chat, do not spawn; answer directly in the final status.
-- If delegated-implementation is needed, create or update the task surface first: STATUS.md for current state and plan, agents/<slug>/inbox.md for targeted follow-up when an agent already exists, and codex_spawn child tasks for implementation work.
-- Broad implementation must be delegated via codex_spawn: split into independent, reviewable tasks with disjoint write scopes and call child agents rather than doing broad work in the dispatcher.
-- Do local implementation only for the tiny glue needed to decide dispatch, unblock routing, update task routing surfaces, or fix the dispatcher itself; otherwise delegate.
+- If active-orchestration is needed, inspect input and active runs, choose interruption/follow-up/spawn/status, update the task surface first, and do at least one meaningful routing/work thread yourself before stopping.
+- Task surfaces are STATUS.md for current state and plan, agents/<slug>/inbox.md for targeted follow-up when an agent already exists, optional jj_project.sh task mirrors when .jj is present, and codex_spawn child tasks for implementation work.
+- Broad implementation should still be delegated via codex_spawn: split into independent, reviewable tasks with disjoint write scopes and call child agents rather than doing all implementation in the dispatcher.
+- Do local implementation for routing glue, task-surface updates, first-slice work, interruption/follow-up decisions, or dispatcher fixes; delegate the rest when scope grows beyond a focused slice.
 - Inspect currently running sessions before dispatching: compare recent run-start marker pid/cwd metadata with the live process table above, then decide whether to call codex_commit, codex_new_message/codex_continue-style followup, codex_abort, or explicitly report blocked-by.
 - Read transcripts/index.md and the relevant agents/*/profile.md before routing follow-ups or spawning related work.
 - Send follow-ups through codex_new_message or a target agents/<slug>/inbox.md update; do not embed full transcript bodies into new marker commits.
 - Spawn new agents with named task scopes that map cleanly to readable agent slugs and disjoint branch/worktree ownership.
 - Source the helpers before calling them: . scripts/codex_wrap.sh && . scripts/branch_commands.sh.
-- Use codex_spawn for child implementation agents so they run detached from the dispatcher and survive this dispatcher exiting. The web UI will still show them because codex_spawn runs the normal wrapper, which writes pid/cwd marker commits and transcript files.
+- Use codex_spawn for child implementation agents so they receive a bounded fresh Agent Context Pack, run detached from the dispatcher, and survive this dispatcher exiting. The web UI will still show them because codex_spawn runs the normal wrapper, which writes pid/cwd marker commits and transcript files.
 - After each codex_spawn call, verify that a child start marker appears with the expected called-by, branch/worktree cwd, pid, and dispatch log path. If a child produces only marker commits and no useful diff, report it as marker-only/no-op.
 - Command quick reference:
   - codex_spawn codex_in_branch @ <branch-or-commit> "<prompt>": detached child in a branch/worktree rooted at the target.
@@ -185,8 +241,8 @@ Dispatch contract:
   - codex_spawn codex_new_message "<prompt>": detached followup to the active/latest session.
   - codex_abort [run-start-commit]: stop an active wrapper run.
   - codex_agents: list live local wrapper agents from marker commits and live PIDs.
-- End with a single round of codex_spawn calls, or codex_abort only when aborting is the task, then stop.
-- Leave the actual work and followup to the called agents.
+- End after the dispatcher has updated routing/task surfaces and either completed a focused first slice, sent a follow-up/abort/status, or launched a bounded set of child agents.
+- Leave delegated implementation and follow-up to called agents, but do not stop at ceremony if no useful work was routed.
 - codex_spawn sets CODEX_WRAP_CALLED_BY from codex_active by default; set CODEX_WRAP_CALLED_BY explicitly only when you need to override that caller.
 - Include concise citations in dispatched prompts and your final status: cite commit hashes, branch names, STATUS.md sections, and file paths that justify each task.
 - For long work, create periodic empty [status] commits that summarize the last interval and cite the commit hashes that matter for the next agent context.

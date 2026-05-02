@@ -42,6 +42,14 @@ def now() -> str:
     return time.strftime("%Y-%m-%dT%H:%M:%S%z")
 
 
+def compact_utc() -> str:
+    return time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
+
+
+def epoch() -> str:
+    return str(int(time.time()))
+
+
 def oneline(text: str) -> str:
     return " ".join(text.split())[:180]
 
@@ -348,8 +356,8 @@ def tool_calls_content(slug: str) -> str:
     return (
         f"# Tool Calls: {slug}\n\n"
         "Bounded metadata only. Raw tool outputs stay in ignored wrapper JSON/stderr logs.\n\n"
-        "| time | item | tool | status | args | args_sha256 | output_bytes |\n"
-        "| --- | --- | --- | --- | --- | --- | --- |\n"
+        "| time_utc | epoch | caller | item | tool | status | args | args_sha256 | output_bytes |\n"
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n"
     )
 
 
@@ -470,7 +478,8 @@ def tool_call_row(item: dict) -> str:
     else:
         summary = args_text
     return (
-        f"| {markdown_cell(now())} | {markdown_cell(item.get('id') or '-')} | "
+        f"| {markdown_cell(compact_utc())} | {markdown_cell(epoch())} | {markdown_cell(called_by())} | "
+        f"{markdown_cell(item.get('id') or '-')} | "
         f"{markdown_cell(tool)} | {markdown_cell(status)} | {markdown_cell(summary)} | "
         f"{args_hash} | {output_byte_count(item)} |\n"
     )
