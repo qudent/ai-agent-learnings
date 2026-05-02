@@ -45,6 +45,14 @@ def oneline(text: str) -> str:
     return " ".join(text.split())[:180]
 
 
+def slugify_task(prompt: str, fallback: str) -> str:
+    words = re.findall(r"[a-z0-9]+", prompt.lower())
+    stop = {"the", "and", "for", "with", "this", "that", "please", "codex", "agent"}
+    words = [word for word in words if word not in stop]
+    slug = "-".join(words[:4]).strip("-")
+    return slug or fallback
+
+
 def git(args: list[str], *, stdin: str | None = None, check: bool = True) -> str:
     proc = subprocess.run(
         ["git", *args],
@@ -212,6 +220,24 @@ def marker(
 
 def short_hash(commit: str) -> str:
     return git(["rev-parse", "--short", commit], check=False).strip() or commit[:7]
+
+
+def agent_slug(run_start: str, prompt: str) -> str:
+    short = short_hash(run_start)
+    return f"{slugify_task(prompt, short)}-{short}"
+
+
+def transcript_paths(run_start: str, prompt: str) -> dict[str, str]:
+    slug = agent_slug(run_start, prompt)
+    day = time.strftime("%Y-%m-%d", time.gmtime())
+    return {
+        "slug": slug,
+        "profile": f"agents/{slug}/profile.md",
+        "inbox": f"agents/{slug}/inbox.md",
+        "archive": f"transcripts/archive/{day}-{slug}.md",
+        "active": f"transcripts/active/{slug}.md",
+        "index": "transcripts/index.md",
+    }
 
 
 def active_agent_path(run_start: str) -> str:
