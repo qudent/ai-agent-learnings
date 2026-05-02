@@ -1,22 +1,23 @@
 # AI Agent Learnings - Status
 
 ## Current State
-Branch `dev/context-jj-dispatch` is complete, locally validated, and pushed to `origin/dev/context-jj-dispatch`. It adds branch-local Agent Context Packs, compact parent/child audit metadata, current-only `STATUS.md` pruning, optional Jujutsu task mirrors, dispatcher guidance through `codex_dispatch`/`codex_spawn`, and bounded per-agent tool-call metadata logs. The branch is ready for review/fast-forward merge; do not merge `main` here.
+`main` contains the context-pack refactor and current status refresh. `codex_dispatch` now injects `scripts/agent_context.sh context --limit 80`, and the Codex wrapper writes branch-local transcript/profile/inbox/tool-call files. ChatGit is running on port `6174` and sources the current wrapper/branch helper files for each run, so dispatch-mode web executions will use the context-pack path.
 
 ## Active Goals
-- [ ] Keep merge to `main` as a separate reviewed step.
+- [ ] Keep Agent Context Pack size useful and bounded; monitor real dispatch prompts once active agents exist.
+- [ ] Verify performance impact empirically on the next few dispatcher runs rather than assuming it from structure alone.
 
 ## TODO Plan
-- [ ] Review and fast-forward merge this branch separately.
+- [ ] After the next `codex_dispatch` run, inspect its start prompt/log and compare task routing quality, context length, and whether stale transcript replay was avoided.
 
 ## Blockers
-- None.
+- No active Codex agents or `agents/`/`transcripts/` files exist in the repo right now, so the current context-pack output only exercises the idle/no-active-agent path.
 
 ## Recent Results
-- Validation passed for Python compile checks, shell syntax checks, agent context tests, jj project tests, codex wrapper tests, and codex web tests.
-- Smoke output in `/tmp/context-pack-smoke.md` and `/tmp/audit-smoke.md` surfaces current branch status and audit metadata while eliding old `[codex]` assistant bodies and run-start prompts.
-- Tool-call logging is intentionally summary-only: tracked rows include tool metadata, compact args summary/hash, and output byte counts; raw outputs stay in ignored wrapper logs.
+- Current idle Agent Context Pack is 76 lines / 3,582 bytes / roughly 900 tokens, mostly current `STATUS.md` plus compact recent commit audit.
+- Last-hour local work updated global guidance in `AGENTS.md`: `4d49e81` codified voice/action-continuation behavior, and `ee88e26` added exponential-backoff guidance for process waits.
+- Process check shows ChatGit (`scripts/codex_web.py`) still running on port `6174` and Hermes gateway running since `2026-05-02 19:33:56`; no live Codex wrapper processes are currently active.
 
 ## Agent Notes
-- `STATUS.md` remains current-only; finished checklist items are deleted and durable history stays in Git, transcript archives, agent profiles/inboxes, and tool-call summaries.
-- A stale test `codex_web.py` process on port `6192` from another temp repo was killed before the web suite rerun; the persistent real ChatGit server on port `6174` was left alone.
+- The context-pack design likely improves dispatcher performance for multi-agent routing by replacing stale full marker prompt replay with current status, active transcript pointers, recent tails, and parent/child audit edges. Risk is prompt bloat once many agents/transcripts exist; current caps (`--limit 80`, first 5 profiles when idle, audit 30) make the idle path small, but real active-agent packs still need measured follow-up.
+- Hermes itself is not a Codex wrapper execution. This Discord/Hermes session has loaded the updated repo instructions from `AGENTS.md`, but only Codex runs launched through `codex_dispatch`/ChatGit dispatch mode receive the generated Agent Context Pack.
