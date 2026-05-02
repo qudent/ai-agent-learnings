@@ -125,3 +125,7 @@ Dispatch contract:
 ## 2026-05-02T20:17:27+0000 codex:you-are-a-dispatch-fb53c6b
 
 I’ll treat this as dispatcher work: first reconcile the branch state and wrapper surface, then spawn a child through the repo’s Codex wrapper with a narrow implementation scope. I’m not going to edit the docs or wrapper locally unless inspection shows dispatch itself is broken.
+
+## 2026-05-02T20:17:37+0000 codex:you-are-a-dispatch-fb53c6b
+
+The current surface still names `direct-implementation` in both the generated dispatch prompt and README, and `AGENTS.md` only says use the dispatcher when work is split. I’m checking the live wrapper functions and active sessions before deciding the child task shape.
