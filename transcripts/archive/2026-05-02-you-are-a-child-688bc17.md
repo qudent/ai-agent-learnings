@@ -19,3 +19,7 @@ The prompt/docs no longer mention `direct-implementation` or `parallel-dispatch`
 ## 2026-05-02T20:21:05+0000 codex:you-are-a-child-688bc17
 
 The wrapper test exposed a local harness issue under dispatcher ancestry: `CODEX_WRAP_CALLED_BY` is inherited into the temp repo, where that commit does not exist, so the fake run exits before reaching the dispatch contract assertions. I’m going to isolate the test environment by clearing that inherited caller in the test harness, then rerun.
+
+## 2026-05-02T20:21:36+0000 codex:you-are-a-child-688bc17
+
+The dispatch assertion hit a Bash test-helper edge: `contains` passes patterns beginning with `-` straight to `grep`, so the new exact bullet-block assertion is parsed as an option. I’m tightening the helper with `grep --`, which is directly relevant to exact prompt-shape assertions.
