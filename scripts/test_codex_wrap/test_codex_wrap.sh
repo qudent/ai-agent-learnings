@@ -110,8 +110,8 @@ WRAP_DIR=$(cd "$(dirname "$WRAP")" && pwd)
 
 ok() { printf 'ok - %s\n' "$*"; }
 fail() { printf 'not ok - %s\n' "$*" >&2; exit 1; }
-contains() { grep -Fq "$1" <<<"$2" || fail "missing: $1"; }
-not_contains() { ! grep -Fq "$1" <<<"$2" || fail "unexpected: $1"; }
+contains() { grep -Fq -- "$1" <<<"$2" || fail "missing: $1"; }
+not_contains() { ! grep -Fq -- "$1" <<<"$2" || fail "unexpected: $1"; }
 equals() {
   [ "$1" = "$2" ] && return 0
   printf 'not ok - exact mismatch\nexpected:\n%s\nactual:\n%s\n' "$1" "$2" >&2
