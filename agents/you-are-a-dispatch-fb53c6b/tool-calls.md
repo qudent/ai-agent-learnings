@@ -21,3 +21,4 @@ Bounded metadata only. Raw tool outputs stay in ignored wrapper JSON/stderr logs
 | 2026-05-02T20:18:33+0000 | item_20 | command_execution | completed | /bin/bash -lc 'sleep 3 tail -n 80 .git/codex-wrap/dispatch/20260502-201821-3751126.log' | 795e1504749ca807 | 0 |
 | 2026-05-02T20:18:33+0000 | item_21 | command_execution | completed | /bin/bash -lc "sleep 3 git log --format='%h%x09%s' --max-count=12" | 4f165717ad0c44e3 | 0 |
 | 2026-05-02T20:18:35+0000 | item_19 | command_execution | completed | /bin/bash -lc 'sleep 3 . scripts/codex_wrap.sh . scripts/branch_commands.sh codex_agents' | a837de8abc33c082 | 0 |
+| 2026-05-02T20:18:44+0000 | item_22 | command_execution | completed | /bin/bash -lc 'git worktree list --porcelain' | a94fa16ddb9b1666 | 0 |
