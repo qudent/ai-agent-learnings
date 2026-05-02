@@ -23,3 +23,7 @@ The wrapper test exposed a local harness issue under dispatcher ancestry: `CODEX
 ## 2026-05-02T20:21:36+0000 codex:you-are-a-child-688bc17
 
 The dispatch assertion hit a Bash test-helper edge: `contains` passes patterns beginning with `-` straight to `grep`, so the new exact bullet-block assertion is parsed as an option. I’m tightening the helper with `grep --`, which is directly relevant to exact prompt-shape assertions.
+
+## 2026-05-02T20:22:12+0000 codex:you-are-a-child-688bc17
+
+Validation is green now. I’m rewriting `STATUS.md` as current state only, replacing the stale idle context-pack monitoring notes with the live outcome and the only remaining handoff: review/merge this child branch.
