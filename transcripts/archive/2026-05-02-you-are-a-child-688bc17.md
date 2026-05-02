@@ -27,3 +27,7 @@ The dispatch assertion hit a Bash test-helper edge: `contains` passes patterns b
 ## 2026-05-02T20:22:12+0000 codex:you-are-a-child-688bc17
 
 Validation is green now. I’m rewriting `STATUS.md` as current state only, replacing the stale idle context-pack monitoring notes with the live outcome and the only remaining handoff: review/merge this child branch.
+
+## 2026-05-02T20:23:01+0000 codex:you-are-a-child-688bc17
+
+The working tree is clean because the active wrapper recorded file changes as tool commits. I’m adding a clear human-readable checkpoint commit with the requested evidence, then pushing this child branch to origin so the dispatcher can merge it.
