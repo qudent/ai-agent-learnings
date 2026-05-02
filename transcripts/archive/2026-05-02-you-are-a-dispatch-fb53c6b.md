@@ -137,3 +137,7 @@ The current surface still names `direct-implementation` in both the generated di
 ## 2026-05-02T20:18:08+0000 codex:you-are-a-dispatch-fb53c6b
 
 This is an implementation request, but it is specifically about changing dispatcher behavior, so I’m classifying it as delegated implementation with one narrow child. The child will own the docs/wrapper/test/status edits and commit them; I’ll only verify the start marker here.
+
+## 2026-05-02T20:18:30+0000 codex:you-are-a-dispatch-fb53c6b
+
+The child was spawned with `called-by=fb53c6b` and a dispatch log under `.git/codex-wrap/dispatch/20260502-201821-3751126.log`. I’m waiting just long enough to confirm the wrapper wrote its start marker with the branch/worktree metadata.
