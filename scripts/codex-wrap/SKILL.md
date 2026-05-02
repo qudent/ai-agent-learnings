@@ -68,19 +68,24 @@ stdout reports the detached launcher pid and dispatch log path; the child run
 itself appears in ChatGit after the normal `[codex_start_user]` marker is
 written.
 
-## Active Agent Artifacts
+## Transcript And Inbox Artifacts
 
-Each active wrapper run has a tracked file under
-`active-agents/<run-start-short>.md`. The file contains the current prompt,
-session/run metadata, log paths, and latest Codex output. It is added and
-updated by marker commits while the process is live, then removed by the
-`[codex_stop]` or `[codex_abort]` commit. This keeps the current checkout clear
-after completion while preserving the active transcript artifact in Git
-history.
+Each active wrapper run has tracked files under `agents/<slug>/` and
+`transcripts/`. The durable transcript body lives in
+`transcripts/archive/<date>-<slug>.md`, active state is a small pointer at
+`transcripts/active/<slug>.md`, and follow-up routing goes through
+`agents/<slug>/inbox.md`. `transcripts/index.md` is the compact branch-local
+listing for current/known agents.
+
+The active pointer is removed by `[codex_stop]` or `[codex_abort]`; profile,
+inbox, and archive transcript files remain. Old history may still contain
+`active-agents/<run-start-short>.md`, but new wrapper runs should use the
+transcript/inbox files.
 
 Use this when the user asks "what is running?" or wants to inspect the current
-active transcript from the filesystem. Use `git log -- active-agents` or
-`git show <commit>:active-agents/<file>.md` to recover finished artifacts.
+active transcript from the filesystem. Read `transcripts/index.md`, then the
+relevant `agents/<slug>/profile.md`, `agents/<slug>/inbox.md`, and archive
+transcript.
 
 ## Backend CLI
 
@@ -111,8 +116,8 @@ backend debugging.
 - Preserve existing `session-id` and `run-start-commit-hash` metadata when
   folding/amending wrapper marker commits.
 - Prefer exact-shape regression assertions for marker commit bodies.
-- Keep `active-agents/` as wrapper-managed state. Do not put project-specific
-  runbooks there, and do not leave the files present after stop/abort.
+- Keep transcript/inbox files wrapper-managed. Do not put project-specific
+  runbooks there, and do not leave active pointer files present after stop/abort.
 
 ## Validation
 

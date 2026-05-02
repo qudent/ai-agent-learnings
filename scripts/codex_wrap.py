@@ -355,12 +355,15 @@ def active_pointer_content(paths: dict[str, str], latest: str) -> str:
 
 
 def transcript_index_content(paths: dict[str, str], status: str, latest: str) -> str:
-    slug = paths["slug"]
     return (
         "# Transcript Index\n\n"
-        "| agent | status | profile | transcript | inbox | latest |\n"
-        "| --- | --- | --- | --- | --- | --- |\n"
-        f"| {slug} | {status} | {paths['profile']} | {paths['archive']} | {paths['inbox']} | {latest} |\n"
+        "Agent-specific state is stored in `agents/<slug>/profile.md`, "
+        "`agents/<slug>/inbox.md`, `transcripts/active/<slug>.md`, and "
+        "`transcripts/archive/<date>-<slug>.md`.\n\n"
+        "List active agents with:\n\n"
+        "```bash\n"
+        "find transcripts/active agents -maxdepth 3 -type f 2>/dev/null | sort\n"
+        "```\n"
     )
 
 

@@ -138,6 +138,12 @@ _codex_dispatch_context() {
   codex_active 2>/dev/null || printf 'none\n'
   printf '\nRecent commits (subjects compacted; dispatch prompts elided):\n'
   git log --format='%h%x09%D%x09%s' --max-count=18 2>/dev/null | _codex_compact_subjects || true
+  printf '\nTranscript/inbox files:\n'
+  find transcripts/active agents -maxdepth 3 -type f 2>/dev/null | sort | sed -n '1,80p' || printf 'none\n'
+  if [ -f transcripts/index.md ]; then
+    printf '\nTranscript index:\n'
+    sed -n '1,80p' transcripts/index.md
+  fi
   printf '\nWorktrees:\n'
   git worktree list --porcelain 2>/dev/null | sed -n '1,80p' || true
   printf '\nLocal branches (subjects elided):\n'
@@ -181,6 +187,9 @@ Dispatch contract:
 - If direct-implementation, do the implementation locally in this dispatcher only when that is safer than spawning, then verify and report the changed files.
 - If parallel-dispatch, split the instruction into independent, reviewable tasks with disjoint write scopes.
 - Inspect currently running sessions before dispatching: compare recent run-start marker pid/cwd metadata with the live process table above, then decide whether to call codex_commit, codex_new_message/codex_continue-style followup, codex_abort, or explicitly report blocked-by.
+- Read transcripts/index.md and the relevant agents/*/profile.md before routing follow-ups or spawning related work.
+- Send follow-ups through codex_new_message or a target agents/<slug>/inbox.md update; do not embed full transcript bodies into new marker commits.
+- Spawn new agents with named task scopes that map cleanly to readable agent slugs and disjoint branch/worktree ownership.
 - Source the helpers before calling them: . scripts/codex_wrap.sh && . scripts/branch_commands.sh.
 - Use codex_spawn for child implementation agents so they run detached from this dispatcher and survive this dispatcher exiting. The web UI will still show them because codex_spawn runs the normal wrapper, which writes pid/cwd marker commits and logs.
 - After each codex_spawn call, verify that a child start marker appears with the expected called-by, branch/worktree cwd, pid, and dispatch log path. If a child produces only marker commits and no useful diff, report it as marker-only/no-op.

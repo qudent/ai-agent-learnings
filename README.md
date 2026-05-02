@@ -48,13 +48,15 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
   process. It should not own branch or worktree placement. Start/resume marker
   commits include `called-by: user` unless `CODEX_WRAP_CALLED_BY=<commit>` is
   set by a dispatcher or parent agent. `codex_agents` lists live local wrapper
-  agents from recent run-start commits cross-checked with live PIDs. While a
-  wrapper run is active, the wrapper also maintains a tracked
-  `active-agents/<run-start-short>.md` file containing the current prompt,
-  latest Codex outputs, and log paths. That file is committed into the active
-  run history, then deleted by the stop/abort commit when the run finishes, so
-  the current worktree stays uncluttered while the transcript artifact remains
-  recoverable from Git history.
+  agents from recent run-start commits cross-checked with live PIDs. Wrapper
+  transcript bodies now live in `transcripts/archive/<date>-<slug>.md`, active
+  state is a small pointer in `transcripts/active/<slug>.md`, and follow-up
+  routing goes through `agents/<slug>/inbox.md`. `agents/<slug>/profile.md`
+  stores run metadata and `transcripts/index.md` documents the layout while
+  dispatch context lists the branch-local active/inbox files directly. The
+  active pointer is deleted by stop/abort; archive transcript, inbox, and
+  profile files remain. Older history may still contain
+  `active-agents/<run-start-short>.md`.
   `codex_commit` and the web UI do not push by themselves. Use
   `codex_sync_push` to fetch, rebase onto the configured upstream, and push; it
   is intentionally the shared end-of-session path for avoiding duplicate
@@ -70,8 +72,11 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
 - `scripts/branch_commands.sh`: generic command placement helpers such as
   `do_at_branch`, `do_at_commit`, and thin tool-specific wrappers like
   `codex_in_branch`. It also exposes `codex_dispatch`, which sends one
-  orchestration prompt to Codex and requires a single round of delegated
-  `codex_spawn ...` calls with citations and `called-by` propagation.
+  orchestration prompt to Codex. Dispatch context lists transcript/inbox files
+  and requires agents to read `transcripts/index.md` plus relevant
+  `agents/*/profile.md` files before routing follow-ups. It still requires a
+  single round of delegated `codex_spawn ...` calls with citations and
+  `called-by` propagation.
 - `scripts/jj_project.sh`: experimental Jujutsu project-management helpers for
   representing TODO work as mutable `jj` changes. The helper is optional and
   fails clearly when `jj` is not installed.
