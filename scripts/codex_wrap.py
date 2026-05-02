@@ -400,6 +400,36 @@ def transcript_agent_output(run_start: str, sid: str, prompt: str, output: str) 
     }
 
 
+def append_pending_user_entry(inbox: str, entry: str) -> str:
+    if "\n## consumed" in inbox:
+        return inbox.replace("\n## consumed", f"\n{entry}\n## consumed", 1)
+    return inbox.rstrip() + "\n\n" + entry
+
+
+def transcript_user_followup(run_start: str, prompt: str) -> str:
+    paths = transcript_paths_for_run(run_start)
+    stamp = now()
+    inbox_previous = show_path("HEAD", paths["inbox"]) or agent_inbox_content(paths["slug"])
+    archive_previous = show_path("HEAD", paths["archive"])
+    inbox_entry = f"### {stamp} user\n\n{prompt.strip() or '(empty)'}\n"
+    archive_entry = markdown_block("user", prompt, at=stamp)
+    files = {
+        paths["inbox"]: append_pending_user_entry(inbox_previous, inbox_entry).rstrip() + "\n",
+        paths["archive"]: archive_previous.rstrip() + "\n\n" + archive_entry,
+        paths["index"]: transcript_index_content(paths, "active", f"{stamp} user"),
+    }
+    message = (
+        f"user: message to {paths['slug']}\n\n"
+        f"agent: {paths['slug']}\n"
+        "message-role: user\n"
+        f"inbox: {paths['inbox']}\n"
+        f"transcript: {paths['archive']}\n"
+        f"run-start-commit-hash: {run_start}\n"
+        f"at: {stamp}\n"
+    )
+    return marker(message, set_files=files, author=author_for("user"))
+
+
 def active_agent_content(
     run_start: str,
     sid: str,
@@ -815,6 +845,7 @@ def new_message(args: list[str]) -> int:
         sid = field(run, "session-id")
         pid = field(run, "pid")
         pgid = field(run, "pgid") or pid
+        transcript_user_followup(run, " ".join(args))
         stop_marker("[codex_stop]", sid, run, "reason: restart with new user message")
         kill_process(pid, pgid)
         return run_agent("resume", args, sid)

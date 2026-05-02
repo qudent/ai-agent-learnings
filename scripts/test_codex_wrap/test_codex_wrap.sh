@@ -253,6 +253,31 @@ test_new_message_interrupts_running_process() {
   ok 'new message interrupts'
 }
 
+test_new_message_appends_user_followup_to_inbox_and_transcript() {
+  setup_repo
+  codex_commit long >/tmp/cw-followup.out 2>/tmp/cw-followup.err & bg=$!
+  wait_active_sid || fail 'no active sid for followup run'
+  active_path=$(git ls-tree --name-only -r HEAD | grep -E '^transcripts/active/[^/]+\.md$' | head -n1 || true)
+  [ -n "$active_path" ] || fail 'active transcript pointer missing before followup'
+  slug=${active_path#transcripts/active/}
+  slug=${slug%.md}
+  inbox_path="agents/$slug/inbox.md"
+  archive_path=$(git ls-tree --name-only -r HEAD | grep -E "^transcripts/archive/[0-9]{4}-[0-9]{2}-[0-9]{2}-$slug\\.md$" | head -n1 || true)
+  [ -n "$archive_path" ] || fail 'archive transcript missing before followup'
+  codex_new_message 'new instruction'
+  wait "$bg" || true
+  [ -f "$inbox_path" ] || fail 'original inbox missing after followup'
+  [ -f "$archive_path" ] || fail 'original archive missing after followup'
+  grep -F '### ' "$inbox_path" | grep -F ' user' >/dev/null || fail 'inbox missing user followup header'
+  grep -F 'new instruction' "$inbox_path" >/dev/null || fail 'inbox missing user followup text'
+  grep -F '## ' "$archive_path" | grep -F ' user' >/dev/null || fail 'archive missing user followup header'
+  grep -F 'new instruction' "$archive_path" >/dev/null || fail 'archive missing user followup text'
+  user_commit=$(git log --format='%H' --grep="^user: message to $slug" -1)
+  [ -n "$user_commit" ] || fail 'user followup commit missing'
+  [ "$(git show -s --format='%an <%ae>' "$user_commit")" = 'user <user@local.agent>' ] || fail 'user followup author mismatch'
+  ok 'new message appends user followup to inbox and transcript'
+}
+
 test_abort_from_other_shell_context() {
   setup_repo
   codex_commit long >/tmp/cw-abort.out 2>/tmp/cw-abort.err & bg=$!
@@ -590,6 +615,7 @@ test_resume
 test_called_by_env_commit
 test_called_by_env_rejects_invalid_commit
 test_new_message_interrupts_running_process
+test_new_message_appends_user_followup_to_inbox_and_transcript
 test_abort_from_other_shell_context
 test_interactive_job_control_tracks_setsid_child
 test_codex_commit_at_is_plain_prompt
