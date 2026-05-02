@@ -303,10 +303,10 @@ status=$(curl -fsS "http://127.0.0.1:$PORT/api/status?repo=$REPO")
 printf '%s' "$status" | grep -F '"queue_depth": 1' >/dev/null
 printf '%s' "$status" | grep -F '"queue": [' >/dev/null
 for _ in $(seq 1 80); do
-  git -C "$REPO" log --format=%B -n 40 | grep -F 'queued followup' >/dev/null && break
+  git -C "$REPO" grep -F 'queued followup' HEAD -- transcripts/archive >/dev/null 2>&1 && break
   sleep 0.1
 done
-git -C "$REPO" log --format=%B -n 40 | grep -F 'queued followup' >/dev/null
+git -C "$REPO" grep -F 'queued followup' HEAD -- transcripts/archive >/dev/null
 status=$(curl -fsS "http://127.0.0.1:$PORT/api/status?repo=$REPO")
 printf '%s' "$status" | grep -F '"queue_depth": 0' >/dev/null
 for _ in $(seq 1 50); do
@@ -338,7 +338,7 @@ printf '%s' "$branch_active_response" | grep -F '"queued": false' >/dev/null
 branch_active_pid=$(printf '%s' "$branch_active_response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["process"]["pid"])')
 branch_active_worktree=$(printf '%s' "$branch_active_response" | python3 -c 'import json,sys; print(json.load(sys.stdin)["worktree"]["path"])')
 wait_pid "$branch_active_pid"
-git -C "$branch_active_worktree" log --format=%B -n 20 | grep -F 'parallel branch while active' >/dev/null
+git -C "$branch_active_worktree" grep -F 'parallel branch while active' HEAD -- transcripts/archive >/dev/null
 printf 'ok - branch mode starts a parallel worktree while parent is active\n'
 kill "$active_pid" 2>/dev/null || true
 wait_pid "$active_pid"

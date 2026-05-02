@@ -78,9 +78,8 @@ Each active wrapper run has tracked files under `agents/<slug>/` and
 listing for current/known agents.
 
 The active pointer is removed by `[codex_stop]` or `[codex_abort]`; profile,
-inbox, and archive transcript files remain. Old history may still contain
-`active-agents/<run-start-short>.md`, but new wrapper runs should use the
-transcript/inbox files.
+inbox, and archive transcript files remain. New wrapper runs do not create
+`active-agents/` artifacts.
 
 Use this when the user asks "what is running?" or wants to inspect the current
 active transcript from the filesystem. Read `transcripts/index.md`, then the

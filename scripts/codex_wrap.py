@@ -268,22 +268,35 @@ def transcript_paths(run_start: str, prompt: str) -> dict[str, str]:
     }
 
 
-def active_agent_path(run_start: str) -> str:
-    return f"active-agents/{short_hash(run_start)}.md"
-
-
 def show_path(ref: str, path: str) -> str:
     return git(["show", f"{ref}:{path}"], check=False)
 
 
-def prompt_from_start(commit: str) -> str:
-    body = commit_body(commit)
-    match = re.search(r"\nuser\n(.*?)\n\nsession-id:", body, re.S)
-    return match.group(1).strip() if match else ""
-
-
 def transcript_paths_for_run(run_start: str) -> dict[str, str]:
-    return transcript_paths(run_start, prompt_from_start(run_start))
+    matches = git(
+        ["grep", "-l", f"run_start_commit: {run_start}", "HEAD", "--", "agents/*/profile.md"],
+        check=False,
+    )
+    for match in matches.splitlines():
+        path = match.split(":", 1)[-1].strip()
+        parts = Path(path).parts
+        if len(parts) >= 3 and parts[0] == "agents" and parts[2] == "profile.md":
+            slug = parts[1]
+            day = time.strftime("%Y-%m-%d", time.gmtime())
+            archive_matches = git(
+                ["ls-tree", "--name-only", "-r", "HEAD", "--", f"transcripts/archive/*-{slug}.md"],
+                check=False,
+            ).splitlines()
+            archive = archive_matches[0] if archive_matches else f"transcripts/archive/{day}-{slug}.md"
+            return {
+                "slug": slug,
+                "profile": f"agents/{slug}/profile.md",
+                "inbox": f"agents/{slug}/inbox.md",
+                "archive": archive,
+                "active": f"transcripts/active/{slug}.md",
+                "index": "transcripts/index.md",
+            }
+    return transcript_paths(run_start, "")
 
 
 def markdown_block(role: str, text: str, *, at: str | None = None) -> str:
@@ -433,125 +446,18 @@ def transcript_user_followup(run_start: str, prompt: str) -> str:
     return marker(message, set_files=files, author=author_for("user"))
 
 
-def active_agent_content(
-    run_start: str,
-    sid: str,
-    status: str,
-    prompt: str,
-    json_path: Path,
-    err_path: Path,
-    *,
-    previous: str = "",
-    output: str = "",
-) -> str:
-    lines = [
-        "# Active Codex Agent",
-        "",
-        f"- status: {status}",
-        f"- run-start-commit-hash: {run_start}",
-        f"- session-id: {sid or 'unknown'}",
-        f"- host: {host()}",
-        f"- cwd: {Path.cwd()}",
-        f"- json-log: {json_path}",
-        f"- stderr-log: {err_path}",
-        "",
-        "## Current User Prompt",
-        "",
-        prompt.strip() or "(empty)",
-    ]
-    if previous and "## Codex Output" in previous:
-        prior_output = previous.split("## Codex Output", 1)[1].strip()
-        lines.extend(["", "## Codex Output", "", prior_output])
-    elif output:
-        lines.extend(["", "## Codex Output"])
-    if output:
-        lines.extend(["", f"### {int(time.time())}", "", output.strip()])
-    return "\n".join(lines).rstrip() + "\n"
-
-
-def active_agent_start(run_start: str, sid: str, prompt: str, json_path: Path, err_path: Path) -> None:
-    path = active_agent_path(run_start)
-    content = active_agent_content(run_start, sid, "active", prompt, json_path, err_path)
+def agent_marker(text: str, sid: str, run_start: str, *, set_files: dict[str, str] | None = None) -> str | None:
+    paths = transcript_paths_for_run(run_start)
     message = (
-        f"[active-agent] start {short_hash(run_start)}\n\n"
-        f"active-agent-path: {path}\n"
+        f"codex: update {paths['slug']}\n\n"
+        f"agent: {paths['slug']}\n"
+        "message-role: assistant\n"
+        f"transcript: {paths['archive']}\n"
         f"run-start-commit-hash: {run_start}\n"
         f"session-id: {sid or 'unknown'}\n"
         f"at: {now()}\n"
     )
-    marker(message, set_files={path: content}, author=author_for_caller())
-
-
-def active_agent_output(run_start: str, sid: str, prompt: str, json_path: Path, err_path: Path, output: str) -> dict[str, str]:
-    path = active_agent_path(run_start)
-    previous = show_path("HEAD", path)
-    content = active_agent_content(
-        run_start,
-        sid,
-        "active",
-        prompt,
-        json_path,
-        err_path,
-        previous=previous,
-        output=output,
-    )
-    return {path: content}
-
-
-def agent_parts_from_commit(commit: str) -> tuple[str, str]:
-    lines = commit_body(commit).strip("\n").splitlines()
-    if lines and lines[0].startswith("[codex]"):
-        lines = lines[1:]
-    while lines and not lines[0].strip():
-        lines = lines[1:]
-    metadata: list[str] = []
-    while lines and (
-        lines[-1].startswith("session-id:")
-        or lines[-1].startswith("run-start-commit-hash:")
-        or not lines[-1].strip()
-    ):
-        metadata.append(lines.pop())
-    return "\n".join(lines).strip(), "\n".join(reversed([line for line in metadata if line.strip()]))
-
-
-def agent_marker(text: str, sid: str, run_start: str, *, set_files: dict[str, str] | None = None) -> str | None:
-    paths = transcript_paths_for_run(run_start)
-    for _ in range(7):
-        old = head()
-        if not old:
-            return None
-        subj = subject(old)
-        message = f"[codex] {oneline(text)}\n\n{text}\n\nsession-id: {sid or 'unknown'}\nrun-start-commit-hash: {run_start}"
-        mode = "normal"
-        parent = old
-        if subj.startswith("[codex]"):
-            previous, metadata = agent_parts_from_commit(old)
-            message = f"[codex] {oneline(text)}\n\n{text}"
-            if previous:
-                message += f"\n\n{previous}"
-            if metadata:
-                message += f"\n\n{metadata}"
-            mode = "amend"
-            parent = old
-        elif subj.startswith("[autosave]"):
-            mode = "amend"
-            parent = old
-            if git_ok(["rev-parse", "-q", "--verify", f"{old}^"]):
-                prev = subject(f"{old}^")
-                if prev.startswith("[codex]"):
-                    previous, metadata = agent_parts_from_commit(f"{old}^")
-                    message = f"[codex] {oneline(text)}\n\n{text}"
-                    if previous:
-                        message += f"\n\n{previous}"
-                    if metadata:
-                        message += f"\n\n{metadata}"
-                    parent = f"{old}^"
-        new = update_ref(message, old, mode, parent, old, set_files=set_files, author=author_for("codex", paths["slug"]))
-        if new:
-            sync_worktree_files(set_files=set_files)
-            return new
-        time.sleep(0.05)
-    return None
+    return marker(message, set_files=set_files, author=author_for("codex", paths["slug"]))
 
 
 def last_sid(ref: str = "HEAD") -> str:
@@ -560,26 +466,19 @@ def last_sid(ref: str = "HEAD") -> str:
     return match.group(0) if match else ""
 
 
-def banner(stderr_path: Path, sid: str) -> str:
-    text = stderr_path.read_text(errors="replace") if stderr_path.exists() else ""
-    lines = []
-    for line in text.splitlines():
-        if line == "user":
-            break
-        if line.strip():
-            lines.append(line)
-    if lines:
-        return "\n".join(lines)
-    return f"OpenAI Codex\n--------\nworkdir: {Path.cwd()}\nsession id: {sid or 'unknown'}\n--------"
-
-
 def start_message(kind: str, prompt: str, sid: str, pid: int, pgid: int, stderr_path: Path | None = None) -> str:
-    if kind == "start":
-        msg = f"[codex_start_user] {oneline(prompt)}\n\n{banner(stderr_path or Path(), sid)}\nuser\n{prompt}\n\n"
-    else:
-        msg = f"[codex_resume_user] {oneline(prompt)}\n\nuser\n{prompt}\n\n"
-    msg += f"session-id: {sid or 'unknown'}\ncalled-by: {called_by()}\npid: {pid}\npgid: {pgid}\nhost: {host()}\ncwd: {Path.cwd()}\nstarted-at: {now()}\n"
-    return msg
+    label = "[codex_start_user]" if kind == "start" else "[codex_resume_user]"
+    return (
+        f"{label}\n\n"
+        "message-role: user\n"
+        f"session-id: {sid or 'unknown'}\n"
+        f"called-by: {called_by()}\n"
+        f"pid: {pid}\n"
+        f"pgid: {pgid}\n"
+        f"host: {host()}\n"
+        f"cwd: {Path.cwd()}\n"
+        f"started-at: {now()}\n"
+    )
 
 
 def stop_message(label: str, sid: str, run_start: str, detail: str) -> str:
@@ -587,7 +486,7 @@ def stop_message(label: str, sid: str, run_start: str, detail: str) -> str:
 
 
 def stop_marker(label: str, sid: str, run_start: str, detail: str) -> str:
-    remove_paths = [active_agent_path(run_start)] if run_start else []
+    remove_paths = []
     author = None
     if run_start:
         paths = transcript_paths_for_run(run_start)
@@ -771,7 +670,6 @@ def run_agent(mode: str, args: list[str], sid: str = "") -> int:
     if mode == "resume":
         run_start = marker(start_message("resume", prompt, sid, proc.pid, pgid), author=author_for_caller())
         json_path, err_path = rename_logs(base, pending, run_start)
-        active_agent_start(run_start, sid, prompt, json_path, err_path)
         transcript_agent_start(run_start, sid, prompt, json_path, err_path)
 
     with json_path.open("a", encoding="utf-8", errors="replace") as json_file:
@@ -789,7 +687,6 @@ def run_agent(mode: str, args: list[str], sid: str = "") -> int:
                     run_start = marker(start_message("start", prompt, sid, proc.pid, pgid, err_path), author=author_for_caller())
                     json_file.close()
                     json_path, err_path = rename_logs(base, pending, run_start)
-                    active_agent_start(run_start, sid, prompt, json_path, err_path)
                     transcript_agent_start(run_start, sid, prompt, json_path, err_path)
                     json_file = json_path.open("a", encoding="utf-8", errors="replace")
                     started = True
@@ -808,9 +705,8 @@ def run_agent(mode: str, args: list[str], sid: str = "") -> int:
             seen.add(item_id)
             sys.stderr.write(f"\ncodex\n{text}\n")
             sys.stderr.flush()
-            active_files = active_agent_output(run_start, sid, prompt, json_path, err_path, text)
-            active_files.update(transcript_agent_output(run_start, sid, prompt, text))
-            agent_marker(text, sid, run_start, set_files=active_files)
+            transcript_files = transcript_agent_output(run_start, sid, prompt, text)
+            agent_marker(text, sid, run_start, set_files=transcript_files)
 
     rc = proc.wait()
     stderr_thread.join(timeout=1)

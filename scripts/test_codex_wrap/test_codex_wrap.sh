@@ -116,6 +116,39 @@ equals() {
   printf 'not ok - exact mismatch\nexpected:\n%s\nactual:\n%s\n' "$1" "$2" >&2
   exit 1
 }
+field_from_text() {
+  awk -F': ' -v key="$1" '$1 == key { sub("^[^:]*: ", ""); print; exit }' <<<"$2"
+}
+assert_compact_run_marker() {
+  local label=$1 body=$2 prompt=$3
+  [ "$(printf '%s\n' "$body" | sed -n '1p')" = "$label" ] || fail "run marker subject should be exactly $label"
+  contains 'message-role: user' "$body"
+  contains 'session-id: 11111111-1111-1111-1111-111111111111' "$body"
+  contains 'called-by: user' "$body"
+  contains 'pid: ' "$body"
+  contains 'pgid: ' "$body"
+  contains 'host: ' "$body"
+  contains 'cwd: ' "$body"
+  contains 'started-at: ' "$body"
+  ! printf '%s' "$body" | grep -F -x 'user' >/dev/null || fail 'run marker should not contain legacy user delimiter'
+  not_contains 'OpenAI Codex v0.125.0 (fake)' "$body"
+  not_contains "$prompt" "$body"
+}
+assert_assistant_pointer() {
+  local body=$1 run_start=$2 forbidden=$3
+  [[ $(printf '%s\n' "$body" | sed -n '1p') == codex:\ update\ * ]] || fail 'assistant commit subject should be a compact codex pointer'
+  contains 'agent: ' "$body"
+  contains 'message-role: assistant' "$body"
+  contains 'transcript: transcripts/archive/' "$body"
+  contains "run-start-commit-hash: $run_start" "$body"
+  contains 'session-id: 11111111-1111-1111-1111-111111111111' "$body"
+  contains 'at: ' "$body"
+  [ -z "$forbidden" ] || not_contains "$forbidden" "$body"
+}
+assert_no_legacy_active_agents() {
+  ! git ls-tree --name-only -r HEAD | grep -E '^active-agents/' >/dev/null || fail 'legacy active-agents path present in HEAD'
+  ! git log --all --name-only --format= -- active-agents | grep -E '^active-agents/' >/dev/null || fail 'legacy active-agents path created in history'
+}
 
 setup_repo() {
   local d
@@ -154,38 +187,38 @@ test_basic() {
   setup_repo
   codex_commit hi
   s=$(subjects)
-  contains '[codex_start_user] hi' "$s"
-  contains '[codex] done: hi' "$s"
+  contains '[codex_start_user]' "$s"
+  contains 'codex: update hi-' "$s"
   contains '[codex_stop] 11111111-1111-1111-1111-111111111111' "$s"
-  git log --format=%B --grep='^\[codex_start_user\]' -1 | grep -F 'OpenAI Codex v0.125.0 (fake)' >/dev/null || fail 'start banner missing'
-  git log --format=%B --grep='^\[codex_start_user\]' -1 | grep -F 'called-by: user' >/dev/null || fail 'start caller metadata missing'
+  start_body=$(git log --format=%B --grep='^\[codex_start_user\]' -1)
+  assert_compact_run_marker '[codex_start_user]' "$start_body" 'hi'
   sh=$(git log --format=%H --grep='^\[codex_start_user\]' -1)
-  ab=$(git log --format=%B --grep='^\[codex\]' -1)
-  contains "run-start-commit-hash: $sh" "$ab"
+  ab=$(git log --format=%B --grep='^codex: update' -1)
+  assert_assistant_pointer "$ab" "$sh" 'done: hi'
+  archive=$(field_from_text transcript "$ab")
+  [ -n "$archive" ] || fail 'assistant pointer missing transcript field'
+  grep -F 'done: hi' "$archive" >/dev/null || fail 'assistant output missing from transcript file'
+  assert_no_legacy_active_agents
   ok basic
 }
 
-test_fold_codex_messages_and_ignore_tools() {
+
+test_assistant_messages_use_pointer_commits_and_ignore_tools() {
   setup_repo
   codex_commit multi
-  count=$(git log --pretty=%s | grep -c '^\[codex\]')
-  [ "$count" -eq 1 ] || fail "expected one folded [codex] commit, got $count"
+  count=$(git log --pretty=%s | grep -c '^codex: update')
+  [ "$count" -eq 2 ] || fail "expected one pointer commit per assistant message, got $count"
   sh=$(git log --format=%H --grep='^\[codex_start_user\]' -1)
-  b=$(git log --format=%B --grep='^\[codex\]' -1)
-  expected=$(cat <<EOF
-[codex] second output
-
-second output
-
-first output
-
-session-id: 11111111-1111-1111-1111-111111111111
-run-start-commit-hash: $sh
-EOF
-)
-  equals "$expected" "$b"
-  ok 'fold codex messages'
+  b=$(git log --format=%B --grep='^codex: update' -1)
+  assert_assistant_pointer "$b" "$sh" 'second output'
+  not_contains 'first output' "$b"
+  archive=$(field_from_text transcript "$b")
+  [ -n "$archive" ] || fail 'assistant pointer missing transcript field'
+  grep -F 'first output' "$archive" >/dev/null || fail 'first output missing from transcript file'
+  grep -F 'second output' "$archive" >/dev/null || fail 'second output missing from transcript file'
+  ok 'assistant messages use transcript pointers'
 }
+
 
 test_autosave_is_rewritten() {
   setup_repo
@@ -195,7 +228,7 @@ test_autosave_is_rewritten() {
   codex_commit hi
   s=$(subjects)
   not_contains '[autosave]' "$s"
-  contains '[codex_start_user] hi' "$s"
+  contains '[codex_start_user]' "$s"
   grep -F autosave file.txt >/dev/null || fail 'autosave tree not preserved'
   ok 'autosave rewritten'
 }
@@ -204,8 +237,8 @@ test_index_lock_does_not_block_markers() {
   setup_repo
   codex_commit lock
   s=$(subjects)
-  contains '[codex_start_user] lock' "$s"
-  contains '[codex] lock survived' "$s"
+  contains '[codex_start_user]' "$s"
+  contains 'codex: update lock-' "$s"
   contains '[codex_stop] 11111111-1111-1111-1111-111111111111' "$s"
   ok 'index lock avoided'
 }
@@ -216,8 +249,9 @@ test_resume() {
   codex_resume again
   s=$(subjects)
   contains '[codex_resume_user]' "$s"
-  contains '[codex] resumed: again' "$s"
-  git log --format=%B --grep='^\[codex_resume_user\]' -1 | grep -F 'called-by: user' >/dev/null || fail 'resume caller metadata missing'
+  contains 'codex: update again-' "$s"
+  resume_body=$(git log --format=%B --grep='^\[codex_resume_user\]' -1)
+  assert_compact_run_marker '[codex_resume_user]' "$resume_body" 'again'
   ok resume
 }
 
@@ -246,10 +280,10 @@ test_new_message_interrupts_running_process() {
   codex_new_message interrupt
   wait "$bg" || true
   s=$(subjects)
-  contains '[codex_start_user] long' "$s"
+  contains '[codex_start_user]' "$s"
   contains '[codex_stop] 11111111-1111-1111-1111-111111111111' "$s"
   contains '[codex_resume_user]' "$s"
-  contains '[codex] resumed: interrupt' "$s"
+  contains 'codex: update interrupt-' "$s"
   ok 'new message interrupts'
 }
 
@@ -282,11 +316,11 @@ test_abort_from_other_shell_context() {
   setup_repo
   codex_commit long >/tmp/cw-abort.out 2>/tmp/cw-abort.err & bg=$!
   wait_active_sid || fail 'no active sid for abort run'
-  wait_subject '[codex_start_user] long' || fail 'no start marker before abort'
+  wait_subject '[codex_start_user]' || fail 'no start marker before abort'
   codex_abort
   wait "$bg" || true
   s=$(subjects)
-  contains '[codex_start_user] long' "$s"
+  contains '[codex_start_user]' "$s"
   contains '[codex_abort] 11111111-1111-1111-1111-111111111111' "$s"
   headsub=$(git log -1 --pretty=%s)
   [[ $headsub == '[codex_abort]'* ]] || fail "head should be abort, got $headsub"
@@ -299,8 +333,8 @@ test_interactive_job_control_tracks_setsid_child() {
   codex_commit delayed >/tmp/cw-delayed.out 2>/tmp/cw-delayed.err
   set +m
   s=$(subjects)
-  contains '[codex_start_user] delayed' "$s"
-  contains '[codex] delayed done: delayed' "$s"
+  contains '[codex_start_user]' "$s"
+  contains 'codex: update delayed-' "$s"
   contains '[codex_stop] 11111111-1111-1111-1111-111111111111' "$s"
   ok 'interactive job-control setsid child'
 }
@@ -314,8 +348,8 @@ test_codex_commit_at_is_plain_prompt() {
   [[ $branch == main ]] || fail "codex_commit @ changed branch: $branch"
   [ ! -d "$PWD.worktrees" ] || fail 'codex_commit @ should not create a worktree'
   s=$(subjects)
-  contains '[codex_start_user] @ '"$base"' branch-task' "$s"
-  contains '[codex] done: @ '"$base"' branch-task' "$s"
+  contains '[codex_start_user]' "$s"
+  contains 'codex: update ' "$s"
   ok 'codex @ is plain prompt'
 }
 
@@ -326,8 +360,10 @@ test_codex_prompt_metacharacters_are_literal() {
   codex_commit "$prompt"
   [ ! -e "$target" ] || fail 'prompt shell metacharacters executed'
   b=$(git log --format=%B --grep='^\[codex_start_user\]' -1)
-  contains '$(touch ' "$b"
-  contains "'quoted'" "$b"
+  not_contains '$(touch ' "$b"
+  archive=$(git ls-tree --name-only -r HEAD | grep -E '^transcripts/archive/.*literal-shell-metacharacters.*\.md$' | head -n1)
+  grep -F '$(touch ' "$archive" >/dev/null || fail 'prompt missing from transcript file'
+  grep -F "'quoted'" "$archive" >/dev/null || fail 'quoted prompt missing from transcript file'
   ok 'codex prompt metacharacters are literal'
 }
 
@@ -345,8 +381,8 @@ test_codex_in_branch_at_commit_uses_worktree_wrapper() {
   [ "$(git config --get "branch.$branch.parent-commit")" = "$base" ] || fail 'created worktree missing parent commit metadata'
   git -C "$wt" merge-base --is-ancestor "$base" HEAD || fail 'worktree branch not rooted at requested commit'
   s=$(git -C "$wt" log --reverse --pretty=%s)
-  contains '[codex_start_user] branch-task' "$s"
-  contains '[codex] done: branch-task' "$s"
+  contains '[codex_start_user]' "$s"
+  contains 'codex: update ' "$s"
   ok 'codex_in_branch @ commit'
 }
 
@@ -389,7 +425,7 @@ test_codex_spawn_detached_agent() {
   contains 'codex_spawn: pid=' "$out"
   log=$(printf '%s\n' "$out" | sed -n 's/.* log=\([^ ]*\) .*/\1/p')
   [ -n "$log" ] || fail 'spawn log missing'
-  wait_subject '[codex_start_user] long-spawn' || fail 'spawned run did not start'
+  wait_subject '[codex_start_user]' || fail 'spawned run did not start'
   codex_active >/tmp/cw-spawn-active || fail 'spawned run is not active'
   [ -f "$log" ] || fail 'spawn log file not created'
   git log --format=%B --grep='^\[codex_start_user\]' -1 | grep -F 'called-by: user' >/dev/null || fail 'spawn caller metadata missing'
@@ -456,6 +492,7 @@ test_transcript_inbox_artifacts_are_tracked_and_active_pointer_removed() {
   [ -f "$inbox_path" ] || fail 'inbox should remain after abort'
   [ -f "$archive_path" ] || fail 'archive transcript should remain after abort'
   git log --all --name-only --format= -- transcripts agents | grep -F "$archive_path" >/dev/null || fail 'archive transcript was not preserved in git history'
+  assert_no_legacy_active_agents
   ok 'transcript inbox artifacts are tracked and active pointer removed'
 }
 
@@ -526,34 +563,39 @@ test_codex_dispatch_prompt_contract() {
   git commit --allow-empty -q -m '[codex_start_user] You are a Codex dispatch/orchestration agent. Prior duplicated body that should be elided from context' -m $'user\nYou are a Codex dispatch/orchestration agent. Prior duplicated body that should be elided from context\n\nsession-id: 22222222-2222-2222-2222-222222222222\ncalled-by: user\npid: 999999\npgid: 999999\nhost: test-host\ncwd: /tmp/test\nstarted-at: 2026-05-01T00:00:00+0000'
   codex_dispatch "split this safely \$(touch $target)"
   [ ! -e "$target" ] || fail 'dispatch prompt shell metacharacters executed'
-  b=$(git log --format=%B --grep='^\[codex_start_user\]' -1)
-  contains 'You are a Codex dispatch/orchestration agent.' "$b"
-  contains 'Recent commits (subjects compacted; dispatch prompts elided):' "$b"
-  contains '[codex_start_user] <dispatch prompt elided>' "$b"
-  not_contains 'Prior duplicated body that should be elided from context' "$b"
-  contains 'Transcript/inbox files:' "$b"
-  contains 'Recent run-start markers with pid metadata:' "$b"
-  contains 'Live Codex-related processes for PID cross-check (command text elided):' "$b"
-  contains 'First reconcile state: branch/worktree' "$b"
-  contains 'Classify the request as exactly one of: status-only, trivial-chat, direct-implementation, parallel-dispatch, cleanup, or blocked.' "$b"
-  contains 'If status-only or trivial-chat, do not spawn' "$b"
-  contains 'If direct-implementation, do the implementation locally' "$b"
-  contains 'compare recent run-start marker pid/cwd metadata with the live process table' "$b"
-  contains 'Read transcripts/index.md and the relevant agents/*/profile.md' "$b"
-  contains 'Send follow-ups through codex_new_message or a target agents/<slug>/inbox.md update' "$b"
-  contains 'Spawn new agents with named task scopes' "$b"
-  contains 'Source the helpers before calling them' "$b"
-  contains 'After each codex_spawn call, verify that a child start marker appears' "$b"
-  contains 'marker-only/no-op' "$b"
-  contains 'codex_spawn codex_in_branch @ <branch-or-commit> "<prompt>"' "$b"
-  contains 'codex_spawn sets CODEX_WRAP_CALLED_BY from codex_active by default' "$b"
-  contains 'End with a single round of codex_spawn calls' "$b"
-  contains 'Include concise citations in dispatched prompts' "$b"
-  contains 'periodic empty [status] commits' "$b"
-  contains 'checkpoint: last save state before <work>' "$b"
-  contains 'Current STATUS.md:' "$b"
-  contains 'dispatch sample' "$b"
-  contains '$(touch ' "$b"
+  b=$(git log --format=%B --grep='^codex: update' -1)
+  sh=$(git log --format=%H --grep='^\[codex_start_user\]' -1)
+  assert_assistant_pointer "$b" "$sh" ''
+  archive=$(field_from_text transcript "$b")
+  [ -n "$archive" ] || fail 'dispatch assistant pointer missing transcript field'
+  transcript=$(cat "$archive")
+  contains 'You are a Codex dispatch/orchestration agent.' "$transcript"
+  contains 'Recent commits (subjects compacted; dispatch prompts elided):' "$transcript"
+  contains '[codex_start_user] <dispatch prompt elided>' "$transcript"
+  not_contains 'Prior duplicated body that should be elided from context' "$transcript"
+  contains 'Transcript/inbox files:' "$transcript"
+  contains 'Recent run-start markers with pid metadata:' "$transcript"
+  contains 'Live Codex-related processes for PID cross-check (command text elided):' "$transcript"
+  contains 'First reconcile state: branch/worktree' "$transcript"
+  contains 'Classify the request as exactly one of: status-only, trivial-chat, direct-implementation, parallel-dispatch, cleanup, or blocked.' "$transcript"
+  contains 'If status-only or trivial-chat, do not spawn' "$transcript"
+  contains 'If direct-implementation, do the implementation locally' "$transcript"
+  contains 'compare recent run-start marker pid/cwd metadata with the live process table' "$transcript"
+  contains 'Read transcripts/index.md and the relevant agents/*/profile.md' "$transcript"
+  contains 'Send follow-ups through codex_new_message or a target agents/<slug>/inbox.md update' "$transcript"
+  contains 'Spawn new agents with named task scopes' "$transcript"
+  contains 'Source the helpers before calling them' "$transcript"
+  contains 'After each codex_spawn call, verify that a child start marker appears' "$transcript"
+  contains 'marker-only/no-op' "$transcript"
+  contains 'codex_spawn codex_in_branch @ <branch-or-commit> "<prompt>"' "$transcript"
+  contains 'codex_spawn sets CODEX_WRAP_CALLED_BY from codex_active by default' "$transcript"
+  contains 'End with a single round of codex_spawn calls' "$transcript"
+  contains 'Include concise citations in dispatched prompts' "$transcript"
+  contains 'periodic empty [status] commits' "$transcript"
+  contains 'checkpoint: last save state before <work>' "$transcript"
+  contains 'Current STATUS.md:' "$transcript"
+  contains 'dispatch sample' "$transcript"
+  contains '$(touch ' "$transcript"
   ok 'codex dispatch prompt contract'
 }
 
@@ -569,21 +611,21 @@ test_parallel_sibling_worktrees_are_branch_local() {
   ( cd "$wa" && codex_commit long-a >/tmp/cw-para-a.out 2>/tmp/cw-para-a.err ) & bga=$!
   ( cd "$wb" && codex_commit long-b >/tmp/cw-para-b.out 2>/tmp/cw-para-b.err ) & bgb=$!
   deadline=$((SECONDS + 6))
-  while [ $SECONDS -lt $deadline ]; do git -C "$wa" log --pretty=%s | grep -F '[codex_start_user] long-a' >/dev/null 2>&1 && break; sleep 0.05; done
-  git -C "$wa" log --pretty=%s | grep -F '[codex_start_user] long-a' >/dev/null 2>&1 || fail 'para-a did not start'
+  while [ $SECONDS -lt $deadline ]; do git -C "$wa" log --pretty=%s | grep -F '[codex_start_user]' >/dev/null 2>&1 && break; sleep 0.05; done
+  git -C "$wa" log --pretty=%s | grep -F '[codex_start_user]' >/dev/null 2>&1 || fail 'para-a did not start'
   deadline=$((SECONDS + 6))
-  while [ $SECONDS -lt $deadline ]; do git -C "$wb" log --pretty=%s | grep -F '[codex_start_user] long-b' >/dev/null 2>&1 && break; sleep 0.05; done
-  git -C "$wb" log --pretty=%s | grep -F '[codex_start_user] long-b' >/dev/null 2>&1 || fail 'para-b did not start'
+  while [ $SECONDS -lt $deadline ]; do git -C "$wb" log --pretty=%s | grep -F '[codex_start_user]' >/dev/null 2>&1 && break; sleep 0.05; done
+  git -C "$wb" log --pretty=%s | grep -F '[codex_start_user]' >/dev/null 2>&1 || fail 'para-b did not start'
   ( cd "$wa" && codex_new_message a-followup )
   ( cd "$wb" && codex_abort )
   wait "$bga" || true
   wait "$bgb" || true
   sa=$(git -C "$wa" log --reverse --pretty=%s)
   sb=$(git -C "$wb" log --reverse --pretty=%s)
-  contains '[codex_start_user] long-a' "$sa"
-  contains '[codex_resume_user] a-followup' "$sa"
+  contains '[codex_start_user]' "$sa"
+  contains '[codex_resume_user]' "$sa"
   not_contains '[codex_abort]' "$sa"
-  contains '[codex_start_user] long-b' "$sb"
+  contains '[codex_start_user]' "$sb"
   contains '[codex_abort]' "$sb"
   not_contains 'a-followup' "$sb"
   ok 'parallel sibling worktrees are branch-local'
@@ -592,27 +634,22 @@ test_parallel_sibling_worktrees_are_branch_local() {
 test_text_transcript_fixture() {
   setup_repo
   codex_commit from-text-transcript
+  count=$(git log --pretty=%s | grep -c '^codex: update')
+  [ "$count" -eq 3 ] || fail "expected three assistant pointer commits, got $count"
+  b=$(git log --format=%B --grep='^codex: update' -1)
   sh=$(git log --format=%H --grep='^\[codex_start_user\]' -1)
-  b=$(git log --format=%B --grep='^\[codex\]' -1)
-  expected=$(cat <<EOF
-[codex] Fixed. main and origin/main are synchronized at 1cea926.
-
-Fixed. main and origin/main are synchronized at 1cea926.
-
-Both tips have exactly the same tree: the only divergence is commit history for the same STATUS.md rewrite.
-
-I’ll inspect the repo state first: current branch, local changes, upstream relation, and the project status notes so I can fix the divergence without trampling unrelated work.
-
-session-id: 11111111-1111-1111-1111-111111111111
-run-start-commit-hash: $sh
-EOF
-)
-  equals "$expected" "$b"
+  assert_assistant_pointer "$b" "$sh" 'Fixed. main and origin/main are synchronized at 1cea926.'
+  archive=$(field_from_text transcript "$b")
+  [ -n "$archive" ] || fail 'assistant pointer missing transcript field'
+  grep -F 'I’ll inspect the repo state first' "$archive" >/dev/null || fail 'first text transcript output missing'
+  grep -F 'Both tips have exactly the same tree' "$archive" >/dev/null || fail 'second text transcript output missing'
+  grep -F 'Fixed. main and origin/main are synchronized at 1cea926.' "$archive" >/dev/null || fail 'final text transcript output missing'
   ok 'text transcript mock json'
 }
 
+
 test_basic
-test_fold_codex_messages_and_ignore_tools
+test_assistant_messages_use_pointer_commits_and_ignore_tools
 test_autosave_is_rewritten
 test_index_lock_does_not_block_markers
 test_resume

@@ -256,6 +256,9 @@ def records(repo, limit=150, full=True):
             role, kind = 'assistant', 'assistant'
             m = re.search(r'\n\n(.*?)(?:\n\nsession-id:|\n\nprevious \[codex\]|\Z)', raw, re.S)
             text = m.group(1).strip() if m else subj.split(']',1)[-1].strip()
+        elif subj.startswith('codex: update '):
+            role, kind = 'assistant', 'assistant'
+            text = body.strip() or subj
         elif subj.startswith('[codex_stop]'): kind, text = 'stop', body.strip() or subj
         elif subj.startswith('[codex_abort]'): kind, text = 'abort', body.strip() or subj
         fields = dict(re.findall(r'^([A-Za-z0-9_-]+):\s*(.*)$', raw, re.M))
@@ -312,6 +315,10 @@ def infer_branch_from_cwd(cwd, path_branches):
         return path.name
     return path.name or '(archived)'
 
+def profile_task(text):
+    m = re.search(r'^Task:\s*(.*)$', text or '', re.M)
+    return m.group(1).strip() if m else ''
+
 def run_archive(repo, limit=300):
     rows = records(repo, limit)
     active_hash = active_run(repo, rows).get('hash', '')
@@ -347,6 +354,13 @@ def run_archive(repo, limit=300):
         elif row['kind'] in ('stop', 'abort'):
             runs[start]['status'] = 'aborted' if row['kind'] == 'abort' else 'finished'
             runs[start]['stop_hash'] = row['hash']
+        elif row['subject'].startswith('[transcript] start '):
+            profile = row['fields'].get('profile', '')
+            if profile:
+                text = git(repo, 'show', f'{row["hash"]}:{profile}', check=False)
+                runs[start]['prompt'] = profile_task(text) or runs[start]['prompt']
+            if row['fields'].get('transcript'):
+                runs[start]['transcript_path'] = row['fields']['transcript']
     logs = codex_dir(repo) / 'logs'
     for h, run in runs.items():
         run['has_transcript'] = (logs / f'{h}.stderr').exists() or (logs / f'{h}.jsonl').exists()

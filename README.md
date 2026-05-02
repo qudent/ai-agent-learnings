@@ -55,8 +55,8 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
   stores run metadata and `transcripts/index.md` documents the layout while
   dispatch context lists the branch-local active/inbox files directly. The
   active pointer is deleted by stop/abort; archive transcript, inbox, and
-  profile files remain. Older history may still contain
-  `active-agents/<run-start-short>.md`.
+  profile files remain. New wrapper runs do not create `active-agents/`
+  artifacts.
   `codex_commit` and the web UI do not push by themselves. Use
   `codex_sync_push` to fetch, rebase onto the configured upstream, and push; it
   is intentionally the shared end-of-session path for avoiding duplicate
