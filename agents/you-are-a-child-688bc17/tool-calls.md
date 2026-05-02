@@ -26,3 +26,4 @@ Bounded metadata only. Raw tool outputs stay in ignored wrapper JSON/stderr logs
 | 2026-05-02T20:20:28+0000 | item_22 | command_execution | completed | /bin/bash -lc 'git log --oneline --decorate --max-count=15 --name-only' | 644b350cf0983e7f | 0 |
 | 2026-05-02T20:21:00+0000 | item_24 | command_execution | completed | /bin/bash -lc 'python3 -m py_compile scripts/codex_wrap.py' | a59832fd5a33a475 | 0 |
 | 2026-05-02T20:21:00+0000 | item_25 | command_execution | failed | /bin/bash -lc 'bash scripts/test_codex_wrap/test_codex_wrap.sh scripts/codex_wrap.sh' | 46deacc0ab071e5a | 0 |
+| 2026-05-02T20:21:07+0000 | item_27 | command_execution | completed | /bin/bash -lc 'rg -n "CODEX_WRAP_CALLED_BY\|called-by" scripts/test_codex_wrap/test_codex_wrap.sh' | 7cd13c54613b7a99 | 0 |
