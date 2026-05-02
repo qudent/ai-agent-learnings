@@ -37,6 +37,10 @@ Avoid: provider model IDs from your general knowledge.
 
 **Do instead:** Always search for state-of-the-art model versions yourself unless explicitly asked. if you choose which model to use, double check and confirm that this comes either from a research or directly from the user.
 
+## Voice and gateway input handling
+
+When a user message arrives with a generated voice transcript, the first assistant response must begin with a cleaned transcript and concise interpreted instructions before doing the substantive task. Treat the transcript as the user's real input even if the platform message body says it has no text content. Rename the Hermes session/thread from the voice content whenever the platform/gateway exposes a safe way to do so; for Discord, rely on the Hermes-owned auto-thread rename hook for freshly-created threads and do not bulk-rename arbitrary old threads from agent context alone.
+
 ## Coordination
 
 Read `./STATUS.md` before starting non-trivial work. `STATUS.md` is the single coordination source of truth for current branch state only: active goals, blockers, current instructions, and next actions. Rewrite it after meaningful state changes; keep it compact and current. **Delete finished items from STATUS.md immediately** and rely on Git history, `transcripts/archive/`, `agents/*/profile.md`, and `agents/*/inbox.md` for the durable audit trail.
@@ -102,6 +106,8 @@ Preferred workflow:
 - **Bias toward action**: Small, revertable commits are cheap; blocked time is expensive.
 - **Commit discipline**: Frequent, logical commits. Each commit = one coherent unit.
 - **Don't block on confirmation**: If the path forward is clear, do it. Git history is the safety net.
+- **No performative next steps**: If you are about to say "next I should...", "the next practical step is...", or "I would..." and the action is safe/tool-accessible, do it immediately instead of stopping. Report next steps only when blocked, unsafe without confirmation, or outside available tools.
+- **Version control is the rollback plan**: Prefer small commits/checkpoints over waiting for confirmation on reversible edits. If a change is wrong, revert it; do not use reversibility as a reason to avoid acting.
 - **Smoke-test risky assumptions first**: Before building on an API, library, or technique, write a 10-line spike that proves the critical integration works.
 
 ## Package Managers
