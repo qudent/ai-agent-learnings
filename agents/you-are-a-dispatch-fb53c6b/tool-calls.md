@@ -24,3 +24,4 @@ Bounded metadata only. Raw tool outputs stay in ignored wrapper JSON/stderr logs
 | 2026-05-02T20:18:44+0000 | item_22 | command_execution | completed | /bin/bash -lc 'git worktree list --porcelain' | a94fa16ddb9b1666 | 0 |
 | 2026-05-02T20:18:44+0000 | item_23 | command_execution | completed | /bin/bash -lc 'git log work-99f3c2f-20260502-201821-0 --format=fuller --max-count=5' | b5d6516cfa1a6ae4 | 0 |
 | 2026-05-02T20:18:44+0000 | item_24 | command_execution | completed | /bin/bash -lc 'ps -o pid,pgid,ppid,stat,lstart,cmd -p 3751144 --forest' | 30633e0d5a7bf1e7 | 0 |
+| 2026-05-02T20:18:44+0000 | item_25 | command_execution | completed | /bin/bash -lc 'pgrep -af "work-99f3c2f\|codex exec"' | 2cdd00b4220650b1 | 0 |
