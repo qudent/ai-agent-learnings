@@ -21,6 +21,7 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
 ## Maintenance rules
 
 - **Rewrite, don't append** — files should reflect current policy, not be a changelog.
+- **Delete completed items from `STATUS.md`** — finished goals/results belong in Git history, transcript archives, and agent profiles/inboxes. Keep only active state plus at most a fresh summary.
 - When workflow changes materially, update this README in the same session.
 - Commit and push changes in the same session they're made.
 
@@ -55,8 +56,18 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
   stores run metadata and `transcripts/index.md` documents the layout while
   dispatch context lists the branch-local active/inbox files directly. The
   active pointer is deleted by stop/abort; archive transcript, inbox, and
-  profile files remain. New wrapper runs do not create `active-agents/`
-  artifacts.
+  profile files remain. Tool call metadata is kept in
+  `agents/<slug>/tool-calls.md` as a bounded summary table with timestamp, tool
+  name, status, compact args summary/hash, and output byte count; raw tool
+  outputs stay in ignored wrapper JSON/stderr logs. New wrapper runs do not
+  create `active-agents/` artifacts.
+- `scripts/agent_context.sh`: generates the Agent Context Pack used by
+  dispatchers. It favors current branch state, active transcript pointers,
+  relevant profiles/inboxes, and recent transcript tails over stale historical
+  chatter. `agent_context.sh audit` prints parent/child run edges from profiles
+  and marker metadata; `agent_context.sh prune-status STATUS.md` deletes
+  completed checklist items so finished work remains in Git/transcript history
+  rather than active status.
   `codex_commit` and the web UI do not push by themselves. Use
   `codex_sync_push` to fetch, rebase onto the configured upstream, and push; it
   is intentionally the shared end-of-session path for avoiding duplicate
@@ -79,7 +90,10 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
   `called-by` propagation.
 - `scripts/jj_project.sh`: experimental Jujutsu project-management helpers for
   representing TODO work as mutable `jj` changes. The helper is optional and
-  fails clearly when `jj` is not installed.
+  fails clearly when `jj` is not installed. It can mirror active `STATUS.md`
+  checklist items with `jj_task_plan_from_status`, create tasks from
+  `agents/<slug>/inbox.md` with `jj_task_from_inbox`, and close/annotate work
+  from transcript evidence with `jj_task_done_from_transcript`.
 
 ### `do_at` direction
 
@@ -119,15 +133,18 @@ When branch-ref dispatch is configured outside this repo, the hook should pass t
 
 For ad hoc local orchestration, source `scripts/codex_wrap.sh` and
 `scripts/branch_commands.sh`, then run `codex_dispatch "<instruction>"`. The
-dispatcher prompt first reconciles branch/worktree state, upstream divergence,
-active wrapper runs, queued work, relevant `STATUS.md` goals, and the latest
-human prompt. It then classifies the request as `status-only`, `trivial-chat`,
+dispatcher prompt first reconciles the generated Agent Context Pack: branch,
+current HEAD, pruned branch-local `STATUS.md`, active transcript pointers,
+relevant agent profiles/inboxes, recent transcript tails, and parent/child audit
+edges. It then classifies the request as `status-only`, `trivial-chat`,
 `direct-implementation`, `parallel-dispatch`, `cleanup`, or `blocked`.
-Status-only and trivial-chat requests should not spawn child agents. Parallel
-implementation should use child `codex_spawn ...` calls with disjoint write
-scopes, cite the files/commits or `STATUS.md` evidence used, verify the child
-start markers, and use empty one-line checkpoint commits shaped like
-`checkpoint: last save state before <reason>` before disruptive work.
+Status-only and trivial-chat requests should not spawn child agents. Any broad
+implementation or recursive work should use child `codex_spawn ...` calls with
+disjoint write scopes, cite the files/commits/transcripts or `STATUS.md`
+evidence used, verify the child start markers, and use empty one-line checkpoint
+commits shaped like `checkpoint: last save state before <reason>` before
+disruptive work. Direct implementation inside the dispatcher should be limited
+to tiny routing/glue fixes needed to decide delegation.
 
 `codex_spawn <codex_commit|codex_resume|codex_new_message|codex_in_branch>
 <args...>` is the detached child-agent launcher. It starts the normal wrapper in
@@ -151,6 +168,17 @@ creates an empty `[status]` commit; include the relevant commit hashes in that
 summary so future agents can recover the decision path without loading every
 intermediate transcript commit.
 
+### Tool-call logging size contract
+
+Tool-call logs must stay summary-only. Raw command/provider outputs can easily
+turn a repo into a transcript artifact store because shell commands, file reads,
+test logs, and model tool results are often KB-to-MB each. The tracked
+`agents/<slug>/tool-calls.md` contract records one bounded metadata row per
+completed tool event and caps retained rows with `CODEX_WRAP_TOOL_LOG_LIMIT`
+(default `200`). That should usually be KB per run, not MB. If a run needs raw
+outputs for debugging, keep them in ignored local logs under `.git/codex-wrap/`
+or attach them as explicit external artifacts, not as default tracked files.
+
 ## History Audits and Plans
 
 - `history-prompt-flow-report.md`: timestamped audit of the reachable user
@@ -169,6 +197,17 @@ intermediate transcript commit.
 DAG as a TODO/project-management surface. Source it after installing `jj`, run
 `jj_project_init` once in a Git repo to colocate Jujutsu metadata, then use
 `jj_task_new`, `jj_task_note`, `jj_task_done`, and `jj_task_log` to create and
-review task-shaped changes. Keep this experimental layer optional; do not make
-normal Git/Codex workflows depend on `jj` until the machine has Jujutsu
-installed and the pattern has proved useful on a real task.
+review task-shaped changes.
+
+For agent orchestration, mirror only active work into `jj`:
+
+```bash
+jj_task_plan_from_status STATUS.md
+jj_task_from_inbox agents/<slug>/inbox.md
+jj_task_done_from_transcript "summary" transcripts/archive/<file>.md
+```
+
+Completed `STATUS.md` checklist entries should be deleted, not mirrored again;
+the durable source for finished work is Git history plus transcript/profile
+files. Keep this experimental layer optional; do not make normal Git/Codex
+workflows depend on `jj` until the pattern has proved useful on a real task.

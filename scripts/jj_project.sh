@@ -63,3 +63,59 @@ jj_task_log() {
   _jjp_require || return
   jj log -r 'mutable()' --template 'change_id.short() ++ " " ++ commit_id.short() ++ " " ++ description.first_line() ++ "\n"'
 }
+
+_jjp_active_status_items() {
+  local file=${1:-STATUS.md}
+  [ -f "$file" ] || return 0
+  python3 - "$file" <<'PY'
+from pathlib import Path
+import sys
+for line in Path(sys.argv[1]).read_text(errors='replace').splitlines():
+    s=line.strip()
+    if s.startswith('- [ ]'):
+        print(s[5:].strip())
+PY
+}
+
+jj_task_plan_from_status() {
+  local file=${1:-STATUS.md} item
+  _jjp_require || return
+  while IFS= read -r item; do
+    [ -n "$item" ] || continue
+    jj_task_new "$item" "Source status: $file"
+  done < <(_jjp_active_status_items "$file")
+}
+
+jj_task_from_inbox() {
+  if [ $# -lt 1 ]; then
+    echo "Usage: jj_task_from_inbox <agents/<slug>/inbox.md>" >&2
+    return 1
+  fi
+  _jjp_require || return
+  local inbox=$1 body
+  [ -f "$inbox" ] || { echo "jj_project: inbox not found: $inbox" >&2; return 1; }
+  body=$(python3 - "$inbox" <<'PY'
+from pathlib import Path
+import sys
+text=Path(sys.argv[1]).read_text(errors='replace')
+pending=text.split('## pending',1)[1].split('## consumed',1)[0] if '## pending' in text else text
+print(pending.strip()[:1200])
+PY
+)
+  jj_task_new "inbox $inbox" "Source inbox: $inbox
+
+$body"
+}
+
+jj_task_done_from_transcript() {
+  if [ $# -lt 2 ]; then
+    echo "Usage: jj_task_done_from_transcript <summary> <transcript-path>" >&2
+    return 1
+  fi
+  _jjp_require || return
+  local summary=$1 transcript=$2
+  [ -f "$transcript" ] || { echo "jj_project: transcript not found: $transcript" >&2; return 1; }
+  jj describe -m "done: $summary
+
+Transcript: $transcript"
+}

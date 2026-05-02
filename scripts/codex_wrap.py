@@ -8,6 +8,7 @@ child supervision, process-group termination, JSONL parsing, and Git markers.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import random
@@ -262,6 +263,7 @@ def transcript_paths(run_start: str, prompt: str) -> dict[str, str]:
         "slug": slug,
         "profile": f"agents/{slug}/profile.md",
         "inbox": f"agents/{slug}/inbox.md",
+        "tools": f"agents/{slug}/tool-calls.md",
         "archive": f"transcripts/archive/{day}-{slug}.md",
         "active": f"transcripts/active/{slug}.md",
         "index": "transcripts/index.md",
@@ -292,6 +294,7 @@ def transcript_paths_for_run(run_start: str) -> dict[str, str]:
                 "slug": slug,
                 "profile": f"agents/{slug}/profile.md",
                 "inbox": f"agents/{slug}/inbox.md",
+                "tools": f"agents/{slug}/tool-calls.md",
                 "archive": archive,
                 "active": f"transcripts/active/{slug}.md",
                 "index": "transcripts/index.md",
@@ -327,6 +330,7 @@ def agent_profile_content(
         f"created_at: {now()}\n"
         f"transcript: {paths['archive']}\n"
         f"inbox: {paths['inbox']}\n"
+        f"tool_calls: {paths['tools']}\n"
         "---\n\n"
         f"# {slug}\n\n"
         f"Task: {prompt.strip() or '(empty)'}\n\n"
@@ -338,6 +342,15 @@ def agent_profile_content(
 
 def agent_inbox_content(slug: str) -> str:
     return f"# Inbox: {slug}\n\n## pending\n\n## consumed\n"
+
+
+def tool_calls_content(slug: str) -> str:
+    return (
+        f"# Tool Calls: {slug}\n\n"
+        "Bounded metadata only. Raw tool outputs stay in ignored wrapper JSON/stderr logs.\n\n"
+        "| time | item | tool | status | args | args_sha256 | output_bytes |\n"
+        "| --- | --- | --- | --- | --- | --- | --- |\n"
+    )
 
 
 def transcript_content(run_start: str, sid: str, status: str, prompt: str, paths: dict[str, str]) -> str:
@@ -386,6 +399,7 @@ def transcript_agent_start(run_start: str, sid: str, prompt: str, json_path: Pat
     files = {
         paths["profile"]: agent_profile_content(run_start, sid, "active", prompt, json_path, err_path, paths),
         paths["inbox"]: agent_inbox_content(paths["slug"]),
+        paths["tools"]: tool_calls_content(paths["slug"]),
         paths["archive"]: transcript_content(run_start, sid, "active", prompt, paths),
         paths["active"]: active_pointer_content(paths, latest),
         paths["index"]: transcript_index_content(paths, "active", latest),
@@ -414,6 +428,99 @@ def transcript_agent_output(run_start: str, sid: str, prompt: str, output: str) 
         paths["active"]: active_pointer_content(paths, latest),
         paths["index"]: transcript_index_content(paths, "active", latest),
     }
+
+
+def markdown_cell(text: str) -> str:
+    return oneline(str(text)).replace("|", "\\|") or "-"
+
+
+def compact_json(value) -> str:
+    try:
+        return json.dumps(value, sort_keys=True, ensure_ascii=True, separators=(",", ":"))
+    except TypeError:
+        return json.dumps(str(value), ensure_ascii=True)
+
+
+def output_byte_count(item: dict) -> int:
+    for key in ("output", "result"):
+        if key not in item:
+            continue
+        value = item.get(key)
+        if isinstance(value, str):
+            return len(value.encode("utf-8"))
+        return len(compact_json(value).encode("utf-8"))
+    return 0
+
+
+def tool_call_row(item: dict) -> str:
+    tool = item.get("name") or item.get("tool_name") or item.get("type") or "unknown"
+    status = item.get("status") or "completed"
+    args = {}
+    if item.get("command"):
+        args = {"command": item.get("command")}
+    else:
+        for key in ("arguments", "args", "input"):
+            if key in item:
+                args = item.get(key)
+                break
+    args_text = compact_json(args)
+    args_hash = hashlib.sha256(args_text.encode("utf-8")).hexdigest()[:16]
+    if isinstance(args, dict) and args.get("command"):
+        summary = args["command"]
+    else:
+        summary = args_text
+    return (
+        f"| {markdown_cell(now())} | {markdown_cell(item.get('id') or '-')} | "
+        f"{markdown_cell(tool)} | {markdown_cell(status)} | {markdown_cell(summary)} | "
+        f"{args_hash} | {output_byte_count(item)} |\n"
+    )
+
+
+def append_tool_call(previous: str, item: dict) -> str:
+    lines = previous.rstrip().splitlines()
+    row = tool_call_row(item).rstrip()
+    header_end = 0
+    for idx, line in enumerate(lines):
+        if line.startswith("| --- "):
+            header_end = idx + 1
+            break
+    if not header_end:
+        lines = tool_calls_content("unknown").rstrip().splitlines()
+        header_end = len(lines)
+    rows = [line for line in lines[header_end:] if line.startswith("| ")]
+    try:
+        cap = max(1, int(env("CODEX_WRAP_TOOL_LOG_LIMIT", "200")))
+    except ValueError:
+        cap = 200
+    rows = (rows + [row])[-cap:]
+    return "\n".join(lines[:header_end] + rows) + "\n"
+
+
+def transcript_tool_call(run_start: str, item: dict) -> dict[str, str]:
+    paths = transcript_paths_for_run(run_start)
+    previous = show_path("HEAD", paths["tools"]) or tool_calls_content(paths["slug"])
+    return {paths["tools"]: append_tool_call(previous, item)}
+
+
+def should_log_tool_item(item: dict) -> bool:
+    item_type = item.get("type") or ""
+    return bool(item_type and item_type not in {"agent_message", "user_message"})
+
+
+def tool_marker(sid: str, run_start: str, item: dict, *, set_files: dict[str, str]) -> str:
+    paths = transcript_paths_for_run(run_start)
+    tool = item.get("name") or item.get("tool_name") or item.get("type") or "unknown"
+    message = (
+        f"tool: update {paths['slug']}\n\n"
+        f"agent: {paths['slug']}\n"
+        "message-role: tool-summary\n"
+        f"tool: {tool}\n"
+        f"tool-calls: {paths['tools']}\n"
+        f"run-start-commit-hash: {run_start}\n"
+        f"session-id: {sid or 'unknown'}\n"
+        f"at: {now()}\n"
+    )
+    return marker(message, set_files=set_files, author=author_for("codex", paths["slug"]))
 
 
 def append_pending_user_entry(inbox: str, entry: str) -> str:
@@ -667,6 +774,7 @@ def run_agent(mode: str, args: list[str], sid: str = "") -> int:
     run_start = ""
     started = False
     seen: set[str] = set()
+    seen_tools: set[str] = set()
     if mode == "resume":
         run_start = marker(start_message("resume", prompt, sid, proc.pid, pgid), author=author_for_caller())
         json_path, err_path = rename_logs(base, pending, run_start)
@@ -695,6 +803,14 @@ def run_agent(mode: str, args: list[str], sid: str = "") -> int:
                 continue
             item = event.get("item") or {}
             if item.get("type") != "agent_message":
+                if not should_log_tool_item(item):
+                    continue
+                item_id = item.get("id") or ""
+                if not run_start or run_closed(run_start) or (item_id and item_id in seen_tools):
+                    continue
+                if item_id:
+                    seen_tools.add(item_id)
+                tool_marker(sid, run_start, item, set_files=transcript_tool_call(run_start, item))
                 continue
             text = item.get("text") or item.get("message") or item.get("content") or ""
             if not text or not run_start or run_closed(run_start):

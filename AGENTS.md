@@ -39,7 +39,19 @@ Avoid: provider model IDs from your general knowledge.
 
 ## Coordination
 
-Read `./STATUS.md` before starting non-trivial work. `STATUS.md` is the single coordination source of truth: compact project state, active human prompts, open questions, agent notes, handoffs, and the current TODO plan. Rewrite it after meaningful state changes; keep it compact and current.
+Read `./STATUS.md` before starting non-trivial work. `STATUS.md` is the single coordination source of truth for current branch state only: active goals, blockers, current instructions, and next actions. Rewrite it after meaningful state changes; keep it compact and current. **Delete finished items from STATUS.md immediately** and rely on Git history, `transcripts/archive/`, `agents/*/profile.md`, and `agents/*/inbox.md` for the durable audit trail.
+
+## Codex subagent orchestration
+
+When work should be split across subagents, use the wrapper dispatcher path instead of launching raw Codex sessions:
+
+```bash
+. scripts/codex_wrap.sh
+. scripts/branch_commands.sh
+codex_dispatch "<user/task instruction>"
+```
+
+Dispatcher agents should delegate implementation through `codex_spawn ...` with branch/worktree isolation and disjoint write scopes. Plain `codex_commit` is for a single focused agent; broad or recursive work should go through `codex_dispatch`, which generates an Agent Context Pack from branch-local `STATUS.md`, active transcript pointers, relevant agent profiles/inboxes, transcript tails, and the audit trail. Child agents inherit ancestry through `CODEX_WRAP_CALLED_BY` and must keep instructions/audit in files rather than long commit messages.
 ```
 
 ## STATUS.md -- Project State

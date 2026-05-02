@@ -130,6 +130,10 @@ _codex_compact_subjects() {
 }
 
 _codex_dispatch_context() {
+  if [ -x "$_BC_SCRIPT_DIR/agent_context.sh" ]; then
+    "$_BC_SCRIPT_DIR/agent_context.sh" context --limit 80
+    return
+  fi
   local branch
   branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || printf '(unknown)')
   printf 'Current branch: %s\n' "$branch"
@@ -138,25 +142,6 @@ _codex_dispatch_context() {
   codex_active 2>/dev/null || printf 'none\n'
   printf '\nRecent commits (subjects compacted; dispatch prompts elided):\n'
   git log --format='%h%x09%D%x09%s' --max-count=18 2>/dev/null | _codex_compact_subjects || true
-  printf '\nTranscript/inbox files:\n'
-  find transcripts/active agents -maxdepth 3 -type f 2>/dev/null | sort | sed -n '1,80p' || printf 'none\n'
-  if [ -f transcripts/index.md ]; then
-    printf '\nTranscript index:\n'
-    sed -n '1,80p' transcripts/index.md
-  fi
-  printf '\nWorktrees:\n'
-  git worktree list --porcelain 2>/dev/null | sed -n '1,80p' || true
-  printf '\nLocal branches (subjects elided):\n'
-  git branch --format='%(if)%(HEAD)%(then)*%(else) %(end) %(refname:short) %(objectname:short) %(upstream:trackshort)' 2>/dev/null \
-    | sed -n '1,40p' || true
-  printf '\nRecent run-start markers with pid metadata:\n'
-  git log --grep='^\[codex_start' --format='%h%x09%s%n%b%x1e' --max-count=20 2>/dev/null \
-    | awk 'BEGIN{RS="\036"; FS="\t"} /pid: /{split($0, lines, "\n"); split(lines[1], head, "\t"); subj=head[2]; if (subj ~ /^\[codex_start_user\] You are a Codex dispatch\/orchestration agent\./) subj="[codex_start_user] <dispatch prompt elided>"; if (length(subj) > 120) subj=substr(subj, 1, 117) "..."; pid=""; cwd=""; host=""; for (i in lines) { if (lines[i] ~ /^pid: /) pid=lines[i]; if (lines[i] ~ /^cwd: /) cwd=lines[i]; if (lines[i] ~ /^host: /) host=lines[i]; } print head[1] " " subj " | " pid " | " host " | " cwd }' \
-    | sed -n '1,20p' || true
-  printf '\nLive Codex-related processes for PID cross-check (command text elided):\n'
-  ps -eo pid=,pgid=,stat=,comm=,args= 2>/dev/null \
-    | awk '/codex(_wrap)?|codex_web.py|branch_commands.sh/ && $0 !~ /awk/ {print "pid=" $1 " pgid=" $2 " stat=" $3 " comm=" $4}' \
-    | sed -n '1,40p' || printf 'none\n'
   if [ -f STATUS.md ]; then
     printf '\nCurrent STATUS.md:\n'
     sed -n '1,120p' STATUS.md
@@ -181,17 +166,17 @@ Relevant concise context:
 $context
 
 Dispatch contract:
-- First reconcile state: branch/worktree, upstream divergence if visible, active local wrapper runs, queued work, relevant STATUS goals, and the latest human prompt.
+- First reconcile state from the Agent Context Pack: branch/worktree, upstream divergence if visible, active local wrapper runs, queued work, current STATUS goals, active transcript pointers, inboxes, recent transcript excerpts, and the audit trail.
 - Classify the request as exactly one of: status-only, trivial-chat, direct-implementation, parallel-dispatch, cleanup, or blocked.
 - If status-only or trivial-chat, do not spawn; answer directly in the final status.
-- If direct-implementation, do the implementation locally in this dispatcher only when that is safer than spawning, then verify and report the changed files.
-- If parallel-dispatch, split the instruction into independent, reviewable tasks with disjoint write scopes.
+- If implementation/subagent work is needed, prefer dispatch/delegation: split into independent, reviewable tasks with disjoint write scopes and call child agents through codex_spawn rather than doing broad work in the dispatcher.
+- Do direct implementation locally only for the tiny glue needed to decide dispatch, unblock routing, or fix the dispatcher itself; otherwise delegate.
 - Inspect currently running sessions before dispatching: compare recent run-start marker pid/cwd metadata with the live process table above, then decide whether to call codex_commit, codex_new_message/codex_continue-style followup, codex_abort, or explicitly report blocked-by.
 - Read transcripts/index.md and the relevant agents/*/profile.md before routing follow-ups or spawning related work.
 - Send follow-ups through codex_new_message or a target agents/<slug>/inbox.md update; do not embed full transcript bodies into new marker commits.
 - Spawn new agents with named task scopes that map cleanly to readable agent slugs and disjoint branch/worktree ownership.
 - Source the helpers before calling them: . scripts/codex_wrap.sh && . scripts/branch_commands.sh.
-- Use codex_spawn for child implementation agents so they run detached from this dispatcher and survive this dispatcher exiting. The web UI will still show them because codex_spawn runs the normal wrapper, which writes pid/cwd marker commits and logs.
+- Use codex_spawn for child implementation agents so they run detached from the dispatcher and survive this dispatcher exiting. The web UI will still show them because codex_spawn runs the normal wrapper, which writes pid/cwd marker commits and transcript files.
 - After each codex_spawn call, verify that a child start marker appears with the expected called-by, branch/worktree cwd, pid, and dispatch log path. If a child produces only marker commits and no useful diff, report it as marker-only/no-op.
 - Command quick reference:
   - codex_spawn codex_in_branch @ <branch-or-commit> "<prompt>": detached child in a branch/worktree rooted at the target.

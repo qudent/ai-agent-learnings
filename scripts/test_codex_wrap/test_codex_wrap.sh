@@ -20,7 +20,7 @@ PY
 emit_tool() {
   /usr/bin/python3 - <<'PY'
 import json
-print(json.dumps({"type":"item.completed","item":{"id":"tool-1","type":"command_execution","command":"git status","output":"ignored"}}))
+print(json.dumps({"type":"item.completed","item":{"id":"tool-1","type":"command_execution","command":"git status","output":"RAW_TOOL_OUTPUT_SHOULD_NOT_APPEAR"}}))
 PY
 }
 banner() {
@@ -217,6 +217,25 @@ test_assistant_messages_use_pointer_commits_and_ignore_tools() {
   grep -F 'first output' "$archive" >/dev/null || fail 'first output missing from transcript file'
   grep -F 'second output' "$archive" >/dev/null || fail 'second output missing from transcript file'
   ok 'assistant messages use transcript pointers'
+}
+
+test_tool_calls_use_bounded_summary_logs() {
+  setup_repo
+  codex_commit multi
+  tool_commit=$(git log --format=%B --grep='^tool: update' -1)
+  contains 'message-role: tool-summary' "$tool_commit"
+  contains 'tool: command_execution' "$tool_commit"
+  tool_log=$(field_from_text tool-calls "$tool_commit")
+  [ -n "$tool_log" ] || fail 'tool summary pointer missing tool-calls field'
+  [ -f "$tool_log" ] || fail 'tool summary file missing'
+  log_text=$(cat "$tool_log")
+  contains 'Bounded metadata only' "$log_text"
+  contains 'command_execution' "$log_text"
+  contains 'git status' "$log_text"
+  contains 'output_bytes |' "$log_text"
+  contains '| 33 |' "$log_text"
+  not_contains 'RAW_TOOL_OUTPUT_SHOULD_NOT_APPEAR' "$log_text"
+  ok 'tool calls use bounded summary logs'
 }
 
 
@@ -570,16 +589,13 @@ test_codex_dispatch_prompt_contract() {
   [ -n "$archive" ] || fail 'dispatch assistant pointer missing transcript field'
   transcript=$(cat "$archive")
   contains 'You are a Codex dispatch/orchestration agent.' "$transcript"
-  contains 'Recent commits (subjects compacted; dispatch prompts elided):' "$transcript"
-  contains '[codex_start_user] <dispatch prompt elided>' "$transcript"
+  contains 'Agent Context Pack' "$transcript"
+  contains 'Audit trail' "$transcript"
   not_contains 'Prior duplicated body that should be elided from context' "$transcript"
-  contains 'Transcript/inbox files:' "$transcript"
-  contains 'Recent run-start markers with pid metadata:' "$transcript"
-  contains 'Live Codex-related processes for PID cross-check (command text elided):' "$transcript"
-  contains 'First reconcile state: branch/worktree' "$transcript"
+  contains 'First reconcile state from the Agent Context Pack' "$transcript"
   contains 'Classify the request as exactly one of: status-only, trivial-chat, direct-implementation, parallel-dispatch, cleanup, or blocked.' "$transcript"
   contains 'If status-only or trivial-chat, do not spawn' "$transcript"
-  contains 'If direct-implementation, do the implementation locally' "$transcript"
+  contains 'Do direct implementation locally only for the tiny glue' "$transcript"
   contains 'compare recent run-start marker pid/cwd metadata with the live process table' "$transcript"
   contains 'Read transcripts/index.md and the relevant agents/*/profile.md' "$transcript"
   contains 'Send follow-ups through codex_new_message or a target agents/<slug>/inbox.md update' "$transcript"
@@ -593,7 +609,7 @@ test_codex_dispatch_prompt_contract() {
   contains 'Include concise citations in dispatched prompts' "$transcript"
   contains 'periodic empty [status] commits' "$transcript"
   contains 'checkpoint: last save state before <work>' "$transcript"
-  contains 'Current STATUS.md:' "$transcript"
+  contains '## Current STATUS.md' "$transcript"
   contains 'dispatch sample' "$transcript"
   contains '$(touch ' "$transcript"
   ok 'codex dispatch prompt contract'
@@ -650,6 +666,7 @@ test_text_transcript_fixture() {
 
 test_basic
 test_assistant_messages_use_pointer_commits_and_ignore_tools
+test_tool_calls_use_bounded_summary_logs
 test_autosave_is_rewritten
 test_index_lock_does_not_block_markers
 test_resume

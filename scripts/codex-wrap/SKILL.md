@@ -49,18 +49,24 @@ For branch-targeted Codex work, source the branch helper too:
 | `codex_sync_push` | `git fetch --prune origin`, rebase onto the configured upstream so duplicate patches are skipped, then push. Refuses while a local Codex run is active unless `CODEX_SYNC_PUSH_ALLOW_ACTIVE=1` is set. |
 | `codex_commit_push <prompt...>` | Run `codex_sync_push`, then `codex_commit`, then `codex_sync_push` again; use only when that combined workflow is intentional. |
 | `codex_in_branch @ <branch-or-commit> <prompt...>` | Run Codex in the target branch/worktree via `do_at_branch` or create a commit-rooted worktree via `do_at_commit`. |
-| `codex_spawn <codex_commit|codex_resume|codex_new_message|codex_in_branch> <args...>` | Start a detached child wrapper run that survives the dispatcher shell exiting while still writing normal marker commits/logs for ChatGit. |
+| `codex_spawn <codex_commit|codex_resume|codex_new_message|codex_in_branch> <args...>` | Start a detached child wrapper run that survives the dispatcher shell exiting while still writing normal marker commits/logs/transcript files for ChatGit. |
+| `agent_context.sh context` | Generate a compact branch-local Agent Context Pack from active status, profiles, inboxes, transcript tails, and audit edges. |
+| `agent_context.sh audit` | Print parent/child caller edges and recent run/update commits. |
+| `agent_context.sh prune-status [STATUS.md]` | Delete completed checklist items from active status so finished work lives in Git/transcript history. |
 
 Plain `codex_commit @ ...` is prompt text. It must not select branches or create
 worktrees.
 
 Dispatch agents should source both helper files, then use `codex_spawn` for
-implementation children:
+implementation children. Broad or recursive work should go through
+`codex_dispatch` first so the child instructions are based on the generated
+Agent Context Pack and the dispatcher records ancestry.
 
 ```bash
 . scripts/codex_wrap.sh
 . scripts/branch_commands.sh
-codex_spawn codex_in_branch @ HEAD "implement the isolated task; cite STATUS.md and commits"
+codex_dispatch "split this broad task into isolated child agents"
+codex_spawn codex_in_branch @ HEAD "implement the isolated task; cite STATUS.md, transcripts, and commits"
 ```
 
 `codex_spawn` sets `CODEX_WRAP_CALLED_BY` from `codex_active` by default. Its
@@ -76,6 +82,12 @@ Each active wrapper run has tracked files under `agents/<slug>/` and
 `transcripts/active/<slug>.md`, and follow-up routing goes through
 `agents/<slug>/inbox.md`. `transcripts/index.md` is the compact branch-local
 listing for current/known agents.
+
+Tool calls are tracked separately at `agents/<slug>/tool-calls.md` as bounded
+metadata: timestamp, item id, tool name, status, compact args summary/hash, and
+output byte count. Do not put raw tool output in tracked transcript files by
+default; keep raw JSON/stderr output in ignored wrapper logs unless a human asks
+for a specific artifact.
 
 The active pointer is removed by `[codex_stop]` or `[codex_abort]`; profile,
 inbox, and archive transcript files remain. New wrapper runs do not create
@@ -108,6 +120,13 @@ backend debugging.
 - Keep `scripts/codex_wrap.py` / `scripts/codex_wrap.sh` on session
   supervision, JSONL parsing, marker commits, active-run lookup, abort, and
   resume behavior.
+- Use `codex_dispatch` rather than raw `codex_commit` when a task should be
+  delegated to subagents. Dispatcher agents should use `codex_spawn` with
+  disjoint write scopes and verify child start markers.
+- Keep `STATUS.md` current-only: delete completed checklist items and use
+  `agent_context.sh prune-status STATUS.md` when stale done entries accumulate.
+  Finished work is recoverable from Git history, `transcripts/archive/`, and
+  `agents/*/profile.md`.
 - Do not move branch/worktree placement into `codex_wrap`; use
   `do_at_branch`, `do_at_commit`, and `codex_in_branch`.
 - Do not trust a launcher `$!` as the real Codex child in interactive
