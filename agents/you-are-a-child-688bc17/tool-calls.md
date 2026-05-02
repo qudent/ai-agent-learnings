@@ -19,3 +19,4 @@ Bounded metadata only. Raw tool outputs stay in ignored wrapper JSON/stderr logs
 | 2026-05-02T20:19:08+0000 | item_14 | command_execution | completed | /bin/bash -lc 'git rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2>/dev/null \|\| true && git config --get branch.$(git branch --show-current).parent-branch && git config - | 697b9b87513c0a66 | 0 |
 | 2026-05-02T20:19:17+0000 | item_15 | command_execution | completed | /bin/bash -lc "rg -n \"contains\\(\\)\|not_contains\\(\|fail\\(\" scripts/test_codex_wrap/test_codex_wrap.sh \| head -30" | 8a056d9181a1faf7 | 0 |
 | 2026-05-02T20:20:09+0000 | item_17 | file_change | completed | {} | 44136fa355b3678a | 0 |
+| 2026-05-02T20:20:15+0000 | item_18 | command_execution | completed | /bin/bash -lc 'rg -n "direct-implementation\|parallel-dispatch\|direct implementation\|codex_dispatch\|delegated-implementation\|Hermes/Codex" AGENTS.md README.md scripts/branch_command | 537fc58d34596496 | 0 |
