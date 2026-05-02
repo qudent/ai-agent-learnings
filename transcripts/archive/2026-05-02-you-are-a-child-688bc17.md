@@ -15,3 +15,7 @@ The change is generalizable: it updates the reusable dispatcher contract, not a 
 ## 2026-05-02T20:21:00+0000 codex:you-are-a-child-688bc17
 
 The prompt/docs no longer mention `direct-implementation` or `parallel-dispatch`; they now use `delegated-implementation` and explicitly require task-surface updates plus `codex_spawn` for broad work. I’m running the focused wrapper suite now, with a compile check because the wrapper skill lists it as cheap validation.
+
+## 2026-05-02T20:21:05+0000 codex:you-are-a-child-688bc17
+
+The wrapper test exposed a local harness issue under dispatcher ancestry: `CODEX_WRAP_CALLED_BY` is inherited into the temp repo, where that commit does not exist, so the fake run exits before reaching the dispatch contract assertions. I’m going to isolate the test environment by clearing that inherited caller in the test harness, then rerun.
