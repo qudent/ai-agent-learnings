@@ -9,13 +9,15 @@ commits, `branch_commands.sh` for branch/worktree placement and dispatch,
 fetch/rebase/push cleanup, `codex_agents` for live local wrapper-agent listing,
 and optional `jj_project.sh` helpers.
 
-New direction: migrate away from giant transcript bodies in commit messages and
-toward version-controlled `transcripts/` plus `agents/<name>/inbox.md` files,
-with short pointer commit messages, explicit commit authors for user/agent/orch
-roles, readable agent slugs, branch-local instruction stacks in `STATUS.md`, and
-optional `jj` task mirroring after the Git-backed transcript model is stable.
-The current marker-orchestration state is preserved at branch
-`archive/marker-orchestration-before-transcript-inbox`.
+Transcript/inbox implementation is in progress on branch
+`transcript-inbox-implementation`. New wrapper runs now create
+`agents/<slug>/profile.md`, `agents/<slug>/inbox.md`,
+`transcripts/archive/<date>-<slug>.md`, and `transcripts/active/<slug>.md`;
+commit authors identify `user`, `codex:<slug>`, or `orchestrator:<slug>`;
+`codex_new_message` appends user follow-ups to the target inbox/transcript before
+resuming. The archive branch
+`archive/marker-orchestration-before-transcript-inbox` preserves the previous
+marker-orchestration state.
 
 ## Active Goals
 - [x] Preserve the current marker orchestration state before planning the
@@ -23,36 +25,46 @@ The current marker-orchestration state is preserved at branch
 - [x] Inspect pre/current orchestration history for useful ideas to keep or drop.
 - [x] Write a critique and implementation plan for transcript/inbox
   orchestration.
-- [ ] Review/execute `docs/plans/2026-05-02-transcript-inbox-orchestration.md`.
-- [ ] If executing, start with a red behavior contract before changing wrapper
+- [x] Review/execute the earliest safe slice from
+  `docs/plans/2026-05-02-transcript-inbox-orchestration.md`.
+- [x] Start with a red behavior contract before changing wrapper
   behavior.
+- [ ] Finish compacting start/assistant marker commit bodies into short pointers
+  while preserving old marker-history compatibility.
+- [ ] Evaluate optional `jj` task mirror helpers after Git-backed transcript
+  behavior remains stable.
 
 ## TODO Plan
-- [ ] Use the plan to implement transcript/inbox files in small commits:
-  behavior contract, naming/path helpers, transcript writers, author metadata,
-  inbox follow-ups, dispatcher docs, optional `jj` mirrors, then migration docs.
+- [x] Land behavior contract, naming/path helpers, transcript writers, author
+  metadata, inbox follow-ups, and dispatcher docs in small commits.
+- [ ] Add a focused contract for concise pointer commit bodies, then move new
+  start/assistant marker bodies out of commit messages and into transcript
+  files.
+- [ ] Add optional `jj` mirror helpers with absent-`jj` failure tests.
+- [ ] Do migration cleanup/deprecation docs for `active-agents/` after pointer
+  commit behavior is stable.
 - [ ] Keep `jj` optional until smoke tests cover colocated `.jj` with Git
   worktrees and transcript files.
-- [ ] Push each coherent learnings update in-session.
+- [ ] Push the review branch after final validation.
 
 ## Blockers
-- None for planning. Implementation should not begin by deleting the old marker
-  model; preserve compatibility until wrapper and web tests are green.
+- None for the completed foundation. Remaining work is deliberately deferred:
+  new wrapper commits still keep legacy `[codex_start_user]` / `[codex]` bodies
+  for compatibility, so the concise-pointer migration is not complete yet.
 
 ## Recent Results
-- Created and pushed `archive/marker-orchestration-before-transcript-inbox` at
-  `d291d83` so the current marker-heavy orchestration state remains recoverable.
-- Reviewed commits `110096f`, `e88cda1`/`d5b3e57`, `1b86658`, `7f9a5fa`,
-  `077c34c`, and current wrapper/dispatch files to extract the reusable parts:
-  durable human input, branch/worktree isolation, active state visibility,
-  dispatch classification, and optional `jj` task DAGs.
-- Added `docs/plans/2026-05-02-transcript-inbox-orchestration.md` and linked it
-  from `README.md`.
+- Added `scripts/test_codex_wrap/TRANSCRIPT_INBOX_BEHAVIOR.md` and a red shell
+  contract for `agents/` plus `transcripts/` artifacts before changing wrapper
+  behavior.
+- Implemented transcript/inbox files, readable slugs, per-role Git author
+  metadata, active-pointer cleanup, and user follow-up inbox/transcript commits.
+- Updated dispatcher context/docs to list transcript/inbox files and avoid
+  dumping full transcripts into dispatch prompts. Validation passed:
+  `py_compile`, `test_codex_wrap`, and `test_codex_web`.
 
 ## Agent Notes
-- Current handoff: the plan recommends `transcripts/archive/` as canonical
-  transcript storage, `transcripts/active/` as live pointer files only,
-  `agents/<slug>/inbox.md` for routing messages, and short Git commit messages
-  with deliberate `GIT_AUTHOR_NAME`/`GIT_AUTHOR_EMAIL` metadata.
-- The plan explicitly criticizes a single global user-message file as a conflict
-  hotspot; use an index plus per-agent inboxes instead.
+- `transcripts/index.md` is intentionally stable layout documentation for now;
+  dispatch context lists `transcripts/active` and `agents` directly. A dynamic
+  shared index caused add/add conflicts in parallel web branch tests.
+- Preserve old marker parsing until the concise-pointer commit-body contract is
+  added and compatibility tests cover existing `[codex]` history.
