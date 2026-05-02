@@ -121,3 +121,7 @@ Dispatch contract:
 - For long work, create periodic empty [status] commits that summarize the last interval and cite the commit hashes that matter for the next agent context.
 - Use one-line empty checkpoint commits before disruptive work, for example: git commit --allow-empty -m "checkpoint: last save state before <work>".
 - Finish with a quick status update saying what kind of work was dispatched and where.
+
+## 2026-05-02T20:17:27+0000 codex:you-are-a-dispatch-fb53c6b
+
+I’ll treat this as dispatcher work: first reconcile the branch state and wrapper surface, then spawn a child through the repo’s Codex wrapper with a narrow implementation scope. I’m not going to edit the docs or wrapper locally unless inspection shows dispatch itself is broken.
