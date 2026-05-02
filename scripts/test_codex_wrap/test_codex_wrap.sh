@@ -100,6 +100,7 @@ export PATH="$FAKEBIN:$PATH"
 export CODEX_WRAP_STDIN_NEW_MESSAGE=0
 export CODEX_WRAP_PNPM_INSTALL=0
 export CODEX_WRAP_POLL_SECONDS=0.01
+unset CODEX_WRAP_CALLED_BY
 
 # shellcheck source=/mnt/data/codex_wrap.sh
 . "$WRAP"
@@ -109,8 +110,8 @@ WRAP_DIR=$(cd "$(dirname "$WRAP")" && pwd)
 
 ok() { printf 'ok - %s\n' "$*"; }
 fail() { printf 'not ok - %s\n' "$*" >&2; exit 1; }
-contains() { grep -Fq "$1" <<<"$2" || fail "missing: $1"; }
-not_contains() { ! grep -Fq "$1" <<<"$2" || fail "unexpected: $1"; }
+contains() { grep -Fq -- "$1" <<<"$2" || fail "missing: $1"; }
+not_contains() { ! grep -Fq -- "$1" <<<"$2" || fail "unexpected: $1"; }
 equals() {
   [ "$1" = "$2" ] && return 0
   printf 'not ok - exact mismatch\nexpected:\n%s\nactual:\n%s\n' "$1" "$2" >&2
@@ -593,9 +594,15 @@ test_codex_dispatch_prompt_contract() {
   contains 'Audit trail' "$transcript"
   not_contains 'Prior duplicated body that should be elided from context' "$transcript"
   contains 'First reconcile state from the Agent Context Pack' "$transcript"
-  contains 'Classify the request as exactly one of: status-only, trivial-chat, direct-implementation, parallel-dispatch, cleanup, or blocked.' "$transcript"
-  contains 'If status-only or trivial-chat, do not spawn' "$transcript"
-  contains 'Do direct implementation locally only for the tiny glue' "$transcript"
+  expected_dispatch_contract=$(cat <<'EOF'
+- Classify the request as exactly one of: status-only, trivial-chat, delegated-implementation, cleanup, or blocked.
+- If status-only or trivial-chat, do not spawn; answer directly in the final status.
+- If delegated-implementation is needed, create or update the task surface first: STATUS.md for current state and plan, agents/<slug>/inbox.md for targeted follow-up when an agent already exists, and codex_spawn child tasks for implementation work.
+- Broad implementation must be delegated via codex_spawn: split into independent, reviewable tasks with disjoint write scopes and call child agents rather than doing broad work in the dispatcher.
+EOF
+)
+  contains "$expected_dispatch_contract" "$transcript"
+  contains 'Do local implementation only for the tiny glue needed to decide dispatch, unblock routing, update task routing surfaces, or fix the dispatcher itself; otherwise delegate.' "$transcript"
   contains 'compare recent run-start marker pid/cwd metadata with the live process table' "$transcript"
   contains 'Read transcripts/index.md and the relevant agents/*/profile.md' "$transcript"
   contains 'Send follow-ups through codex_new_message or a target agents/<slug>/inbox.md update' "$transcript"

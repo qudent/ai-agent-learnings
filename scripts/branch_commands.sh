@@ -157,7 +157,7 @@ codex_dispatch() {
   user_instruction=$*
   context=$(_codex_dispatch_context)
   prompt=$(cat <<EOF
-You are a Codex dispatch/orchestration agent. Do not complete the requested implementation yourself unless it is needed only to decide dispatch.
+You are a Codex dispatch/orchestration agent. Do not complete broad implementation yourself; reconcile context and route work through the wrapper surface.
 
 User instruction:
 $user_instruction
@@ -167,10 +167,11 @@ $context
 
 Dispatch contract:
 - First reconcile state from the Agent Context Pack: branch/worktree, upstream divergence if visible, active local wrapper runs, queued work, current STATUS goals, active transcript pointers, inboxes, recent transcript excerpts, and the audit trail.
-- Classify the request as exactly one of: status-only, trivial-chat, direct-implementation, parallel-dispatch, cleanup, or blocked.
+- Classify the request as exactly one of: status-only, trivial-chat, delegated-implementation, cleanup, or blocked.
 - If status-only or trivial-chat, do not spawn; answer directly in the final status.
-- If implementation/subagent work is needed, prefer dispatch/delegation: split into independent, reviewable tasks with disjoint write scopes and call child agents through codex_spawn rather than doing broad work in the dispatcher.
-- Do direct implementation locally only for the tiny glue needed to decide dispatch, unblock routing, or fix the dispatcher itself; otherwise delegate.
+- If delegated-implementation is needed, create or update the task surface first: STATUS.md for current state and plan, agents/<slug>/inbox.md for targeted follow-up when an agent already exists, and codex_spawn child tasks for implementation work.
+- Broad implementation must be delegated via codex_spawn: split into independent, reviewable tasks with disjoint write scopes and call child agents rather than doing broad work in the dispatcher.
+- Do local implementation only for the tiny glue needed to decide dispatch, unblock routing, update task routing surfaces, or fix the dispatcher itself; otherwise delegate.
 - Inspect currently running sessions before dispatching: compare recent run-start marker pid/cwd metadata with the live process table above, then decide whether to call codex_commit, codex_new_message/codex_continue-style followup, codex_abort, or explicitly report blocked-by.
 - Read transcripts/index.md and the relevant agents/*/profile.md before routing follow-ups or spawning related work.
 - Send follow-ups through codex_new_message or a target agents/<slug>/inbox.md update; do not embed full transcript bodies into new marker commits.

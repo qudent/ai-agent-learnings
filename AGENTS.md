@@ -45,9 +45,9 @@ When a user message arrives with a generated voice transcript, the first assista
 
 Read `./STATUS.md` before starting non-trivial work. `STATUS.md` is the single coordination source of truth for current branch state only: active goals, blockers, current instructions, and next actions. Rewrite it after meaningful state changes; keep it compact and current. **Delete finished items from STATUS.md immediately** and rely on Git history, `transcripts/archive/`, `agents/*/profile.md`, and `agents/*/inbox.md` for the durable audit trail.
 
-## Codex subagent orchestration
+## Codex dispatcher orchestration
 
-When work should be split across subagents, use the wrapper dispatcher path instead of launching raw Codex sessions:
+For future Hermes/Codex coding tasks that need repository work beyond trivial chat or status, use the wrapper dispatcher path by default instead of launching raw Codex sessions:
 
 ```bash
 . scripts/codex_wrap.sh
@@ -55,8 +55,7 @@ When work should be split across subagents, use the wrapper dispatcher path inst
 codex_dispatch "<user/task instruction>"
 ```
 
-Dispatcher agents should delegate implementation through `codex_spawn ...` with branch/worktree isolation and disjoint write scopes. Plain `codex_commit` is for a single focused agent; broad or recursive work should go through `codex_dispatch`, which generates an Agent Context Pack from branch-local `STATUS.md`, active transcript pointers, relevant agent profiles/inboxes, transcript tails, and the audit trail. Child agents inherit ancestry through `CODEX_WRAP_CALLED_BY` and must keep instructions/audit in files rather than long commit messages.
-```
+Dispatcher agents reconcile the Agent Context Pack, update task routing surfaces (`STATUS.md`, and `agents/<slug>/inbox.md` when following up with an existing agent), and delegate implementation through `codex_spawn ...` with branch/worktree isolation and disjoint write scopes. Plain `codex_commit` is for a single narrow implementation agent that was already scoped by a human or dispatcher; broad or recursive work should go through `codex_dispatch`, which generates an Agent Context Pack from branch-local `STATUS.md`, active transcript pointers, relevant agent profiles/inboxes, transcript tails, and the audit trail. Child agents inherit ancestry through `CODEX_WRAP_CALLED_BY` and must keep instructions/audit in files rather than long commit messages.
 
 ## STATUS.md -- Project State
 

@@ -58,9 +58,11 @@ Plain `codex_commit @ ...` is prompt text. It must not select branches or create
 worktrees.
 
 Dispatch agents should source both helper files, then use `codex_spawn` for
-implementation children. Broad or recursive work should go through
-`codex_dispatch` first so the child instructions are based on the generated
-Agent Context Pack and the dispatcher records ancestry.
+implementation children. Future Hermes/Codex coding tasks that need repository
+work beyond trivial chat or status should go through `codex_dispatch` by default
+so the dispatcher reconciles the generated Agent Context Pack, updates
+`STATUS.md` or `agents/<slug>/inbox.md` when appropriate, and records ancestry
+before delegating implementation.
 
 ```bash
 . scripts/codex_wrap.sh
@@ -120,9 +122,10 @@ backend debugging.
 - Keep `scripts/codex_wrap.py` / `scripts/codex_wrap.sh` on session
   supervision, JSONL parsing, marker commits, active-run lookup, abort, and
   resume behavior.
-- Use `codex_dispatch` rather than raw `codex_commit` when a task should be
-  delegated to subagents. Dispatcher agents should use `codex_spawn` with
-  disjoint write scopes and verify child start markers.
+- Use `codex_dispatch` rather than raw `codex_commit` for future Hermes/Codex
+  coding tasks that need repository work beyond trivial chat or status. The
+  dispatcher should update task routing surfaces, use `codex_spawn` with
+  disjoint write scopes for implementation work, and verify child start markers.
 - Keep `STATUS.md` current-only: delete completed checklist items and use
   `agent_context.sh prune-status STATUS.md` when stale done entries accumulate.
   Finished work is recoverable from Git history, `transcripts/archive/`, and
