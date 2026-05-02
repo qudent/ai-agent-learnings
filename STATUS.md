@@ -9,55 +9,50 @@ commits, `branch_commands.sh` for branch/worktree placement and dispatch,
 fetch/rebase/push cleanup, `codex_agents` for live local wrapper-agent listing,
 and optional `jj_project.sh` helpers.
 
-Today's audit target is implemented locally: preserve current active-agent
-transcript artifacts in Git, classify dispatch requests before spawning, and
-keep a timestamped report of what the user asked for versus what happened.
+New direction: migrate away from giant transcript bodies in commit messages and
+toward version-controlled `transcripts/` plus `agents/<name>/inbox.md` files,
+with short pointer commit messages, explicit commit authors for user/agent/orch
+roles, readable agent slugs, branch-local instruction stacks in `STATUS.md`, and
+optional `jj` task mirroring after the Git-backed transcript model is stable.
+The current marker-orchestration state is preserved at branch
+`archive/marker-orchestration-before-transcript-inbox`.
 
 ## Active Goals
-- [x] Commit and process the human-authored `STATUS.md` prompts from today.
-- [x] Implement Git-backed dispatch helpers rather than relying on internal
-  model subagents for substantial work.
-- [x] Make `chatgit` graceful when port 6174 is already serving this UI and
-  print path-style URLs containing the real `/home/name/repos/...` path.
-- [x] Add TDD/docs coverage for dispatch, branch naming, branch-parent metadata,
-  active-run display, queueing, and URL behavior.
-- [x] Add `codex_agents`, `codex_status`, `codex_sync_push`, and `codex_spawn`.
-- [x] Add tracked `active-agents/<run>.md` artifacts while wrapper runs are
-  live, with stop/abort commits deleting them from the current checkout while
-  preserving them in Git history.
-- [x] Tighten dispatch prompting so requests are classified as status-only,
-  trivial-chat, direct-implementation, parallel-dispatch, cleanup, or blocked
-  before any child agent is spawned.
-- [x] Write a timestamped history report that itemizes user prompt commits and
-  follow-through evidence.
-- [x] Push the reconciled local history to `origin/main`.
+- [x] Preserve the current marker orchestration state before planning the
+  replacement.
+- [x] Inspect pre/current orchestration history for useful ideas to keep or drop.
+- [x] Write a critique and implementation plan for transcript/inbox
+  orchestration.
+- [ ] Review/execute `docs/plans/2026-05-02-transcript-inbox-orchestration.md`.
+- [ ] If executing, start with a red behavior contract before changing wrapper
+  behavior.
 
 ## TODO Plan
-- [x] Add a failing active-agent artifact contract commit, then implement the
-  lifecycle and make the wrapper suite pass.
-- [x] Update dispatch prompt tests and implementation for classification and
-  post-spawn verification.
-- [x] Run the web suite because wrapper marker history now includes
-  `[active-agent]` commits.
-- [x] Reconcile the remote autosave/marker divergence with a normal merge,
-  preserving the deliberately red contract commit hash.
-- [x] Push `main` after the merge commit is completed.
+- [ ] Use the plan to implement transcript/inbox files in small commits:
+  behavior contract, naming/path helpers, transcript writers, author metadata,
+  inbox follow-ups, dispatcher docs, optional `jj` mirrors, then migration docs.
+- [ ] Keep `jj` optional until smoke tests cover colocated `.jj` with Git
+  worktrees and transcript files.
+- [ ] Push each coherent learnings update in-session.
 
 ## Blockers
-- None.
+- None for planning. Implementation should not begin by deleting the old marker
+  model; preserve compatibility until wrapper and web tests are green.
 
 ## Recent Results
-- Added a red test commit `51273ae` for the active-agent artifact contract,
-  then implemented the lifecycle in `scripts/codex_wrap.py`: live runs now add
-  and update `active-agents/<run-start-short>.md`; stop/abort removes it from
-  `HEAD` while Git history keeps the artifact.
-- Added dispatch classification rules in `scripts/branch_commands.sh` and a
-  timestamped audit in `history-prompt-flow-report.md`.
-- Validation passed:
-  `PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile scripts/codex_wrap.py scripts/codex_web.py`,
-  `PYTHONDONTWRITEBYTECODE=1 bash scripts/test_codex_wrap/test_codex_wrap.sh scripts/codex_wrap.sh`,
-  and `PYTHONDONTWRITEBYTECODE=1 bash scripts/test_codex_web/test_codex_web.sh scripts/codex_web.py`.
+- Created and pushed `archive/marker-orchestration-before-transcript-inbox` at
+  `d291d83` so the current marker-heavy orchestration state remains recoverable.
+- Reviewed commits `110096f`, `e88cda1`/`d5b3e57`, `1b86658`, `7f9a5fa`,
+  `077c34c`, and current wrapper/dispatch files to extract the reusable parts:
+  durable human input, branch/worktree isolation, active state visibility,
+  dispatch classification, and optional `jj` task DAGs.
+- Added `docs/plans/2026-05-02-transcript-inbox-orchestration.md` and linked it
+  from `README.md`.
 
 ## Agent Notes
-- Current handoff: `STATUS.md` conflict from merging `origin/main` was resolved
-  as current state. The branch is ready for final push verification.
+- Current handoff: the plan recommends `transcripts/archive/` as canonical
+  transcript storage, `transcripts/active/` as live pointer files only,
+  `agents/<slug>/inbox.md` for routing messages, and short Git commit messages
+  with deliberate `GIT_AUTHOR_NAME`/`GIT_AUTHOR_EMAIL` metadata.
+- The plan explicitly criticizes a single global user-message file as a conflict
+  hotspot; use an index plus per-agent inboxes instead.

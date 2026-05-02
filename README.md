@@ -146,11 +146,17 @@ creates an empty `[status]` commit; include the relevant commit hashes in that
 summary so future agents can recover the decision path without loading every
 intermediate transcript commit.
 
-## History Audits
+## History Audits and Plans
 
 - `history-prompt-flow-report.md`: timestamped audit of the reachable user
   prompt history, what the user asked for, what happened next, and which
   workflow changes are evidence-backed rather than impressionistic.
+- `docs/plans/2026-05-02-transcript-inbox-orchestration.md`: critique and
+  implementation plan for replacing marker-heavy commit-message transcripts
+  with version-controlled `transcripts/` and `agents/<name>/inbox.md` files,
+  explicit commit authors, branch-local instruction stacks, and optional `jj`
+  task mirroring. The pre-change marker orchestration state is preserved at
+  branch `archive/marker-orchestration-before-transcript-inbox`.
 
 ## Experimental Jujutsu Project Management
 
