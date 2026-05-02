@@ -15,3 +15,4 @@ Bounded metadata only. Raw tool outputs stay in ignored wrapper JSON/stderr logs
 | 2026-05-02T20:17:48+0000 | item_11 | command_execution | completed | /bin/bash -lc 'ps -o pid,pgid,ppid,stat,lstart,cmd -p 3749639' | f57ddaf041ceb595 | 0 |
 | 2026-05-02T20:17:48+0000 | item_12 | command_execution | completed | /bin/bash -lc 'git log --oneline --decorate --max-count=8' | 1534ceedc33fa405 | 0 |
 | 2026-05-02T20:17:48+0000 | item_13 | command_execution | completed | /bin/bash -lc 'git show --no-patch --format=fuller fb53c6b' | 59d0fdafae370608 | 0 |
+| 2026-05-02T20:17:48+0000 | item_14 | command_execution | failed | /bin/bash -lc 'ls -la transcripts agents .git/codex-wrap/dispatch 2>/dev/null' | 806ee2537273615b | 0 |
