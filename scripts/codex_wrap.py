@@ -248,6 +248,130 @@ def show_path(ref: str, path: str) -> str:
     return git(["show", f"{ref}:{path}"], check=False)
 
 
+def prompt_from_start(commit: str) -> str:
+    body = commit_body(commit)
+    match = re.search(r"\nuser\n(.*?)\n\nsession-id:", body, re.S)
+    return match.group(1).strip() if match else ""
+
+
+def transcript_paths_for_run(run_start: str) -> dict[str, str]:
+    return transcript_paths(run_start, prompt_from_start(run_start))
+
+
+def markdown_block(role: str, text: str, *, at: str | None = None) -> str:
+    stamp = at or now()
+    return f"## {stamp} {role}\n\n{text.strip() or '(empty)'}\n"
+
+
+def agent_profile_content(
+    run_start: str,
+    sid: str,
+    status: str,
+    prompt: str,
+    json_path: Path,
+    err_path: Path,
+    paths: dict[str, str],
+) -> str:
+    slug = paths["slug"]
+    return (
+        "---\n"
+        f"agent: {slug}\n"
+        "kind: codex\n"
+        f"status: {status}\n"
+        f"branch: {git(['rev-parse', '--abbrev-ref', 'HEAD'], check=False).strip() or 'unknown'}\n"
+        f"worktree: {Path.cwd()}\n"
+        f"parent: {called_by()}\n"
+        f"session_id: {sid or 'unknown'}\n"
+        f"run_start_commit: {run_start}\n"
+        f"created_at: {now()}\n"
+        f"transcript: {paths['archive']}\n"
+        f"inbox: {paths['inbox']}\n"
+        "---\n\n"
+        f"# {slug}\n\n"
+        f"Task: {prompt.strip() or '(empty)'}\n\n"
+        "## Logs\n"
+        f"- json: {json_path}\n"
+        f"- stderr: {err_path}\n"
+    )
+
+
+def agent_inbox_content(slug: str) -> str:
+    return f"# Inbox: {slug}\n\n## pending\n\n## consumed\n"
+
+
+def transcript_content(run_start: str, sid: str, status: str, prompt: str, paths: dict[str, str]) -> str:
+    slug = paths["slug"]
+    return (
+        "---\n"
+        f"agent: {slug}\n"
+        "kind: codex\n"
+        f"branch: {git(['rev-parse', '--abbrev-ref', 'HEAD'], check=False).strip() or 'unknown'}\n"
+        f"status: {status}\n"
+        f"session_id: {sid or 'unknown'}\n"
+        f"run_start_commit: {run_start}\n"
+        "---\n\n"
+        f"# Transcript: {slug}\n\n"
+        f"{markdown_block('user', prompt)}"
+    )
+
+
+def active_pointer_content(paths: dict[str, str], latest: str) -> str:
+    slug = paths["slug"]
+    return (
+        f"# Active: {slug}\n\n"
+        f"- profile: ../../{paths['profile']}\n"
+        f"- transcript: ../archive/{Path(paths['archive']).name}\n"
+        f"- inbox: ../../{paths['inbox']}\n"
+        f"- latest: {latest}\n"
+    )
+
+
+def transcript_index_content(paths: dict[str, str], status: str, latest: str) -> str:
+    slug = paths["slug"]
+    return (
+        "# Transcript Index\n\n"
+        "| agent | status | profile | transcript | inbox | latest |\n"
+        "| --- | --- | --- | --- | --- | --- |\n"
+        f"| {slug} | {status} | {paths['profile']} | {paths['archive']} | {paths['inbox']} | {latest} |\n"
+    )
+
+
+def transcript_agent_start(run_start: str, sid: str, prompt: str, json_path: Path, err_path: Path) -> None:
+    paths = transcript_paths(run_start, prompt)
+    latest = f"{now()} user"
+    files = {
+        paths["profile"]: agent_profile_content(run_start, sid, "active", prompt, json_path, err_path, paths),
+        paths["inbox"]: agent_inbox_content(paths["slug"]),
+        paths["archive"]: transcript_content(run_start, sid, "active", prompt, paths),
+        paths["active"]: active_pointer_content(paths, latest),
+        paths["index"]: transcript_index_content(paths, "active", latest),
+    }
+    message = (
+        f"[transcript] start {paths['slug']}\n\n"
+        f"agent: {paths['slug']}\n"
+        f"profile: {paths['profile']}\n"
+        f"inbox: {paths['inbox']}\n"
+        f"transcript: {paths['archive']}\n"
+        f"active: {paths['active']}\n"
+        f"run-start-commit-hash: {run_start}\n"
+        f"session-id: {sid or 'unknown'}\n"
+        f"at: {now()}\n"
+    )
+    marker(message, set_files=files)
+
+
+def transcript_agent_output(run_start: str, sid: str, prompt: str, output: str) -> dict[str, str]:
+    paths = transcript_paths_for_run(run_start)
+    previous = show_path("HEAD", paths["archive"])
+    entry = markdown_block(f"codex:{paths['slug']}", output)
+    latest = f"{now()} codex:{paths['slug']}"
+    return {
+        paths["archive"]: previous.rstrip() + "\n\n" + entry,
+        paths["active"]: active_pointer_content(paths, latest),
+        paths["index"]: transcript_index_content(paths, "active", latest),
+    }
+
+
 def active_agent_content(
     run_start: str,
     sid: str,
@@ -402,6 +526,9 @@ def stop_message(label: str, sid: str, run_start: str, detail: str) -> str:
 
 def stop_marker(label: str, sid: str, run_start: str, detail: str) -> str:
     remove_paths = [active_agent_path(run_start)] if run_start else []
+    if run_start:
+        paths = transcript_paths_for_run(run_start)
+        remove_paths.append(paths["active"])
     return marker(stop_message(label, sid, run_start, detail), remove_paths=remove_paths)
 
 
@@ -581,6 +708,7 @@ def run_agent(mode: str, args: list[str], sid: str = "") -> int:
         run_start = marker(start_message("resume", prompt, sid, proc.pid, pgid))
         json_path, err_path = rename_logs(base, pending, run_start)
         active_agent_start(run_start, sid, prompt, json_path, err_path)
+        transcript_agent_start(run_start, sid, prompt, json_path, err_path)
 
     with json_path.open("a", encoding="utf-8", errors="replace") as json_file:
         assert proc.stdout is not None
@@ -598,6 +726,7 @@ def run_agent(mode: str, args: list[str], sid: str = "") -> int:
                     json_file.close()
                     json_path, err_path = rename_logs(base, pending, run_start)
                     active_agent_start(run_start, sid, prompt, json_path, err_path)
+                    transcript_agent_start(run_start, sid, prompt, json_path, err_path)
                     json_file = json_path.open("a", encoding="utf-8", errors="replace")
                     started = True
                 continue
@@ -616,6 +745,7 @@ def run_agent(mode: str, args: list[str], sid: str = "") -> int:
             sys.stderr.write(f"\ncodex\n{text}\n")
             sys.stderr.flush()
             active_files = active_agent_output(run_start, sid, prompt, json_path, err_path, text)
+            active_files.update(transcript_agent_output(run_start, sid, prompt, text))
             agent_marker(text, sid, run_start, set_files=active_files)
 
     rc = proc.wait()
