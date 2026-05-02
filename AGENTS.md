@@ -107,6 +107,7 @@ Preferred workflow:
 - **Commit discipline**: Frequent, logical commits. Each commit = one coherent unit.
 - **Don't block on confirmation**: If the path forward is clear, do it. Git history is the safety net.
 - **No performative next steps**: If you are about to say "next I should...", "the next practical step is...", or "I would..." and the action is safe/tool-accessible, do it immediately instead of stopping. Report next steps only when blocked, unsafe without confirmation, or outside available tools.
+- **Use exponential backoff for process waits**: When monitoring background processes, prefer bounded exponential-backoff waits/status updates over tight fixed-interval polling or repeated user-visible "still working" spam. Start with short checks only when freshness matters, then back off and cap the interval.
 - **Version control is the rollback plan**: Prefer small commits/checkpoints over waiting for confirmation on reversible edits. If a change is wrong, revert it; do not use reversibility as a reason to avoid acting.
 - **Smoke-test risky assumptions first**: Before building on an API, library, or technique, write a 10-line spike that proves the critical integration works.
 
