@@ -133,3 +133,7 @@ The current surface still names `direct-implementation` in both the generated di
 ## 2026-05-02T20:17:48+0000 codex:you-are-a-dispatch-fb53c6b
 
 `codex_agents` reports one live wrapper run at commit `fb53c6b` in this worktree. I’m checking whether that is an active dispatcher/session I should follow up instead of creating a competing child.
+
+## 2026-05-02T20:18:08+0000 codex:you-are-a-dispatch-fb53c6b
+
+This is an implementation request, but it is specifically about changing dispatcher behavior, so I’m classifying it as delegated implementation with one narrow child. The child will own the docs/wrapper/test/status edits and commit them; I’ll only verify the start marker here.
