@@ -100,6 +100,7 @@ export PATH="$FAKEBIN:$PATH"
 export CODEX_WRAP_STDIN_NEW_MESSAGE=0
 export CODEX_WRAP_PNPM_INSTALL=0
 export CODEX_WRAP_POLL_SECONDS=0.01
+unset CODEX_WRAP_CALLED_BY
 
 # shellcheck source=/mnt/data/codex_wrap.sh
 . "$WRAP"
