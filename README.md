@@ -85,9 +85,11 @@ Agents are instructed (via `AGENTS.md`) to read relevant files at the start of t
   `codex_in_branch`. It also exposes `codex_dispatch`, which sends one
   orchestration prompt to Codex. Dispatch context lists transcript/inbox files
   and requires agents to read `transcripts/index.md` plus relevant
-  `agents/*/profile.md` files before routing follow-ups. It still requires a
-  single round of delegated `codex_spawn ...` calls with citations and
-  `called-by` propagation.
+  `agents/*/profile.md` files before routing follow-ups. It requires
+  dispatchers to update the task surface (`STATUS.md`, and
+  `agents/<slug>/inbox.md` for targeted follow-up when appropriate) and to use
+  delegated `codex_spawn ...` calls with citations and `called-by`
+  propagation for implementation work.
 - `scripts/jj_project.sh`: experimental Jujutsu project-management helpers for
   representing TODO work as mutable `jj` changes. The helper is optional and
   fails clearly when `jj` is not installed. It can mirror active `STATUS.md`
@@ -132,19 +134,25 @@ When branch-ref dispatch is configured outside this repo, the hook should pass t
 `codex exec` and `claude -p` are non-interactive after launch. To add more instructions while a dispatched run is active, make another `@codex` or `@claude` commit on the same branch; the dispatcher lock queues it until the current run exits. Attach to the tmux session for monitoring, not for prompt input.
 
 For ad hoc local orchestration, source `scripts/codex_wrap.sh` and
-`scripts/branch_commands.sh`, then run `codex_dispatch "<instruction>"`. The
-dispatcher prompt first reconciles the generated Agent Context Pack: branch,
-current HEAD, pruned branch-local `STATUS.md`, active transcript pointers,
-relevant agent profiles/inboxes, recent transcript tails, and parent/child audit
-edges. It then classifies the request as `status-only`, `trivial-chat`,
-`direct-implementation`, `parallel-dispatch`, `cleanup`, or `blocked`.
-Status-only and trivial-chat requests should not spawn child agents. Any broad
-implementation or recursive work should use child `codex_spawn ...` calls with
-disjoint write scopes, cite the files/commits/transcripts or `STATUS.md`
+`scripts/branch_commands.sh`, then run `codex_dispatch "<instruction>"`. Use
+this dispatcher path by default for future Hermes/Codex coding tasks that need
+repository work beyond trivial chat or status. The dispatcher prompt first
+reconciles the generated Agent Context Pack: branch, current HEAD, pruned
+branch-local `STATUS.md`, active transcript pointers, relevant agent
+profiles/inboxes, recent transcript tails, and parent/child audit edges. It then
+classifies the request as `status-only`, `trivial-chat`,
+`delegated-implementation`, `cleanup`, or `blocked`. Status-only and
+trivial-chat requests should not spawn child agents. For delegated
+implementation, the dispatcher should create or update the task surface first:
+`STATUS.md` for current state and plan, `agents/<slug>/inbox.md` for targeted
+follow-up when an agent already exists, and child `codex_spawn ...` calls for
+implementation work. Broad implementation or recursive work must be delegated
+with disjoint write scopes, cite the files/commits/transcripts or `STATUS.md`
 evidence used, verify the child start markers, and use empty one-line checkpoint
 commits shaped like `checkpoint: last save state before <reason>` before
 disruptive work. Direct implementation inside the dispatcher should be limited
-to tiny routing/glue fixes needed to decide delegation.
+to tiny routing/glue fixes needed to decide delegation, update routing surfaces,
+or fix the dispatcher itself.
 
 `codex_spawn <codex_commit|codex_resume|codex_new_message|codex_in_branch>
 <args...>` is the detached child-agent launcher. It starts the normal wrapper in
