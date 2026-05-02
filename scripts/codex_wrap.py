@@ -53,13 +53,20 @@ def slugify_task(prompt: str, fallback: str) -> str:
     return slug or fallback
 
 
-def git(args: list[str], *, stdin: str | None = None, check: bool = True) -> str:
+def git(
+    args: list[str],
+    *,
+    stdin: str | None = None,
+    check: bool = True,
+    extra_env: dict[str, str] | None = None,
+) -> str:
     proc = subprocess.run(
         ["git", *args],
         input=stdin,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        env={**os.environ, **(extra_env or {})},
     )
     if check and proc.returncode != 0:
         if proc.stderr:
@@ -127,6 +134,25 @@ def called_by() -> str:
     raise SystemExit(2)
 
 
+def author_for(role: str, slug: str = "") -> dict[str, str]:
+    if role == "user":
+        return {"GIT_AUTHOR_NAME": "user", "GIT_AUTHOR_EMAIL": "user@local.agent"}
+    safe_slug = slug or "unknown"
+    if role == "orchestrator":
+        return {
+            "GIT_AUTHOR_NAME": f"orchestrator:{safe_slug}",
+            "GIT_AUTHOR_EMAIL": f"orchestrator+{safe_slug}@local.agent",
+        }
+    return {"GIT_AUTHOR_NAME": f"codex:{safe_slug}", "GIT_AUTHOR_EMAIL": f"codex+{safe_slug}@local.agent"}
+
+
+def author_for_caller() -> dict[str, str]:
+    caller = called_by()
+    if caller == "user":
+        return author_for("user")
+    return author_for("orchestrator", short_hash(caller))
+
+
 def common_dir() -> Path:
     out = git(["rev-parse", "--path-format=absolute", "--git-common-dir"], check=False).strip()
     if not out:
@@ -179,6 +205,7 @@ def update_ref(
     *,
     set_files: dict[str, str] | None = None,
     remove_paths: list[str] | None = None,
+    author: dict[str, str] | None = None,
 ) -> str | None:
     tree = overlay_tree(tree_src, set_files=set_files, remove_paths=remove_paths)
     parents: list[str]
@@ -190,7 +217,7 @@ def update_ref(
     args = ["commit-tree", tree]
     for parent in parents:
         args.extend(["-p", parent])
-    new = git(args, stdin=message).strip()
+    new = git(args, stdin=message, extra_env=author).strip()
     proc = subprocess.run(
         ["git", "update-ref", "-m", "codex-wrap", "HEAD", new, expected],
         stdout=subprocess.DEVNULL,
@@ -204,13 +231,14 @@ def marker(
     *,
     set_files: dict[str, str] | None = None,
     remove_paths: list[str] | None = None,
+    author: dict[str, str] | None = None,
 ) -> str:
     for _ in range(7):
         old = head()
         if not old:
             raise SystemExit(1)
         mode = "amend" if subject(old).startswith("[autosave]") else "normal"
-        new = update_ref(message, old, mode, old, old, set_files=set_files, remove_paths=remove_paths)
+        new = update_ref(message, old, mode, old, old, set_files=set_files, remove_paths=remove_paths, author=author)
         if new:
             sync_worktree_files(set_files=set_files, remove_paths=remove_paths)
             return new
@@ -357,7 +385,7 @@ def transcript_agent_start(run_start: str, sid: str, prompt: str, json_path: Pat
         f"session-id: {sid or 'unknown'}\n"
         f"at: {now()}\n"
     )
-    marker(message, set_files=files)
+    marker(message, set_files=files, author=author_for_caller())
 
 
 def transcript_agent_output(run_start: str, sid: str, prompt: str, output: str) -> dict[str, str]:
@@ -418,7 +446,7 @@ def active_agent_start(run_start: str, sid: str, prompt: str, json_path: Path, e
         f"session-id: {sid or 'unknown'}\n"
         f"at: {now()}\n"
     )
-    marker(message, set_files={path: content})
+    marker(message, set_files={path: content}, author=author_for_caller())
 
 
 def active_agent_output(run_start: str, sid: str, prompt: str, json_path: Path, err_path: Path, output: str) -> dict[str, str]:
@@ -454,6 +482,7 @@ def agent_parts_from_commit(commit: str) -> tuple[str, str]:
 
 
 def agent_marker(text: str, sid: str, run_start: str, *, set_files: dict[str, str] | None = None) -> str | None:
+    paths = transcript_paths_for_run(run_start)
     for _ in range(7):
         old = head()
         if not old:
@@ -484,7 +513,7 @@ def agent_marker(text: str, sid: str, run_start: str, *, set_files: dict[str, st
                     if metadata:
                         message += f"\n\n{metadata}"
                     parent = f"{old}^"
-        new = update_ref(message, old, mode, parent, old, set_files=set_files)
+        new = update_ref(message, old, mode, parent, old, set_files=set_files, author=author_for("codex", paths["slug"]))
         if new:
             sync_worktree_files(set_files=set_files)
             return new
@@ -526,10 +555,12 @@ def stop_message(label: str, sid: str, run_start: str, detail: str) -> str:
 
 def stop_marker(label: str, sid: str, run_start: str, detail: str) -> str:
     remove_paths = [active_agent_path(run_start)] if run_start else []
+    author = None
     if run_start:
         paths = transcript_paths_for_run(run_start)
         remove_paths.append(paths["active"])
-    return marker(stop_message(label, sid, run_start, detail), remove_paths=remove_paths)
+        author = author_for("codex", paths["slug"])
+    return marker(stop_message(label, sid, run_start, detail), remove_paths=remove_paths, author=author)
 
 
 def run_closed(run_start: str) -> bool:
@@ -705,7 +736,7 @@ def run_agent(mode: str, args: list[str], sid: str = "") -> int:
     started = False
     seen: set[str] = set()
     if mode == "resume":
-        run_start = marker(start_message("resume", prompt, sid, proc.pid, pgid))
+        run_start = marker(start_message("resume", prompt, sid, proc.pid, pgid), author=author_for_caller())
         json_path, err_path = rename_logs(base, pending, run_start)
         active_agent_start(run_start, sid, prompt, json_path, err_path)
         transcript_agent_start(run_start, sid, prompt, json_path, err_path)
@@ -722,7 +753,7 @@ def run_agent(mode: str, args: list[str], sid: str = "") -> int:
             if event.get("type") == "thread.started":
                 sid = event.get("thread_id") or event.get("session_id") or sid
                 if mode == "start" and not started:
-                    run_start = marker(start_message("start", prompt, sid, proc.pid, pgid, err_path))
+                    run_start = marker(start_message("start", prompt, sid, proc.pid, pgid, err_path), author=author_for_caller())
                     json_file.close()
                     json_path, err_path = rename_logs(base, pending, run_start)
                     active_agent_start(run_start, sid, prompt, json_path, err_path)
