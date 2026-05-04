@@ -1,23 +1,36 @@
 # AI Agent Learnings - Status
 
+# Overall direction
+Build a fast practical path for a Discord voice-channel bridge that talks to Codex: Discord voice input is gated by a wake word such as "codex", transcribed, written to a Unix-compatible stream/log, forwarded to an interruptible/follow-up-capable Codex session, and Codex replies are written to text surfaces plus spoken back into the voice channel via TTS. Prefer Codex app-server over one-shot `codex exec`; use the existing wrapper only for orchestration/fallback.
+-------
+
 ## Current State
-`main` contains the active-dispatcher orchestration update. `codex_dispatch` now starts an active orchestration thread that reconciles the Agent Context Pack, inspects active runs/interruption intent, updates task surfaces (`STATUS.md`, optional JJ mirrors, and targeted inboxes), and does at least one meaningful routing/work slice itself before stopping. `codex_spawn` children receive a bounded fresh Agent Context Pack and preserve caller ancestry.
+`main` contains the active-dispatcher orchestration update. New active task: research and prototype a voice-first Discord ↔ Unix pipes ↔ Codex bridge, with text observability and wake-word activation. Parallel research found that current Codex has an app-server JSON-RPC interface over stdio that supports live turn start, interrupt, steer, and streaming deltas; this is the preferred integration surface.
 
 ## Active Goals
-- [ ] Keep Agent Context Pack size useful and bounded; monitor real active-agent dispatch prompts.
-- [ ] Validate the active-dispatcher/JJ/task-surface pattern on the next RepoProver-style coding task.
+- [ ] Spike `codex app-server --listen stdio://`: initialize, start thread, start turn, stream assistant deltas, `turn/steer`, and `turn/interrupt`.
+- [ ] Build or dispatch a prototype with two Unix-compatible processes: `discord-voice-stdio` and `codex-appserver-adapter`.
+- [ ] Implement Discord voice MVP: join/playback, receive/decode PCM, VAD/STT, wake word `codex`, stdin TTS playback, and optional transcript sinks.
+- [ ] Keep `scripts/codex_wrap.sh` / `scripts/codex_wrap.py` as orchestration and fallback, not the preferred live voice control channel.
 
 ## TODO Plan
-- [ ] Use the repo context check-in skill for human-facing status snapshots when asked to check/watch a repo; treat the generated Agent Context Pack as the shared source-of-truth view.
+- [ ] Use `codex_dispatch` to turn `docs/plans/2026-05-04-discord-voice-codex-bridge.md` into an implementation/prototype plan or repo changes.
+- [ ] Verify installed Codex version exposes `app-server`; if not, update Codex or fall back to wrapper restart/resume semantics.
+- [ ] Decide target repo/package location for the bridge after the dispatcher inspects available Hermes/Codex source checkouts.
+- [ ] Commit/push small logical changes after each slice.
 
 ## Blockers
-- None for the focused active-dispatcher update. JJ remains optional: this repo has colocated `.jj`, but normal Git/Codex workflows must not depend on JJ until the pattern proves useful.
+- Need a live spike against installed Codex app-server before claiming the protocol works locally.
+- Discord voice receive must be tested on the actual bot/server; library support is practical but less polished than playback.
+- Wake word `codex` probably needs a custom wake model or STT phrase-spotting fallback.
 
 ## Recent Results
-- Real dispatcher run `d392927` treated the architecture correction as dispatcher-owned first-slice work, changed `scripts/branch_commands.sh`, `scripts/agent_context.sh`, `scripts/codex_wrap.py`, and wrapper tests, and did not spawn a ceremony-only child.
-- Focused validation passed after the dispatcher changes: `python3 -m py_compile scripts/codex_wrap.py`, `bash scripts/test_codex_wrap/test_codex_wrap.sh scripts/codex_wrap.sh`, and `bash scripts/test_agent_context/test_agent_context.sh scripts/agent_context.sh`.
-- Repo check-in smoke test generated `/tmp/ai-agent-learnings-checkin.md` and `/tmp/repoprover-checkin.md`; `ai-agent-learnings` was clean/synced and RepoProver had existing local work ahead of origin.
+- Parallel Codex research found `codex app-server --listen stdio://` with JSON-RPC methods/events: `thread/start`, `thread/resume`, `turn/start`, `turn/interrupt`, `turn/steer`, and `item/agentMessage/delta` streaming.
+- Local wrapper inspection found `codex_new_message` can interrupt by killing active `codex exec` and resuming the same session; useful fallback, but not a persistent bidirectional stdin channel.
+- Discord voice research recommends Node Discord transport plus Python ML sidecars, local wake/VAD before STT, `selfDeaf: false`, one-speaker MVP, and explicit feedback-loop prevention.
+- Detailed plan saved at `docs/plans/2026-05-04-discord-voice-codex-bridge.md`.
 
 ## Agent Notes
-- Context pack order is now more agent-friendly: header/status, active pointers, live wrapper agents, optional JJ task surface, compact active profile summaries/inboxes, current active transcript excerpts, audit trail. Finished profile prompts/transcripts are not replayed when no active agent exists.
-- Tool-call logs now include compact UTC time, Unix epoch, caller, item/tool/status, args hash/summary, and output byte count.
+- Keep wake word local/cheap where possible; do not stream all audio to a cloud realtime API unless explicitly chosen later.
+- Treat `codex exec` one-shot limitations honestly. If app-server is unavailable, wrapper semantics are stop/resume, not live steering.
+- If this becomes Hermes gateway work, load the Hermes voice/gateway references and keep Discord thread/session naming constraints in mind.
